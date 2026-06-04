@@ -48,19 +48,6 @@ const menuGroups: Array<{
     items: [{ title: "Tổng quan", href: "/admin", icon: LayoutDashboard }],
   },
   {
-    label: "CURATOR",
-    items: [
-      { title: "Hotspot", href: "/admin/hotspot", icon: MapPin },
-      { title: "Câu chuyện", href: "/admin/stories", icon: BookOpen },
-      { title: "Tuyến hành trình", href: "/admin/routes", icon: Map },
-      {
-        title: "Danh mục & Thẻ",
-        href: "/admin/categories-and-tags",
-        icon: Tag,
-      },
-    ],
-  },
-  {
     label: "ADMIN",
     items: [
       {
