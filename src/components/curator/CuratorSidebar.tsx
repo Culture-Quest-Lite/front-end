@@ -45,11 +45,8 @@ const menuGroups: Array<{
 }> = [
   {
     label: "CHUNG",
-    items: [{ title: "Tổng quan", href: "/curator", icon: LayoutDashboard }],
-  },
-  {
-    label: "CURATOR",
     items: [
+      { title: "Tổng quan", href: "/curator", icon: LayoutDashboard },
       { title: "Hotspot", href: "/curator/hotspot", icon: MapPin },
       { title: "Câu chuyện", href: "/curator/stories", icon: BookOpen },
       { title: "Tuyến hành trình", href: "/curator/routes", icon: Map },
@@ -60,21 +57,6 @@ const menuGroups: Array<{
       },
     ],
   },
-  //   {
-  //     label: "ADMIN",
-  //     items: [
-  //       {
-  //         title: "Duyệt nội dung",
-  //         href: "/admin/content-review",
-  //         icon: ShieldCheck,
-  //       },
-  //       { title: "Lịch sử duyệt", href: "/admin/review-history", icon: Clock },
-  //       { title: "Người dùng", href: "/admin/users-manager", icon: Users },
-  //       { title: "Phân tích", href: "/admin/analytics", icon: BarChart3 },
-  //       { title: "Kiểm duyệt", href: "/admin/moderation", icon: Shield },
-  //       { title: "Cài đặt", href: "/admin/settings", icon: Settings },
-  //     ],
-  //   },
 ];
 
 const cn = (...classes: Array<string | false | null | undefined>) =>
@@ -122,7 +104,7 @@ export function CuratorSidebar() {
 
           <div>
             <h1 className="font-semibold text-slate-900 text-base">
-              Culture Quest
+              Culture Quest Lite
             </h1>
             <p className="text-xs text-slate-500">Lite - CMS & Curator</p>
           </div>
@@ -154,9 +136,6 @@ export function CuratorSidebar() {
                           )}
                           aria-current={active ? "page" : undefined}
                         >
-                          {active ? (
-                            <span className="absolute left-3 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-rose-500" />
-                          ) : null}
                           <item.icon className="w-5 h-5 shrink-0" />
                           <span className="py-3 pl-2 pr-4">{item.title}</span>
                         </Link>
