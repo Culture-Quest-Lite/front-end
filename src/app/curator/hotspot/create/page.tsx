@@ -238,7 +238,11 @@ export default function Page() {
                       placeholder="Tìm địa chỉ..."
                       className="h-11 rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
-                    <button type="submit" className="hidden" aria-hidden="true" />
+                    <button
+                      type="submit"
+                      className="hidden"
+                      aria-hidden="true"
+                    />
                   </div>
 
                   <div className="flex flex-wrap gap-2">
