@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import {
   Archive,
   Eye,
@@ -100,17 +101,16 @@ export default function Page() {
             </div>
           </div>
 
-          <Button
-            asChild
-            variant="secondary"
-            size="lg"
-            className="inline-flex items-center gap-2 rounded-full px-4 py-2 shadow-sm"
+          <Link
+            href="/curator/hotspot/create"
+            className={cn(
+              buttonVariants({ variant: "secondary", size: "lg" }),
+              "inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 shadow-sm",
+            )}
           >
-            <Link href="/curator/hotspot/create">
-              <Plus className="h-4 w-4" />
-              Tạo Hotspot
-            </Link>
-          </Button>
+            <Plus className="h-4 w-4" />
+            Tạo Hotspot
+          </Link>
         </div>
 
         <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto] ">

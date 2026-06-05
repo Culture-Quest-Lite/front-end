@@ -10,6 +10,7 @@ import {
   BookOpen,
   MapPin,
   Map,
+  Tags,
 } from "lucide-react";
 
 import {
@@ -41,6 +42,7 @@ const menuGroups: Array<{
       { title: "Tổng quan", href: "/curator", icon: LayoutDashboard },
       { title: "Hotspot", href: "/curator/hotspot", icon: MapPin },
       { title: "Câu chuyện", href: "/curator/stories", icon: BookOpen },
+      { title: "Chủ đề hành trình", href: "/curator/themes", icon: Tags },
       { title: "Tuyến hành trình", href: "/curator/routes", icon: Map },
       {
         title: "Danh mục & Thẻ",

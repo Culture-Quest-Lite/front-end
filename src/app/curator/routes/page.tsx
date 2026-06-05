@@ -1,5 +1,7 @@
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { ChevronRight, Clock3, MapPin, Plus, TrendingUp } from "lucide-react";
+import Link from "next/link";
 
 type RouteStatus = "published" | "pending" | "draft";
 
@@ -234,15 +236,16 @@ export default function CuratorRoutesPage() {
               </button>
             </div>
 
-            <Button
-              type="button"
-              variant="secondary"
-              size="lg"
-              className="inline-flex items-center gap-2 rounded-full px-4 py-2 shadow-sm"
+            <Link
+              href="/curator/routes/create"
+              className={cn(
+                buttonVariants({ variant: "secondary", size: "lg" }),
+                "inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 shadow-sm",
+              )}
             >
               <Plus className="mr-2 h-4 w-4" />
               Tuyến mới
-            </Button>
+            </Link>
           </div>
         </div>
 
