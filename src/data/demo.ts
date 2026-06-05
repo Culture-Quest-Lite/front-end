@@ -11,44 +11,6 @@ export interface ApprovalItem {
   status: ApprovalStatus;
 }
 
-export const approvals: ApprovalItem[] = [
-  {
-    id: "approval-1",
-    type: "Hotspot",
-    title: "Hotspot lịch sử Nhà thờ Đức Bà",
-    thumbnail: "https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=800&q=80",
-    submittedAt: "2026-05-29T08:45:00Z",
-    curator: "Nguyễn Văn A",
-    status: "pending",
-  },
-  {
-    id: "approval-2",
-    type: "Story",
-    title: "Câu chuyện về chiếc xe cổ trên đường Lê Duẩn",
-    thumbnail: "https://images.unsplash.com/photo-1491396060180-4b695e8ee73f?auto=format&fit=crop&w=800&q=80",
-    submittedAt: "2026-05-30T14:15:00Z",
-    curator: "Lê Thị B",
-    status: "pending",
-  },
-  {
-    id: "approval-3",
-    type: "Route",
-    title: "Tuyến tham quan đường sách Nguyễn Văn Bình",
-    thumbnail: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80",
-    submittedAt: "2026-06-01T09:20:00Z",
-    curator: "Trần Minh C",
-    status: "pending",
-  },
-  {
-    id: "approval-4",
-    type: "Hotspot",
-    title: "Hotspot ẩm thực truyền thống tại chợ Bến Thành",
-    thumbnail: "https://images.unsplash.com/photo-1514516870924-5f4d9ca03540?auto=format&fit=crop&w=800&q=80",
-    submittedAt: "2026-06-02T13:50:00Z",
-    curator: "Phạm Thị D",
-    status: "pending",
-  },
-];
 
 export interface AuditEntry {
   id: string;
@@ -164,20 +126,6 @@ export const users: User[] = [
     checkins: 3,
   },
 ];
-export const checkinsTrend = [
-  { d: "T2", v: 412 }, { d: "T3", v: 530 }, { d: "T4", v: 489 },
-  { d: "T5", v: 612 }, { d: "T6", v: 798 }, { d: "T7", v: 945 }, { d: "CN", v: 1024 },
-];
-export const userGrowth = [
-  { m: "T1", u: 1200 }, { m: "T2", u: 1810 }, { m: "T3", u: 2400 },
-  { m: "T4", u: 3120 }, { m: "T5", u: 4280 },
-];
-export const routeEngagement = [
-  { r: "100 năm KT", views: 4200, completes: 3276 },
-  { r: "Hành trình 30/4", views: 3100, completes: 1984 },
-  { r: "Củ Chi", views: 2200, completes: 1408 },
-  { r: "Tâm linh SG", views: 1500, completes: 980 },
-];
 export const funnel = [
   { stage: "Xem tuyến", v: 10000 },
   { stage: "Bắt đầu", v: 6400 },
@@ -190,4 +138,92 @@ export const reports = [
   { id: "rp1", type: "Bình luận", target: "Review của user_4821", reason: "Ngôn ngữ thô tục", reporter: "user_2210", at: "2025-05-21T08:11:00Z", status: "Mới" },
   { id: "rp2", type: "Hình ảnh", target: "Upload trong Chợ Bến Thành", reason: "Nội dung không phù hợp", reporter: "user_1109", at: "2025-05-20T19:42:00Z", status: "Đang xử lý" },
   { id: "rp3", type: "Tài khoản", target: "user_5520", reason: "Spam bình luận", reporter: "system", at: "2025-05-19T12:00:00Z", status: "Đã xử lý" },
+];
+export const hotspots = [
+  {
+    id: "h1",
+    cover:
+      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80",
+    name: "Công viên trung tâm",
+    district: "Quận 1",
+    xp: 1200,
+  },
+  {
+    id: "h2",
+    cover:
+      "https://images.unsplash.com/photo-1491553895911-0055eca6402d?auto=format&fit=crop&w=800&q=80",
+    name: "Bảo tàng thành phố",
+    district: "Quận 3",
+    xp: 980,
+  },
+  {
+    id: "h3",
+    cover:
+      "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=800&q=80",
+    name: "Khu phố cổ",
+    district: "Quận 5",
+    xp: 860,
+  },
+  {
+    id: "h4",
+    cover:
+      "https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=800&q=80",
+    name: "Công trình nghệ thuật",
+    district: "Quận 7",
+    xp: 745,
+  },
+];
+
+export const approvals = [
+  {
+    id: "a1",
+    thumbnail:
+      "https://images.unsplash.com/photo-1518733057094-95b53169d5af?auto=format&fit=crop&w=400&q=80",
+    title: "Đề xuất hotspot mới",
+    type: "Hotspot",
+    curator: "Minh Anh",
+  },
+  {
+    id: "a2",
+    thumbnail:
+      "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=400&q=80",
+    title: "Story văn hóa đường phố",
+    type: "Story",
+    curator: "Hương",
+  },
+  {
+    id: "a3",
+    thumbnail:
+      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=400&q=80",
+    title: "Hành trình văn hóa đêm",
+    type: "Route",
+    curator: "Thanh",
+  },
+];
+
+export const checkinsTrend = [
+  { d: "T2", v: 520 },
+  { d: "T3", v: 690 },
+  { d: "T4", v: 570 },
+  { d: "T5", v: 820 },
+  { d: "T6", v: 740 },
+  { d: "T7", v: 920 },
+  { d: "CN", v: 1080 },
+];
+
+export const userGrowth = [
+  { m: "Thg 1", u: 420 },
+  { m: "Thg 2", u: 510 },
+  { m: "Thg 3", u: 630 },
+  { m: "Thg 4", u: 720 },
+  { m: "Thg 5", u: 840 },
+  { m: "Thg 6", u: 950 },
+  { m: "Thg 7", u: 1100 },
+];
+
+export const routeEngagement = [
+  { r: "Bến Nhà Rồng", views: 340, completes: 120 },
+  { r: "Phố đi bộ", views: 280, completes: 94 },
+  { r: "Khu công nghệ", views: 220, completes: 80 },
+  { r: "Vườn hoa", views: 180, completes: 72 },
 ];
