@@ -11,6 +11,8 @@ import {
   MapPin,
   Map,
   Tags,
+  FolderTree,
+  LayoutGrid,
 } from "lucide-react";
 
 import {
@@ -45,8 +47,13 @@ const menuGroups: Array<{
       { title: "Chủ đề tuyến", href: "/curator/themes", icon: Tags },
       { title: "Tuyến hành trình", href: "/curator/routes", icon: Map },
       {
-        title: "Danh mục & Thẻ",
-        href: "/curator/categories-and-tags",
+        title: "Danh mục",
+        href: "/curator/categories",
+        icon: LayoutGrid,
+      },
+      {
+        title: "Tags",
+        href: "/curator/tags",
         icon: Tag,
       },
     ],

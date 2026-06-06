@@ -44,8 +44,8 @@ function SectionCard({
   return (
     <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
-        <p className="text-sm text-slate-500">{description}</p>
+        <h2 className="cq-section-title">{title}</h2>
+        <p className="cq-page-subtitle">{description}</p>
       </div>
       <div className="mt-5">{children}</div>
     </section>
@@ -56,7 +56,7 @@ function MetricTile({ value, label }: { value: string; label: string }) {
   return (
     <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3">
       <p className="text-xl font-semibold text-slate-950">{value}</p>
-      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">
+      <p className="cq-label mt-1">
         {label}
       </p>
     </div>
@@ -76,7 +76,7 @@ function DetailRow({
     <div className="rounded-[1.35rem] border border-slate-200 bg-slate-50 px-4 py-3">
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4 text-[#cf3d37]" />
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+        <p className="cq-label">
           {label}
         </p>
       </div>
@@ -172,11 +172,11 @@ export default async function CuratorRouteDetailPage({
       <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
           <div className="max-w-4xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
+            <p className="cq-kicker">
               Tổng quan tuyến
             </p>
             <h1
-              className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-4xl"
+              className="cq-detail-title mt-3"
               style={{ fontFamily: "'Playfair Display', serif" }}
             >
               {route.title}
@@ -184,7 +184,7 @@ export default async function CuratorRouteDetailPage({
             <p className="mt-2 text-sm font-medium text-slate-500">
               {route.subtitle}
             </p>
-            <p className="mt-5 max-w-3xl text-base leading-8 text-slate-600">
+            <p className="cq-body-copy mt-5 max-w-3xl">
               {route.overview}
             </p>
           </div>
@@ -224,7 +224,7 @@ export default async function CuratorRouteDetailPage({
           <div className="rounded-[1.5rem] border border-slate-200 bg-[linear-gradient(180deg,#fffaf0_0%,#ffffff_100%)] p-5">
             <div className="flex items-center gap-2">
               <Route className="h-4 w-4 text-[#cf3d37]" />
-              <p className="text-sm font-semibold text-slate-900">
+              <p className="cq-card-title">
                 Mạch kể chuyện
               </p>
             </div>
@@ -377,10 +377,10 @@ export default async function CuratorRouteDetailPage({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        <p className="cq-label">
                           {stop.checkpoint}
                         </p>
-                        <h3 className="mt-1 text-sm font-semibold text-slate-950">
+                        <h3 className="cq-card-title mt-1">
                           <Link
                             href={`/curator/hotspot/${stop.hotspot.slug}`}
                             className="transition hover:text-[#cf3d37]"
@@ -465,19 +465,19 @@ export default async function CuratorRouteDetailPage({
         >
           <div className="space-y-3">
             <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              <p className="cq-label">
                 Nhận định hiện tại
               </p>
-              <p className="mt-2 text-sm leading-7 text-slate-700">
+              <p className="cq-card-copy mt-2 leading-7 text-slate-700">
                 {route.editorialNote}
               </p>
             </div>
 
             <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50/60 px-4 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">
+              <p className="cq-kicker">
                 Cần theo dõi
               </p>
-              <p className="mt-2 text-sm leading-7 text-slate-700">
+              <p className="cq-card-copy mt-2 leading-7 text-slate-700">
                 {route.moderationNote}
               </p>
             </div>

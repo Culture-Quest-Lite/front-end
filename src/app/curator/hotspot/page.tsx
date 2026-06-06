@@ -6,7 +6,6 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
-  Archive,
   Eye,
   Filter,
   MoreHorizontal,
@@ -92,10 +91,10 @@ export default function Page() {
               Quản lý Hotspot
             </div> */}
             <div>
-              <h1 className="text-3xl font-semibold text-foreground">
+              <h1 className="cq-page-title">
                 Quản lý Hotspot
               </h1>
-              <p className="max-w-2xl text-sm text-muted-foreground">
+              <p className="cq-page-subtitle max-w-2xl">
                 Tạo, chỉnh sửa và phát hành các điểm di sản văn hóa TP.HCM.
               </p>
             </div>

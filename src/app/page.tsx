@@ -32,8 +32,8 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 py-8 dark:bg-black">
       <main className="w-full max-w-md rounded-3xl bg-white px-8 py-10 shadow-xl shadow-zinc-200/30 dark:bg-zinc-950 dark:shadow-none">
         <header className="mb-8 text-center">
-          <h1 className="text-3xl font-semibold text-black dark:text-zinc-50">Đăng nhập</h1>
-          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+          <h1 className="cq-page-title text-black dark:text-zinc-50">Đăng nhập</h1>
+          <p className="cq-page-subtitle mt-2 text-zinc-600 dark:text-zinc-400">
             Sử dụng email và mật khẩu để truy cập màn hình tương ứng với role.
           </p>
         </header>

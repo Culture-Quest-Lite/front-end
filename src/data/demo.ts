@@ -222,14 +222,16 @@ export const hotspots = [
   },
 ];
 
-export const approvals = [
+export const approvals: ApprovalItem[] = [
   {
     id: "a1",
     thumbnail:
       "https://images.unsplash.com/photo-1518733057094-95b53169d5af?auto=format&fit=crop&w=400&q=80",
     title: "Đề xuất hotspot mới",
     type: "Hotspot",
+    submittedAt: "2026-06-06T01:15:00Z",
     curator: "Minh Anh",
+    status: "pending",
   },
   {
     id: "a2",
@@ -237,7 +239,9 @@ export const approvals = [
       "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=400&q=80",
     title: "Story văn hóa đường phố",
     type: "Story",
+    submittedAt: "2026-06-06T03:40:00Z",
     curator: "Hương",
+    status: "pending",
   },
   {
     id: "a3",
@@ -245,7 +249,9 @@ export const approvals = [
       "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=400&q=80",
     title: "Hành trình văn hóa đêm",
     type: "Route",
+    submittedAt: "2026-06-06T05:05:00Z",
     curator: "Thanh",
+    status: "pending",
   },
 ];
 

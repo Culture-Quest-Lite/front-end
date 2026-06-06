@@ -40,9 +40,9 @@ function RouteMetric({
     <div className="rounded-[1.35rem] bg-[#F7F5EF] px-4 py-3 shadow-sm">
       <div className="flex items-center gap-2 text-xs text-slate-500">
         <Icon className={`h-4 w-4 ${toneClass}`} />
-        <span>{label}</span>
+        <span className="cq-page-subtitle text-slate-500">{label}</span>
       </div>
-      <p className="mt-1 text-base font-semibold text-slate-950">{value}</p>
+      <p className="cq-card-title mt-1">{value}</p>
     </div>
   );
 }
@@ -53,7 +53,7 @@ function RouteCard({ item }: { item: CuratorRoute }) {
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-[1.05rem] font-semibold text-slate-900 sm:text-[1.15rem]">
+            <h2 className="cq-section-title sm:text-[1.15rem]">
               {item.title}
             </h2>
             <p className="mt-1 text-sm text-slate-500">{item.subtitle}</p>
@@ -131,10 +131,10 @@ export default function CuratorRoutesPage() {
       <section className="space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold text-foreground">
+            <h1 className="cq-page-title">
               Tuyến hành trình
             </h1>
-            <p className="max-w-2xl text-sm text-muted-foreground">
+            <p className="cq-page-subtitle max-w-2xl">
               Xây dựng các tuyến khám phá di sản TP.HCM.
             </p>
           </div>
@@ -152,12 +152,6 @@ export default function CuratorRoutesPage() {
                 className="rounded-full px-4 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
               >
                 Trình tạo tuyến
-              </Link>
-              <Link
-                href="/curator/themes"
-                className="rounded-full px-4 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
-              >
-                Chủ đề
               </Link>
             </div>
 
