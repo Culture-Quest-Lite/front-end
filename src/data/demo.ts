@@ -230,6 +230,8 @@ export const approvals = [
     title: "Đề xuất hotspot mới",
     type: "Hotspot",
     curator: "Minh Anh",
+    submittedAt: "2026-06-01T10:34:00.000Z",
+    status: "pending",
   },
   {
     id: "a2",
@@ -238,6 +240,8 @@ export const approvals = [
     title: "Story văn hóa đường phố",
     type: "Story",
     curator: "Hương",
+    submittedAt: "2026-06-02T08:15:00.000Z",
+    status: "approved",
   },
   {
     id: "a3",
@@ -246,8 +250,10 @@ export const approvals = [
     title: "Hành trình văn hóa đêm",
     type: "Route",
     curator: "Thanh",
+    submittedAt: "2026-06-03T14:50:00.000Z",
+    status: "rejected",
   },
-];
+] as const;
 
 export const checkinsTrend = [
   { d: "T2", v: 520 },
