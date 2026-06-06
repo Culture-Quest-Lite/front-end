@@ -1,20 +1,16 @@
 "use client";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
   Tag,
-  Users,
   LogOut,
   BookOpen,
   MapPin,
   Map,
-  ShieldCheck,
-  Clock,
-  BarChart3,
-  Shield,
-  Settings,
+  Tags,
 } from "lucide-react";
 
 import {
@@ -22,7 +18,6 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -40,15 +35,14 @@ type MenuItem = {
 };
 
 const menuGroups: Array<{
-  label: string;
   items: MenuItem[];
 }> = [
   {
-    label: "CHUNG",
     items: [
       { title: "Tổng quan", href: "/curator", icon: LayoutDashboard },
       { title: "Hotspot", href: "/curator/hotspot", icon: MapPin },
       { title: "Câu chuyện", href: "/curator/stories", icon: BookOpen },
+      { title: "Chủ đề tuyến", href: "/curator/themes", icon: Tags },
       { title: "Tuyến hành trình", href: "/curator/routes", icon: Map },
       {
         title: "Danh mục & Thẻ",
@@ -96,28 +90,35 @@ export function CuratorSidebar() {
 
   return (
     <Sidebar className="h-screen border-r border-slate-200 bg-white">
-      <SidebarHeader className="p-5 border-b border-slate-200 bg-white">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-3xl bg-[#f6caa1] flex items-center justify-center">
-            <span className="font-semibold text-white">CQ</span>
+      <SidebarHeader className="border-b border-slate-200 bg-white ">
+        <div className="flex items-center">
+          <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-sidebar-primary">
+            <Image
+              src="/logo1.png"
+              alt="CultureQuest Lite"
+              fill
+              sizes="150px"
+              priority
+              className="object-contain p-0.5"
+            />
           </div>
-
-          <div>
-            <h1 className="font-semibold text-slate-900 text-base">
-              Culture Quest Lite
+          <div className="min-w-0 flex-1">
+            <h1
+              className="whitespace-nowrap text-[17px] font-semibold leading-none tracking-[-0.03em] text-slate-900"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              CultureQuest Lite
             </h1>
-            <p className="text-xs text-slate-500">Lite - CMS & Curator</p>
+            <p className="mt-1 whitespace-nowrap text-[11px] leading-none text-slate-500">
+              Quản lý nội dung
+            </p>
           </div>
         </div>
       </SidebarHeader>
 
       <SidebarContent className="py-4 bg-white">
-        {menuGroups.map((group) => (
-          <SidebarGroup key={group.label} className="mb-6 last:mb-0">
-            <SidebarGroupLabel className="px-4 text-slate-500 text-[11px] uppercase tracking-[0.22em] mb-3 font-semibold">
-              {group.label}
-            </SidebarGroupLabel>
-
+        {menuGroups.map((group, index) => (
+          <SidebarGroup key={index} className="mb-6 last:mb-0">
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => {

@@ -1,129 +1,45 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Filter, MoreHorizontal, Plus, Search } from "lucide-react";
+"use client";
 
-const hotspotItems = [
-  {
-    title: "Dinh Độc Lập",
-    subtitle: "Di tích lịch sử · Quận 1",
-    author: "Lan Anh",
-    date: "19/5/2025",
-    xp: "120 XP",
-    status: "Đã xuất bản",
-    statusStyle: "bg-emerald-600/95 text-white",
-    badge: "Đã xuất bản",
-    gps: "GPS OK",
-    image:
-      "https://i.pinimg.com/736x/3c/a8/e5/3ca8e5490a9f40f4aecf98b3c6e3da21.jpg",
-    tags: ["#lichsu", "#kientruc", "#disan"],
-  },
-  {
-    title: "Nhà thờ Đức Bà Sài Gòn",
-    subtitle: "Kiến trúc tôn giáo · Quận 1",
-    author: "Minh Quân",
-    date: "20/5/2025",
-    xp: "100 XP",
-    status: "Đã xuất bản",
-    statusStyle: "bg-emerald-500/10 text-emerald-700",
-    badge: "Đã xuất bản",
-    gps: "GPS OK",
-    image:
-      "https://i.pinimg.com/1200x/bb/60/0a/bb600aeb686197a007961a91b2035f37.jpg",
-    tags: ["#kientruc", "#vanhoa"],
-  },
-  {
-    title: "Bưu điện Trung tâm",
-    subtitle: "Kiến trúc · Quận 1",
-    author: "Lan Anh",
-    date: "21/5/2025",
-    xp: "90 XP",
-    status: "Chờ duyệt",
-    statusStyle: "bg-amber-500/95 text-slate-900",
-    badge: "Chờ duyệt",
-    gps: "GPS OK",
-    image:
-      "https://i.pinimg.com/1200x/79/b4/a5/79b4a581d8f37e56d3a5c152a1e9a4c0.jpg",
-    tags: ["#kientruc", "#disan"],
-  },
-  {
-    title: "Bảo tàng Chứng tích Chiến tranh",
-    subtitle: "Bảo tàng · Quận 3",
-    author: "Thu Hà",
-    date: "21/5/2025",
-    xp: "150 XP",
-    status: "Chờ duyệt",
-    statusStyle: "bg-amber-500/95 text-slate-900",
-    badge: "Chờ duyệt",
-    gps: "GPS OK",
-    image:
-      "https://i.pinimg.com/736x/aa/5c/eb/aa5cebb1ed4837b3bb3c8d8044889f0c.jpg",
-    tags: ["#chientranh", "#lichsu"],
-  },
-  {
-    title: "Chợ Bến Thành",
-    subtitle: "Di sản văn hóa · Quận 1",
-    author: "Hữu Phước",
-    date: "22/5/2025",
-    xp: "80 XP",
-    status: "Bản nháp",
-    statusStyle: "bg-slate-500/95 text-white",
-    badge: "Bản nháp",
-    gps: "GPS sai",
-    image:
-      "https://i.pinimg.com/736x/e2/a1/8d/e2a18d5e2cdf73778c0e34299ab42a0a.jpg",
-    tags: ["#vanhoa", "#disan"],
-  },
-  {
-    title: "Địa đạo Củ Chi",
-    subtitle: "Di tích lịch sử · Huyện Củ Chi",
-    author: "Thu Hà",
-    date: "12/5/2025",
-    xp: "200 XP",
-    status: "Đã xuất bản",
-    statusStyle: "bg-emerald-500/10 text-emerald-700",
-    badge: "Đã xuất bản",
-    gps: "GPS OK",
-    image:
-      "https://i.pinimg.com/736x/f9/c9/d5/f9c9d53ab1360359d2742937442387a1.jpg",
-    tags: ["#chientranh", "#lichsu"],
-  },
-  {
-    title: "Chùa Vĩnh Nghiêm",
-    subtitle: "Kiến trúc tôn giáo · Quận 3",
-    author: "Minh Quân",
-    date: "18/5/2025",
-    xp: "90 XP",
-    status: "Bị từ chối",
-    statusStyle: "bg-red-600/95 text-white",
-    badge: "Bị từ chối",
-    gps: "GPS OK",
-    image:
-      "https://i.pinimg.com/1200x/6a/a0/64/6aa0646cf8b48aeca2f96c25168efaee.jpg",
-    tags: ["#vanhoa", "#kientruc"],
-  },
-  {
-    title: "Phố đi bộ Nguyễn Huệ",
-    subtitle: "Không gian công cộng · Quận 1",
-    author: "Hữu Phước",
-    date: "30/4/2025",
-    xp: "60 XP",
-    status: "Đã lưu trữ",
-    statusStyle: "bg-slate-500/95 text-white",
-    badge: "Đã lưu trữ",
-    gps: "GPS OK",
-    image:
-      "https://i.pinimg.com/1200x/ac/38/46/ac3846610b7bd4f3bb2d2873fac300d6.jpg",
-    tags: ["#vanhoa"],
-  },
-];
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import {
+  Archive,
+  Eye,
+  Filter,
+  MoreHorizontal,
+  PencilLine,
+  Plus,
+  Search,
+  Send,
+  Trash2,
+} from "lucide-react";
+import { hotspotItems } from "@/data/hotspots";
 
 const statusGroups = [
-  { label: "Tất cả", count: 8, active: true },
-  { label: "Chờ duyệt", count: 2, active: false },
-  { label: "Đã xuất bản", count: 3, active: false },
-  { label: "Bản nháp", count: 1, active: false },
-  { label: "Từ chối", count: 1, active: false },
+  { label: "Tất cả", count: hotspotItems.length, active: true },
+  {
+    label: "Chờ duyệt",
+    count: hotspotItems.filter((item) => item.status === "Chờ duyệt").length,
+    active: false,
+  },
+  {
+    label: "Đã xuất bản",
+    count: hotspotItems.filter((item) => item.status === "Đã xuất bản").length,
+    active: false,
+  },
+  {
+    label: "Bản nháp",
+    count: hotspotItems.filter((item) => item.status === "Bản nháp").length,
+    active: false,
+  },
+  {
+    label: "Từ chối",
+    count: hotspotItems.filter((item) => item.status === "Bị từ chối").length,
+    active: false,
+  },
 ];
 
 const tagColorClasses = [
@@ -133,7 +49,40 @@ const tagColorClasses = [
   "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700",
 ];
 
+const hotspotActions = [
+  { key: "edit", label: "Chỉnh sửa", icon: PencilLine },
+  { key: "detail", label: "Xem chi tiết", icon: Eye },
+  { key: "submit", label: "Gửi duyệt", icon: Send },
+  { key: "archive", label: "Xóa", icon: Trash2, danger: true },
+];
+
 export default function Page() {
+  const [openMenuTitle, setOpenMenuTitle] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+
+      if (!event.target.closest("[data-hotspot-actions]")) {
+        setOpenMenuTitle(null);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpenMenuTitle(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
   return (
     <div className="space-y-6">
       <section className="space-y-4">
@@ -152,17 +101,16 @@ export default function Page() {
             </div>
           </div>
 
-          <Button
-            asChild
-            variant="secondary"
-            size="lg"
-            className="inline-flex items-center gap-2 rounded-full px-4 py-2 shadow-sm"
+          <Link
+            href="/curator/hotspot/create"
+            className={cn(
+              buttonVariants({ variant: "secondary", size: "lg" }),
+              "inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 shadow-sm",
+            )}
           >
-            <Link href="/curator/hotspot/create">
-              <Plus className="h-4 w-4" />
-              Tạo Hotspot
-            </Link>
-          </Button>
+            <Plus className="h-4 w-4" />
+            Tạo Hotspot
+          </Link>
         </div>
 
         <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto] ">
@@ -212,71 +160,132 @@ export default function Page() {
       </section>
 
       <section className="grid gap-4 xl:grid-cols-4 lg:grid-cols-3 sm:grid-cols-2">
-        {hotspotItems.map((item) => (
-          <article
-            key={item.title}
-            className="group flex h-full flex-col overflow-hidden rounded-[1.75rem] bg-card border border-slate-200/80 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
-          >
-            <div className="relative h-40 overflow-hidden bg-slate-100">
-              <img
-                src={item.image}
-                alt={item.title}
-                className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
-              <div
-                className={`absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-semibold shadow-lg ring-1 ring-white/30 backdrop-blur-sm ${item.statusStyle}`}
-              >
-                {item.badge}
-              </div>
-              <div className="absolute right-3 top-3 rounded-full bg-slate-950/80 px-3 py-1 text-xs font-semibold text-white shadow-sm">
-                {item.gps}
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
-                <h2 className="text-base font-semibold line-clamp-1">
-                  {item.title}
-                </h2>
-                <p className="text-xs text-white/80 line-clamp-1">
-                  {item.subtitle}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-700">
-                      {item.author.charAt(0)}
-                    </span>
-                    <span className="text-xs font-medium text-slate-900">
-                      {item.author}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs text-slate-500">{item.date}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                    {item.xp}
-                  </span>
-                  <button className="rounded-full bg-white/90 p-1 text-slate-600 transition hover:bg-slate-100">
-                    <MoreHorizontal className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
+        {hotspotItems.map((item) => {
+          const isMenuOpen = openMenuTitle === item.title;
+          const detailHref = `/curator/hotspot/${item.slug}`;
 
-              <div className="flex flex-wrap gap-1.5">
-                {item.tags.map((tag, index) => (
-                  <span
-                    key={tag}
-                    className={`rounded-full border px-2 py-0.5 text-xs font-semibold shadow-sm ${tagColorClasses[index % tagColorClasses.length]}`}
-                  >
-                    {tag}
-                  </span>
-                ))}
+          return (
+            <article
+              key={item.title}
+              className={`group relative flex h-full flex-col overflow-visible rounded-[1.75rem] border border-slate-200/80 bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${isMenuOpen ? "z-20" : ""}`}
+            >
+              <Link
+                href={detailHref}
+                className="relative block h-40 overflow-hidden rounded-t-[1.75rem] bg-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <img
+                  src={item.image}
+                  alt={item.title}
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
+                <div
+                  className={`absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-semibold shadow-lg ring-1 ring-white/30 backdrop-blur-sm ${item.statusStyle}`}
+                >
+                  {item.badge}
+                </div>
+                <div className="absolute right-3 top-3 rounded-full bg-slate-950/80 px-3 py-1 text-xs font-semibold text-white shadow-sm">
+                  {item.gps}
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
+                  <h2 className="text-base font-semibold line-clamp-1">
+                    {item.title}
+                  </h2>
+                  <p className="text-xs text-white/80 line-clamp-1">
+                    {item.subtitle}
+                  </p>
+                </div>
+              </Link>
+              <div className="flex flex-col gap-2 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-xs font-semibold text-orange-700">
+                        {item.author.charAt(0)}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium leading-tight text-slate-900">
+                          {item.author}
+                        </p>
+                        <p className="mt-0.5 text-xs leading-tight text-slate-500">
+                          {item.date}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                      {item.xp}
+                    </span>
+                    <div className="relative" data-hotspot-actions>
+                      <button
+                        type="button"
+                        aria-haspopup="menu"
+                        aria-expanded={isMenuOpen}
+                        onClick={() =>
+                          setOpenMenuTitle(isMenuOpen ? null : item.title)
+                        }
+                        className={`rounded-full p-1.5 text-slate-600 transition hover:bg-slate-100 ${isMenuOpen ? "bg-slate-100" : "bg-white/90"}`}
+                      >
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </button>
+
+                      {isMenuOpen ? (
+                        <div
+                          role="menu"
+                          className="absolute right-0 top-[calc(100%+0.6rem)] w-40 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
+                        >
+                          {hotspotActions.map((action) => {
+                            const ActionIcon = action.icon;
+
+                            return action.key === "detail" ? (
+                              <Link
+                                key={action.label}
+                                href={detailHref}
+                                role="menuitem"
+                                onClick={() => setOpenMenuTitle(null)}
+                                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                              >
+                                <ActionIcon className="h-4 w-4" />
+                                <span>{action.label}</span>
+                              </Link>
+                            ) : (
+                              <button
+                                key={action.label}
+                                type="button"
+                                role="menuitem"
+                                onClick={() => setOpenMenuTitle(null)}
+                                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${
+                                  action.danger
+                                    ? "mt-1 border-t border-slate-100 pt-3 text-red-500 hover:bg-red-50"
+                                    : "text-slate-700 hover:bg-slate-100"
+                                }`}
+                              >
+                                <ActionIcon className="h-4 w-4" />
+                                <span>{action.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {item.tags.map((tag, index) => (
+                    <span
+                      key={tag}
+                      className={`rounded-full border px-2 py-0.5 text-xs font-semibold shadow-sm ${tagColorClasses[index % tagColorClasses.length]}`}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
-          </article>
-        ))}
+            </article>
+          );
+        })}
       </section>
     </div>
   );
