@@ -169,7 +169,7 @@ function ThemeCard({
       )}
       aria-pressed={selected}
     >
-      <h3 className="text-sm font-semibold text-slate-900 sm:text-[0.95rem]">
+      <h3 className="cq-card-title sm:text-[0.95rem]">
         {theme.title}
       </h3>
       <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-[0.8rem]">
@@ -222,7 +222,7 @@ function HotspotSelectionCard({
       </div>
 
       <div className="p-4">
-        <h3 className="text-sm font-semibold text-slate-900">{item.title}</h3>
+        <h3 className="cq-card-title">{item.title}</h3>
       </div>
     </button>
   );
@@ -301,7 +301,7 @@ function SummaryRow({
   return (
     <div className="flex items-start justify-between gap-4 text-xs">
       <span className="text-slate-500 sm:text-sm">{label}</span>
-      <span className="text-right text-sm font-semibold text-slate-900 sm:text-[0.95rem]">
+      <span className="cq-card-title text-right sm:text-[0.95rem]">
         {value}
       </span>
     </div>
@@ -788,10 +788,10 @@ export default function CuratorRouteCreatePage() {
       <section className="space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold text-foreground">
+            <h1 className="cq-page-title">
               Tuyến hành trình
             </h1>
-            <p className="max-w-2xl text-sm text-muted-foreground">
+            <p className="cq-page-subtitle max-w-2xl">
               Xây dựng các tuyến khám phá di sản TP.HCM .
             </p>
           </div>
@@ -880,7 +880,7 @@ export default function CuratorRouteCreatePage() {
               {activeStep === 2 ? (
                 <div className="mt-5 border-t border-slate-200 pt-5">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    <p className="cq-label">
                       Hotspot đã chọn
                     </p>
                     {selectedHotspots.length > 0 ? (

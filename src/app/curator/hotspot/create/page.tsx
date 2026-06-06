@@ -73,10 +73,10 @@ export default function Page() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
-            <h1 className="text-2xl font-semibold text-slate-950">
+            <h1 className="cq-page-title">
               Tạo Hotspot mới
             </h1>
-            <p className="text-sm text-slate-500">
+            <p className="cq-page-subtitle">
               Nhập thông tin chi tiết và phương tiện.
             </p>
           </div>
@@ -102,12 +102,12 @@ export default function Page() {
         <div className="grid gap-4 md:grid-cols-[1.8fr_1fr]">
           <div className="flex flex-col gap-4">
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-sm font-semibold text-slate-900">
+              <h2 className="cq-section-title">
                 Thông tin cơ bản
               </h2>
               <div className="mt-5 grid gap-4">
                 <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <label className="cq-label mb-2 block">
                     Tên hotspot
                   </label>
                   <Input
@@ -116,7 +116,7 @@ export default function Page() {
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <label className="cq-label mb-2 block">
                     Địa chỉ
                   </label>
                   <Input
@@ -129,7 +129,7 @@ export default function Page() {
                   </p>
                 </div>
                 <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <label className="cq-label mb-2 block">
                     Mô tả
                   </label>
                   <textarea
@@ -139,7 +139,7 @@ export default function Page() {
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    <label className="cq-label mb-2 block">
                       Danh mục
                     </label>
                     <select className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20">
@@ -151,7 +151,7 @@ export default function Page() {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    <label className="cq-label mb-2 block">
                       XP thưởng
                     </label>
                     <Input
@@ -161,7 +161,7 @@ export default function Page() {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <label className="cq-label mb-2 block">
                     Thẻ
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -176,7 +176,7 @@ export default function Page() {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <label className="cq-label mb-2 block">
                     Tuyến liên quan
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -194,7 +194,7 @@ export default function Page() {
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-sm font-semibold text-slate-900">
+              <h2 className="cq-section-title">
                 Phương tiện
               </h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -218,7 +218,7 @@ export default function Page() {
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">
+                  <p className="cq-card-title">
                     Vị trí bản đồ
                   </p>
                   <p className="text-xs text-slate-500">

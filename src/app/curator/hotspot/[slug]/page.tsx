@@ -47,8 +47,8 @@ function SectionCard({
   return (
     <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
-        <p className="text-sm text-slate-500">{description}</p>
+        <h2 className="cq-section-title">{title}</h2>
+        <p className="cq-page-subtitle">{description}</p>
       </div>
       <div className="mt-5">{children}</div>
     </section>
@@ -59,7 +59,7 @@ function MetricTile({ value, label }: { value: string; label: string }) {
   return (
     <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3">
       <p className="text-xl font-semibold text-slate-950">{value}</p>
-      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">
+      <p className="cq-label mt-1">
         {label}
       </p>
     </div>
@@ -146,11 +146,11 @@ export default async function HotspotDetailPage({
       <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
           <div className="max-w-4xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
+            <p className="cq-kicker">
               Tổng quan hotspot
             </p>
             <h1
-              className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-4xl"
+              className="cq-detail-title mt-3"
               style={{ fontFamily: "'Playfair Display', serif" }}
             >
               {hotspot.title}
@@ -158,7 +158,7 @@ export default async function HotspotDetailPage({
             <p className="mt-2 text-sm font-medium text-slate-500">
               {hotspot.subtitle}
             </p>
-            <p className="mt-5 max-w-3xl text-base leading-8 text-slate-600">
+            <p className="cq-body-copy mt-5 max-w-3xl">
               {hotspot.description}
             </p>
           </div>
@@ -195,13 +195,13 @@ export default async function HotspotDetailPage({
               <div className="flex items-start gap-3">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <p className="cq-label">
                     Địa chỉ
                   </p>
                   <p className="mt-1 text-sm font-medium leading-6 text-slate-900">
                     {hotspot.address}
                   </p>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="cq-page-subtitle mt-1">
                     {profile.coordinates} · {profile.district}
                   </p>
                 </div>
@@ -213,10 +213,10 @@ export default async function HotspotDetailPage({
                 <div className="flex items-center gap-3">
                   <Clock3 className="h-4 w-4 text-amber-600" />
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    <p className="cq-label">
                       Thời lượng tham quan
                     </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                    <p className="cq-card-title mt-1">
                       {profile.estimatedVisit}
                     </p>
                   </div>
@@ -227,10 +227,10 @@ export default async function HotspotDetailPage({
                 <div className="flex items-center gap-3">
                   <Compass className="h-4 w-4 text-emerald-600" />
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    <p className="cq-label">
                       Khung giờ đẹp
                     </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                    <p className="cq-card-title mt-1">
                       {profile.bestTime}
                     </p>
                   </div>
@@ -242,7 +242,7 @@ export default async function HotspotDetailPage({
           <div className="rounded-[1.5rem] border border-slate-200 bg-[linear-gradient(180deg,#fffaf0_0%,#ffffff_100%)] px-4 py-4 sm:px-5">
             <div className="flex items-center gap-2">
               <Route className="h-4 w-4 text-sky-600" />
-              <p className="text-sm font-semibold text-slate-900">
+              <p className="cq-card-title">
                 Tuyến liên quan
               </p>
             </div>
@@ -286,14 +286,14 @@ export default async function HotspotDetailPage({
             </div>
 
             <div className="rounded-[1.5rem] border border-slate-200 bg-[linear-gradient(180deg,#fff7ed_0%,#ffffff_100%)] p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
+              <p className="cq-kicker">
                 Ghi chú biên tập
               </p>
               <p className="mt-3 text-sm leading-7 text-slate-700">
                 {profile.preservationNote}
               </p>
               <div className="mt-5 rounded-2xl border border-amber-200 bg-white px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                <p className="cq-label">
                   Khả năng tiếp cận
                 </p>
                 <p className="mt-2 text-sm font-medium leading-6 text-slate-900">
@@ -349,10 +349,10 @@ export default async function HotspotDetailPage({
         >
           <div className="space-y-3">
             <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              <p className="cq-label">
                 Người phụ trách
               </p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">
+              <p className="cq-card-title mt-1">
                 {hotspot.author}
               </p>
             </div>
@@ -361,11 +361,11 @@ export default async function HotspotDetailPage({
               <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3">
                 <div className="flex items-center gap-2">
                   <CalendarDays className="h-4 w-4 text-sky-600" />
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <p className="cq-label">
                     Tạo ngày
                   </p>
                 </div>
-                <p className="mt-2 text-sm font-semibold text-slate-900">
+                <p className="cq-card-title mt-2">
                   {hotspot.date}
                 </p>
               </div>
@@ -373,18 +373,18 @@ export default async function HotspotDetailPage({
               <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Clock3 className="h-4 w-4 text-amber-600" />
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <p className="cq-label">
                     Cập nhật gần nhất
                   </p>
                 </div>
-                <p className="mt-2 text-sm font-semibold text-slate-900">
+                <p className="cq-card-title mt-2">
                   {profile.lastUpdated}
                 </p>
               </div>
             </div>
 
             <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              <p className="cq-label">
                 Trạng thái hiện tại
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -424,7 +424,7 @@ export default async function HotspotDetailPage({
 
             <div className="space-y-3">
               <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                <p className="cq-label">
                   Toạ độ
                 </p>
                 <p className="mt-2 text-lg font-semibold text-slate-950">
@@ -433,7 +433,7 @@ export default async function HotspotDetailPage({
               </div>
 
               <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                <p className="cq-label">
                   Khu vực
                 </p>
                 <p className="mt-2 text-sm font-medium text-slate-900">

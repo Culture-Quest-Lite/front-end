@@ -4,6 +4,9 @@ export type RouteTheme = {
   id: string;
   title: string;
   description: string;
+  visualKey?: string;
+  accentColor?: string;
+  createdAt?: string;
   distance: string;
   duration: string;
   distanceOffsetKm: number;
@@ -17,6 +20,8 @@ export type RouteTheme = {
 };
 
 export const ROUTE_THEME_STORAGE_KEY = "culturequest:curator-route-themes";
+export const ROUTE_THEME_STORAGE_EVENT =
+  "culturequest:curator-route-themes-change";
 
 export const routeThemeStatusOptions: Array<{
   value: RouteThemeStatus;
@@ -110,6 +115,8 @@ export const curatorRouteThemes: RouteTheme[] = [
     insight: "Phù hợp tuyến giàu chất kể nhưng cần biên tập nội dung kỹ hơn.",
   },
 ];
+let cachedStoredRouteThemesSnapshot = curatorRouteThemes;
+let cachedStoredRouteThemesRaw: string | null | undefined;
 
 export function getRouteThemeStatusLabel(status: RouteThemeStatus) {
   return (
@@ -145,6 +152,10 @@ function isRouteTheme(value: unknown): value is RouteTheme {
     typeof candidate.id === "string" &&
     typeof candidate.title === "string" &&
     typeof candidate.description === "string" &&
+    (candidate.visualKey === undefined || typeof candidate.visualKey === "string") &&
+    (candidate.accentColor === undefined ||
+      typeof candidate.accentColor === "string") &&
+    (candidate.createdAt === undefined || typeof candidate.createdAt === "string") &&
     typeof candidate.distance === "string" &&
     typeof candidate.duration === "string" &&
     typeof candidate.distanceOffsetKm === "number" &&
@@ -189,6 +200,56 @@ export function readStoredRouteThemes() {
   }
 }
 
+export function getStoredRouteThemesSnapshot() {
+  if (typeof window === "undefined") {
+    return curatorRouteThemes;
+  }
+
+  const raw = window.localStorage.getItem(ROUTE_THEME_STORAGE_KEY);
+
+  if (raw === cachedStoredRouteThemesRaw) {
+    return cachedStoredRouteThemesSnapshot;
+  }
+
+  cachedStoredRouteThemesRaw = raw;
+
+  try {
+    cachedStoredRouteThemesSnapshot = raw
+      ? sanitizeRouteThemes(JSON.parse(raw))
+      : curatorRouteThemes;
+  } catch {
+    cachedStoredRouteThemesSnapshot = curatorRouteThemes;
+  }
+
+  return cachedStoredRouteThemesSnapshot;
+}
+
+export function subscribeStoredRouteThemes(onStoreChange: () => void) {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key && event.key !== ROUTE_THEME_STORAGE_KEY) {
+      return;
+    }
+
+    onStoreChange();
+  };
+
+  const handleLocalChange = () => {
+    onStoreChange();
+  };
+
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener(ROUTE_THEME_STORAGE_EVENT, handleLocalChange);
+
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener(ROUTE_THEME_STORAGE_EVENT, handleLocalChange);
+  };
+}
+
 export function writeStoredRouteThemes(themes: RouteTheme[]) {
   if (typeof window === "undefined") {
     return;
@@ -203,4 +264,6 @@ export function writeStoredRouteThemes(themes: RouteTheme[]) {
       })),
     ),
   );
+
+  window.dispatchEvent(new Event(ROUTE_THEME_STORAGE_EVENT));
 }

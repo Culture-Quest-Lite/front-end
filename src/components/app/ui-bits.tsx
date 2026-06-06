@@ -11,8 +11,8 @@ export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+        <h1 className="cq-page-title">{title}</h1>
+        <p className="cq-page-subtitle mt-1">{subtitle}</p>
       </div>
       <div className="flex items-center gap-2">{actions}</div>
     </div>
@@ -45,7 +45,7 @@ export function StatCard({
     <div className="rounded-2xl bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+          <p className="cq-label">
             {label}
           </p>
           <p className="mt-3 text-2xl font-semibold text-slate-900">{value}</p>
@@ -58,7 +58,7 @@ export function StatCard({
           <Icon className="h-5 w-5" />
         </div>
       </div>
-      <p className="mt-3 text-sm text-slate-500">{delta}</p>
+      <p className="cq-page-subtitle mt-3">{delta}</p>
     </div>
   );
 }
