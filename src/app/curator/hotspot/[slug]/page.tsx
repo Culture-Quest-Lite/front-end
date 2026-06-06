@@ -94,7 +94,7 @@ export default async function HotspotDetailPage({
           <img
             src={hotspot.image}
             alt={hotspot.title}
-            className="h-[48vh] min-h-[320px] w-full object-cover sm:h-[58vh] lg:h-[calc(100vh-8rem)] lg:max-h-[760px]"
+            className="h-[44vh] min-h-[320px] w-full object-cover sm:h-[52vh] lg:h-[60vh]"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/92 via-slate-950/38 to-slate-950/18" />
 
@@ -278,9 +278,7 @@ export default async function HotspotDetailPage({
                   >
                     <div className="flex items-start gap-3">
                       <Eye className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                      <p className="text-sm leading-6 text-slate-700">
-                        {fact}
-                      </p>
+                      <p className="text-sm leading-6 text-slate-700">{fact}</p>
                     </div>
                   </div>
                 ))}
