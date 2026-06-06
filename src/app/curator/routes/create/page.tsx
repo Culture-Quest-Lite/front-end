@@ -322,7 +322,9 @@ export default function CuratorRouteCreatePage() {
     [],
   );
   const [draggingSlug, setDraggingSlug] = useState<string | null>(null);
-  const [routeTitle, setRouteTitle] = useState("Hành trình 30/4 - Phiên bản 2025");
+  const [routeTitle, setRouteTitle] = useState(
+    "Hành trình 30/4 - Phiên bản 2025",
+  );
   const [routeDescription, setRouteDescription] = useState(
     "Khám phá những điểm trọng yếu của ngày giải phóng miền Nam, từ Dinh Độc Lập đến phố đi bộ Nguyễn Huệ.",
   );
@@ -377,13 +379,13 @@ export default function CuratorRouteCreatePage() {
       ? 6
       : activeStep === 5
         ? 5
-      : activeStep === 4
-        ? 4
-        : activeStep === 3
-        ? 3
-        : activeStep === 2 && selectedHotspots.length > 0
-          ? 3
-          : activeStep;
+        : activeStep === 4
+          ? 4
+          : activeStep === 3
+            ? 3
+            : activeStep === 2 && selectedHotspots.length > 0
+              ? 3
+              : activeStep;
 
   const estimatedDistance =
     selectedHotspots.length > 0
@@ -738,7 +740,10 @@ export default function CuratorRouteCreatePage() {
               <div className="border-t border-[#e9e3da] bg-white/80 px-5 py-4">
                 <div className="space-y-3">
                   {selectedHotspots.map((item, index) => (
-                    <div key={item.slug} className="flex items-center gap-3 text-sm">
+                    <div
+                      key={item.slug}
+                      className="flex items-center gap-3 text-sm"
+                    >
                       <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#fff2ef] text-xs font-semibold text-[#cf3d37]">
                         {index + 1}
                       </span>
@@ -787,7 +792,7 @@ export default function CuratorRouteCreatePage() {
               Tuyến hành trình
             </h1>
             <p className="max-w-2xl text-sm text-muted-foreground">
-              Xây dựng các tuyến khám phá di sản TP.HCM (BR-07, BR-10, BR-14).
+              Xây dựng các tuyến khám phá di sản TP.HCM .
             </p>
           </div>
 
