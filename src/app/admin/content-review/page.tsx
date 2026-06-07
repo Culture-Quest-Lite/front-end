@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { PageHeader, StatusPill } from "@/components/app/ui-bits";
 import { approvals } from "@/data/demo";
@@ -72,7 +73,7 @@ export default function ContentReviewPage() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {filtered.map((item) => (
-          <div key={item.id} onClick={() => setDetailItem(item)} className="cursor-pointer overflow-hidden rounded-3xl border border-border bg-white shadow-sm dark:bg-zinc-950">
+          <Link key={item.id} href={`/admin/content-review/${item.id}`} className="cursor-pointer overflow-hidden rounded-3xl border border-border bg-white shadow-sm dark:bg-zinc-950">
             <div className="flex gap-3 p-3">
               <img src={item.thumbnail} alt={item.title} className="h-24 w-24 flex-none rounded-2xl object-cover" />
               <div className="min-w-0 flex-1">
@@ -106,7 +107,7 @@ export default function ContentReviewPage() {
                 <Check className="h-4 w-4" /> Phê duyệt
               </button>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 
