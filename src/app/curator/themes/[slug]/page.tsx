@@ -240,7 +240,7 @@ export default function ThemeDetailPage() {
               asChild
               variant="secondary"
               size="sm"
-              className="rounded-full bg-red-600 text-white hover:bg-red-700"
+              className="rounded-full text-white"
             >
               <Link href={`/curator/themes/create?theme=${theme.id}`}>
                 <Pencil className="mr-2 h-4 w-4" />

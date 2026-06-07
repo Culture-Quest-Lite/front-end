@@ -450,7 +450,7 @@ export default function CreateStoryPage() {
             type="submit"
             variant="secondary"
             size="sm"
-            className="rounded-full bg-red-600 px-4 text-white hover:bg-red-700"
+            className="rounded-full px-4 text-white"
           >
             <Send className="h-4 w-4" />
             Gửi duyệt

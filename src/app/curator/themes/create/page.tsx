@@ -299,7 +299,7 @@ export default function CreateThemePage() {
             variant="secondary"
             size="sm"
             disabled={!canSubmit}
-            className="rounded-full bg-red-600 px-4 text-white hover:bg-red-700"
+            className="rounded-full px-4 text-white"
           >
             <CheckCircle2 className="mr-2 h-4 w-4" />
             {isSubmitting ? "Đang tạo..." : "Tạo chủ đề"}

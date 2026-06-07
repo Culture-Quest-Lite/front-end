@@ -241,7 +241,7 @@ function ThemeCard({
               <div className="flex flex-wrap items-center gap-2">
                 <Link
                   href={`/curator/themes/${theme.id}`}
-                  className="text-xl font-semibold leading-tight text-slate-900 transition hover:text-[#C94534]"
+                  className="cq-card-title leading-tight text-slate-900 transition hover:text-[#C94534]"
                 >
                   {theme.title}
                 </Link>
@@ -251,7 +251,7 @@ function ThemeCard({
                   </span>
                 ) : null}
               </div>
-              <p className="mt-1 text-sm text-slate-500">{usageLabel}</p>
+              <p className="mt-1 cq-card-copy text-slate-500">{usageLabel}</p>
             </div>
 
             <div className="relative shrink-0" data-theme-actions>
@@ -325,7 +325,7 @@ function ThemeCard({
           </div>
         </div>
 
-        <p className="line-clamp-2 text-sm leading-6 text-slate-500">
+        <p className="line-clamp-2 cq-card-copy leading-5 text-slate-500">
           {theme.description}
         </p>
       </div>
@@ -412,8 +412,8 @@ export default function CuratorThemesPage() {
           <Button
             asChild
             variant="secondary"
-            size="lg"
-            className="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 shadow-sm"
+            size="default"
+            className="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 shadow-sm"
           >
             <Link href="/curator/themes/create">
               <Plus className="h-4 w-4" />
@@ -433,7 +433,7 @@ export default function CuratorThemesPage() {
             />
           </div>
 
-          <div className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-500 shadow-sm">
+          <div className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-xs font-medium text-slate-500 shadow-sm">
             {filteredThemes.length} chủ đề
           </div>
         </div>

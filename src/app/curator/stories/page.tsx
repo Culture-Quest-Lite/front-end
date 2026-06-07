@@ -299,7 +299,7 @@ export default function CuratorStoriesPage() {
             asChild
             variant="secondary"
             size="lg"
-            className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-[#CF3F34] px-4 py-2 text-white shadow-sm hover:bg-[#BE372D]"
+            className="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-white shadow-sm"
           >
             <Link href="/curator/stories/create">
               <Plus className="h-4 w-4" />

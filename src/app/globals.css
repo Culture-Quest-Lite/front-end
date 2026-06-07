@@ -172,6 +172,20 @@
 
   .cq-curator-compact {
     @apply text-[13px];
+    --primary: 235 72 155;
+    --secondary: 235 72 155;
+    --secondary-foreground: 255 255 255;
+    --accent: 245 135 82;
+    --accent-foreground: 255 255 255;
+    --muted: 241 246 251;
+    --muted-foreground: 112 122 138;
+    --card: 252 252 253;
+    --card-foreground: 15 23 42;
+    --popover: 252 252 253;
+    --popover-foreground: 15 23 42;
+    --border: 231 235 242;
+    --input: 241 246 251;
+    --ring: 255 103 154;
   }
 
   .cq-curator-compact .cq-page-title {
@@ -204,6 +218,36 @@
 
   .cq-curator-compact [data-slot="button"] {
     @apply text-[12px];
+  }
+
+  .cq-curator-compact [data-slot="button"][data-variant="secondary"] {
+    background: linear-gradient(90deg, #eb489b 0%, #f58752 58%, #ffc93c 100%);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 14px 28px rgba(235, 72, 155, 0.18);
+  }
+
+  .cq-curator-compact [data-slot="button"][data-variant="secondary"]:hover {
+    background: linear-gradient(90deg, #e23f93 0%, #ee7d4a 58%, #f6bf34 100%);
+    box-shadow: 0 18px 32px rgba(235, 72, 155, 0.22);
+  }
+
+  .cq-curator-compact [data-slot="button"][data-variant="outline"] {
+    border-color: #e7ebf2;
+    background: rgba(252, 252, 253, 0.96);
+    color: #596579;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
+  }
+
+  .cq-curator-compact [data-slot="button"][data-variant="outline"]:hover {
+    border-color: #ffd6e4;
+    background: #fff8fb;
+    color: #d94a8d;
+  }
+
+  .cq-curator-compact [data-slot="button"][data-variant="ghost"]:hover {
+    background: #fff3f8;
+    color: #d94a8d;
   }
 
   .cq-curator-compact [data-slot="button"][data-size="default"] {
@@ -240,16 +284,109 @@
     height: 2.35rem;
     padding-inline: 0.8rem;
     font-size: 12.5px;
+    background-color: #f1f6fb;
+    border-color: #e7ebf2;
   }
 
   .cq-curator-compact select {
     min-height: 2.35rem;
     font-size: 12.5px;
+    background-color: #f1f6fb;
+    border-color: #e7ebf2;
   }
 
   .cq-curator-compact textarea {
     font-size: 12.5px;
     line-height: 1.45;
     padding: 0.8rem;
+    background-color: #f1f6fb;
+    border-color: #e7ebf2;
+  }
+
+  .cq-curator-compact [data-slot="input"]:focus-visible,
+  .cq-curator-compact select:focus,
+  .cq-curator-compact textarea:focus {
+    border-color: #ffc1d8;
+    box-shadow: 0 0 0 4px rgba(255, 103, 154, 0.08);
+    outline: none;
+  }
+
+  .cq-curator-compact .bg-slate-50 {
+    background-color: #f6f8fb;
+  }
+
+  .cq-curator-compact .bg-white {
+    background-color: #fcfcfd;
+  }
+
+  .cq-curator-compact .text-\[\#CF3F34\] {
+    color: #dd4a8d;
+  }
+}
+
+@layer utilities {
+  .cq-curator-compact [data-slot="button"][data-variant="secondary"] {
+    background: linear-gradient(90deg, #eb489b 0%, #f58752 58%, #ffc93c 100%);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 14px 28px rgba(235, 72, 155, 0.18);
+  }
+
+  .cq-curator-compact [data-slot="button"][data-variant="secondary"]:hover {
+    background: linear-gradient(90deg, #e23f93 0%, #ee7d4a 58%, #f6bf34 100%);
+    box-shadow: 0 18px 32px rgba(235, 72, 155, 0.22);
+  }
+
+  .cq-curator-compact [data-slot="button"][data-variant="outline"] {
+    border-color: #e7ebf2;
+    background: rgba(252, 252, 253, 0.96);
+    color: #596579;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
+  }
+
+  .cq-curator-compact [data-slot="button"][data-variant="outline"]:hover {
+    border-color: #ffd6e4;
+    background: #fff8fb;
+    color: #d94a8d;
+  }
+
+  .cq-curator-compact [data-slot="button"][data-variant="ghost"]:hover {
+    background: #fff3f8;
+    color: #d94a8d;
+  }
+
+  .cq-curator-compact [data-slot="input"] {
+    background-color: #f1f6fb;
+    border-color: #e7ebf2;
+  }
+
+  .cq-curator-compact select {
+    background-color: #f1f6fb;
+    border-color: #e7ebf2;
+  }
+
+  .cq-curator-compact textarea {
+    background-color: #f1f6fb;
+    border-color: #e7ebf2;
+  }
+
+  .cq-curator-compact [data-slot="input"]:focus-visible,
+  .cq-curator-compact select:focus,
+  .cq-curator-compact textarea:focus {
+    border-color: #ffc1d8;
+    box-shadow: 0 0 0 4px rgba(255, 103, 154, 0.08);
+    outline: none;
+  }
+
+  .cq-curator-compact .bg-slate-50 {
+    background-color: #f6f8fb;
+  }
+
+  .cq-curator-compact .bg-white {
+    background-color: #fcfcfd;
+  }
+
+  .cq-curator-compact .text-\[\#CF3F34\] {
+    color: #dd4a8d;
   }
 }
