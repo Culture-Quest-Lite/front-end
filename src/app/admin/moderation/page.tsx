@@ -18,9 +18,15 @@ export const metadata = {
 };
 
 const statusTone: Record<string, string> = {
-  Mới: "bg-destructive/15 text-destructive border-destructive/30",
-  "Đang xử lý": "bg-warning/20 text-warning-foreground border-warning/30",
-  "Đã xử lý": "bg-success/15 text-success border-success/30",
+  Mới: "bg-red-50 text-red-700 border-red-100",
+  "Đang xử lý": "bg-amber-50 text-amber-700 border-amber-100",
+  "Đã xử lý": "bg-emerald-50 text-emerald-700 border-emerald-100",
+};
+
+const statusBg: Record<string, string> = {
+  Mới: "bg-red-100 text-red-600",
+  "Đang xử lý": "bg-amber-100 text-amber-700",
+  "Đã xử lý": "bg-emerald-100 text-emerald-700",
 };
 
 export default function ModerationPage() {
@@ -42,7 +48,7 @@ export default function ModerationPage() {
         <Mini label="Đã xoá tuần này" value="11" tone="muted" />
       </div>
 
-      <div className="card-elev rounded-2xl overflow-hidden">
+      <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <div className="text-sm font-semibold">Hàng đợi báo cáo</div>
           <div className="flex gap-1 text-xs">
@@ -71,27 +77,31 @@ export default function ModerationPage() {
                 ? ImageIcon
                 : User;
             return (
-              <li key={r.id} className="p-4 flex flex-col md:flex-row md:items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-destructive/10 text-destructive grid place-items-center">
-                  <Icon className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{r.target}</div>
-                  <div className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
-                    <AlertTriangle className="w-3 h-3" />
-                    {r.reason} · Báo cáo bởi {r.reporter}
+              <li key={r.id} className="p-4 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className={`${statusBg[r.status]} w-10 h-10 rounded-xl grid place-items-center`}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">{r.target}</div>
+                    <div className="text-xs text-muted-foreground inline-flex items-center gap-1.5 mt-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      {r.reason} · Báo cáo bởi {r.reporter}
+                    </div>
                   </div>
                 </div>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusTone[r.status]}`}>
-                  {r.status}
-                </span>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="gap-1.5" type="button">
-                    <ShieldCheck className="w-4 h-4" />Bỏ qua
-                  </Button>
-                  <Button size="sm" variant="destructive" className="gap-1.5" type="button">
-                    <Trash2 className="w-4 h-4" />Xoá mềm
-                  </Button>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <span className={`text-sm px-3 py-1 rounded-full border ${statusTone[r.status]}`}>
+                    {r.status}
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" className="gap-1.5" type="button">
+                      <ShieldCheck className="w-4 h-4" />Bỏ qua
+                    </Button>
+                    <Button size="sm" variant="destructive" className="gap-1.5 bg-red-600 text-white hover:bg-red-700 border-transparent" type="button">
+                      <Trash2 className="w-4 h-4" />Xoá mềm
+                    </Button>
+                  </div>
                 </div>
               </li>
             );
@@ -119,7 +129,7 @@ export default function ModerationPage() {
               placeholder="Thêm từ khoá…"
               className="flex-1 h-9 px-3 rounded-lg bg-surface-2 border border-border text-sm outline-none"
             />
-            <Button size="sm" type="button">
+            <Button size="sm" className="bg-red-600 text-white hover:bg-red-700 border-transparent" type="button">
               Thêm
             </Button>
           </div>
@@ -161,15 +171,15 @@ function Mini({
 }) {
   const cls =
     tone === "destructive"
-      ? "from-destructive/15 to-destructive/0 text-destructive"
+      ? "text-destructive"
       : tone === "warning"
-      ? "from-warning/20 to-warning/0 text-warning-foreground"
-      : "from-muted to-muted/0 text-muted-foreground";
+      ? "text-warning-foreground"
+      : "text-muted-foreground";
 
   return (
-    <div className={`card-elev rounded-2xl p-3 bg-gradient-to-br ${cls}`}>
-      <div className="text-[11px] text-muted-foreground">{label}</div>
-      <div className="font-display font-bold text-2xl">{value}</div>
+    <div className={`rounded-2xl border border-border bg-white p-4 shadow-sm`}> 
+      <div className="text-[11px] text-slate-500">{label}</div>
+      <div className={`mt-2 text-2xl font-semibold ${cls}`}>{value}</div>
     </div>
   );
 }
