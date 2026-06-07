@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, type FormEvent, type ReactNode } from "react";
 
 type TravelCardDefinition = {
@@ -86,7 +87,14 @@ export default function TravelLogin() {
         <div className="relative z-10 grid w-full items-center gap-6 px-6 py-6 sm:px-8 lg:grid-cols-[minmax(400px,0.96fr)_minmax(400px,1fr)] lg:px-12 lg:py-8">
           <div className="mx-auto w-full max-w-[400px] lg:mx-0 lg:max-w-[440px] lg:pr-6">
             <div className="flex items-center gap-3">
-              <BrandMark />
+              <Image
+                src="/logo2.png"
+                alt="Culture Quest Lite"
+                width={46}
+                height={46}
+                priority
+                className="h-15 w-15 object-contain"
+              />
               <span className="text-[12px] font-black uppercase tracking-[0.16em] text-slate-900">
                 Culture Quest Lite
               </span>
@@ -279,17 +287,6 @@ function DecorativePaths() {
         strokeWidth="2.5"
       />
     </svg>
-  );
-}
-
-function BrandMark() {
-  return (
-    <div className="relative h-6 w-6 overflow-hidden rounded-full shadow-[0_8px_18px_rgba(41,125,255,0.2)]">
-      <div className="absolute inset-0 bg-[conic-gradient(from_210deg,_#1fd5ff,_#2f80ff,_#ed519e,_#ffc949,_#1fd5ff)]" />
-      <span className="absolute left-0 right-0 top-[22%] h-[19%] rounded-full bg-white/85" />
-      <span className="absolute left-0 right-0 top-[45%] h-[17%] rounded-full bg-white/72" />
-      <span className="absolute left-0 right-0 top-[67%] h-[17%] rounded-full bg-white/52" />
-    </div>
   );
 }
 

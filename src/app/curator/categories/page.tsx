@@ -221,9 +221,7 @@ export default function CuratorCategoriesPage() {
       <section className="space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">
-            <h1 className="cq-page-title">
-              Danh mục
-            </h1>
+            <h1 className="cq-page-title">Danh mục</h1>
             <p className="cq-page-subtitle max-w-2xl">
               Quản lý phân loại nội dung di sản.
             </p>
@@ -234,7 +232,7 @@ export default function CuratorCategoriesPage() {
             variant="secondary"
             size="lg"
             onClick={handleCreateFocus}
-            className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-[#CF3F34] px-4 py-2 text-white shadow-sm hover:bg-[#BE372D]"
+            className="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-white shadow-sm"
           >
             <Plus className="h-4 w-4" />
             Tạo mới
@@ -243,9 +241,7 @@ export default function CuratorCategoriesPage() {
 
         <section className="rounded-[1.75rem] border border-slate-200/80 bg-card p-4 shadow-sm sm:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <h2 className="cq-section-title">
-              Danh mục ({categories.length})
-            </h2>
+            <h2 className="cq-section-title">Danh mục ({categories.length})</h2>
 
             <div className="relative w-full lg:max-w-[218px]">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -277,9 +273,7 @@ export default function CuratorCategoriesPage() {
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="cq-card-title leading-tight">
-                    {category.name}
-                  </p>
+                  <p className="cq-card-title leading-tight">{category.name}</p>
                   <p className="mt-1 text-xs text-slate-500 sm:text-sm">
                     {category.usageCount} hotspot sử dụng
                   </p>
@@ -349,75 +343,6 @@ export default function CuratorCategoriesPage() {
                   Thử đổi từ khóa hoặc tạo một danh mục mới.
                 </p>
               </div>
-            ) : null}
-          </div>
-
-          <div
-            ref={createSectionRef}
-            className="mt-6 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4"
-          >
-            <p className="text-sm font-medium text-slate-900">
-              {isEditing ? "Chỉnh sửa danh mục" : "Tạo danh mục mới"}
-            </p>
-
-            <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-center">
-              <Input
-                ref={draftInputRef}
-                value={draftName}
-                onChange={(event) => setDraftName(event.target.value)}
-                placeholder="Tên danh mục..."
-                className="h-12 rounded-3xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
-              />
-
-              <div className="flex items-center gap-3">
-                <label className="relative inline-flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                  <div
-                    className="absolute inset-[3px] rounded-[0.8rem]"
-                    style={{ backgroundColor: draftColor }}
-                  />
-                  <input
-                    type="color"
-                    value={draftColor}
-                    onChange={(event) =>
-                      setDraftColor(event.target.value.toUpperCase())
-                    }
-                    className="absolute inset-0 cursor-pointer opacity-0"
-                    aria-label="Chọn màu danh mục"
-                  />
-                </label>
-
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="lg"
-                  onClick={handleSubmitCategory}
-                  className="rounded-full bg-[#CF3F34] px-4 text-sm text-white shadow-sm hover:bg-[#BE372D]"
-                >
-                  {isEditing ? "Lưu" : "Thêm"}
-                </Button>
-              </div>
-            </div>
-
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs text-slate-600 sm:text-sm">
-                Tên phải duy nhất trong hệ thống.
-              </p>
-
-              {isEditing ? (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="text-xs font-medium text-slate-500 transition hover:text-slate-900 sm:text-sm"
-                >
-                  Hủy chỉnh sửa
-                </button>
-              ) : null}
-            </div>
-
-            {formError ? (
-              <p className="mt-2 text-xs font-medium text-[#CF3F34] sm:text-sm">
-                {formError}
-              </p>
             ) : null}
           </div>
         </section>

@@ -277,7 +277,7 @@ export default function CuratorTagsPage() {
               variant="secondary"
               size="lg"
               onClick={openCreateModal}
-              className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-[#CF3F34] px-4 py-2 text-white shadow-sm hover:bg-[#BE372D]"
+              className="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-white shadow-sm"
             >
               <Plus className="h-4 w-4" />
               Tạo mới
@@ -665,7 +665,7 @@ export default function CuratorTagsPage() {
                   type="submit"
                   variant="secondary"
                   size="lg"
-                  className="rounded-full bg-[#CF3F34] px-5 text-sm text-white shadow-sm hover:bg-[#BE372D]"
+                  className="rounded-full px-5 text-sm text-white shadow-sm"
                 >
                   {isEditing ? "Lưu thay đổi" : "Tạo thẻ"}
                 </Button>
@@ -723,7 +723,7 @@ export default function CuratorTagsPage() {
                 variant="secondary"
                 size="lg"
                 onClick={handleConfirmDelete}
-                className="rounded-full bg-[#CF3F34] px-5 text-sm text-white shadow-sm hover:bg-[#BE372D]"
+                className="rounded-full px-5 text-sm text-white shadow-sm"
               >
                 Xóa thẻ
               </Button>

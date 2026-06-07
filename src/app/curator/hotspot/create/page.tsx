@@ -90,7 +90,7 @@ export default function Page() {
           <Button
             variant="secondary"
             size="sm"
-            className="rounded-full bg-red-600 text-white hover:bg-red-700"
+            className="rounded-full text-white"
           >
             <Send className="mr-2 h-4 w-4" />
             Gửi duyệt
