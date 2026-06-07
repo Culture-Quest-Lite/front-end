@@ -11,7 +11,6 @@ import {
   MapPin,
   Map,
   Tags,
-  FolderTree,
   LayoutGrid,
 } from "lucide-react";
 
@@ -99,7 +98,7 @@ export function CuratorSidebar() {
     <Sidebar className="h-screen border-r border-slate-200 bg-white">
       <SidebarHeader className="border-b border-slate-200 bg-white ">
         <div className="flex items-center">
-          <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-sidebar-primary">
+          <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-sidebar-primary">
             <Image
               src="/logo1.png"
               alt="CultureQuest Lite"
@@ -111,12 +110,12 @@ export function CuratorSidebar() {
           </div>
           <div className="min-w-0 flex-1">
             <h1
-              className="whitespace-nowrap text-[17px] font-semibold leading-none tracking-[-0.03em] text-slate-900"
+              className="whitespace-nowrap text-[15px] font-semibold leading-none tracking-[-0.03em] text-slate-900"
               style={{ fontFamily: "'Playfair Display', serif" }}
             >
               CultureQuest Lite
             </h1>
-            <p className="mt-1 whitespace-nowrap text-[11px] leading-none text-slate-500">
+            <p className="mt-1 whitespace-nowrap text-[10px] leading-none text-slate-500">
               Quản lý nội dung
             </p>
           </div>
@@ -137,15 +136,15 @@ export function CuratorSidebar() {
                         <Link
                           href={item.href}
                           className={cn(
-                            "relative flex items-center gap-3 w-full rounded-xl transition-colors text-sm",
+                            "relative flex w-full items-center gap-2.5 rounded-xl text-[13px] transition-colors",
                             active
                               ? "bg-slate-100 text-slate-900 font-semibold"
                               : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                           )}
                           aria-current={active ? "page" : undefined}
                         >
-                          <item.icon className="w-5 h-5 shrink-0" />
-                          <span className="py-3 pl-2 pr-4">{item.title}</span>
+                          <item.icon className="h-4 w-4 shrink-0" />
+                          <span className="py-2.5 pl-1.5 pr-3">{item.title}</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -160,11 +159,11 @@ export function CuratorSidebar() {
       <SidebarFooter className="p-4 border-t border-gray-200 bg-white">
         <button
           type="button"
-          className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-[#a29d9b] transition-colors"
+          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] text-gray-600 transition-colors hover:bg-gray-50 hover:text-[#a29d9b]"
           // onClick={() => void handleLogout()}
         >
-          <LogOut className="w-5 h-5" />
-          <span className="text-sm font-medium">Đăng xuất</span>
+          <LogOut className="h-4 w-4" />
+          <span className="font-medium">Đăng xuất</span>
         </button>
       </SidebarFooter>
     </Sidebar>
