@@ -2,11 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import {
-  Archive,
   Eye,
   Filter,
   MoreHorizontal,
@@ -92,25 +90,24 @@ export default function Page() {
               Quản lý Hotspot
             </div> */}
             <div>
-              <h1 className="text-3xl font-semibold text-foreground">
-                Quản lý Hotspot
-              </h1>
-              <p className="max-w-2xl text-sm text-muted-foreground">
+              <h1 className="cq-page-title">Quản lý Hotspot</h1>
+              <p className="cq-page-subtitle max-w-2xl">
                 Tạo, chỉnh sửa và phát hành các điểm di sản văn hóa TP.HCM.
               </p>
             </div>
           </div>
 
-          <Link
-            href="/curator/hotspot/create"
-            className={cn(
-              buttonVariants({ variant: "secondary", size: "lg" }),
-              "inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 shadow-sm",
-            )}
+          <Button
+            asChild
+            variant="secondary"
+            size="lg"
+            className="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-white shadow-sm"
           >
-            <Plus className="h-4 w-4" />
-            Tạo Hotspot
-          </Link>
+            <Link href="/curator/hotspot/create">
+              <Plus className="h-4 w-4" />
+              Tạo Hotspot
+            </Link>
+          </Button>
         </div>
 
         <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto] ">

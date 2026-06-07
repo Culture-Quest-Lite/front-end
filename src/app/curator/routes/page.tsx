@@ -1,10 +1,9 @@
-import { buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   curatorRoutes,
   routeStatusClasses,
   type CuratorRoute,
 } from "@/data/routes";
-import { cn } from "@/lib/utils";
 import { ChevronRight, Clock3, MapPin, Plus, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
@@ -40,9 +39,9 @@ function RouteMetric({
     <div className="rounded-[1.35rem] bg-[#F7F5EF] px-4 py-3 shadow-sm">
       <div className="flex items-center gap-2 text-xs text-slate-500">
         <Icon className={`h-4 w-4 ${toneClass}`} />
-        <span>{label}</span>
+        <span className="cq-page-subtitle text-slate-500">{label}</span>
       </div>
-      <p className="mt-1 text-base font-semibold text-slate-950">{value}</p>
+      <p className="cq-card-title mt-1">{value}</p>
     </div>
   );
 }
@@ -53,10 +52,10 @@ function RouteCard({ item }: { item: CuratorRoute }) {
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-[1.05rem] font-semibold text-slate-900 sm:text-[1.15rem]">
+            <h2 className="cq-card-title">
               {item.title}
             </h2>
-            <p className="mt-1 text-sm text-slate-500">{item.subtitle}</p>
+            <p className="mt-1 cq-card-copy text-slate-500">{item.subtitle}</p>
           </div>
           <RouteStatusBadge status={item.status} label={item.statusLabel} />
         </div>
@@ -77,7 +76,7 @@ function RouteCard({ item }: { item: CuratorRoute }) {
             ))}
           </div>
           <span className="h-5 w-px bg-slate-200" />
-          <p className="text-sm text-slate-600">{item.hotspotCount} hotspot</p>
+          <p className="cq-card-copy text-slate-600">{item.hotspotCount} hotspot</p>
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
@@ -109,11 +108,11 @@ function RouteCard({ item }: { item: CuratorRoute }) {
             />
           </div>
 
-          <div className="flex items-center justify-between gap-4 text-sm">
+          <div className="flex items-center justify-between gap-4 text-xs">
             <p className="text-slate-500">Bỏ giữa chừng: {item.dropoff}%</p>
             <Link
               href={`/curator/routes/${item.slug}`}
-              className="inline-flex items-center gap-1 text-sm font-medium text-[#e35a48] transition hover:text-[#c74735]"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-[#e35a48] transition hover:text-[#c74735]"
             >
               Mở tuyến
               <ChevronRight className="h-4 w-4" />
@@ -131,10 +130,10 @@ export default function CuratorRoutesPage() {
       <section className="space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold text-foreground">
+            <h1 className="cq-page-title">
               Tuyến hành trình
             </h1>
-            <p className="max-w-2xl text-sm text-muted-foreground">
+            <p className="cq-page-subtitle max-w-2xl">
               Xây dựng các tuyến khám phá di sản TP.HCM.
             </p>
           </div>
@@ -143,34 +142,28 @@ export default function CuratorRoutesPage() {
             <div className="inline-flex w-fit items-center rounded-full border border-slate-100 bg-[#F7F5EF] p-1">
               <Link
                 href="/curator/routes"
-                className="rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-950 shadow-sm"
+                className="rounded-full bg-white px-4 py-2 text-xs font-medium text-slate-950 shadow-sm"
               >
                 Danh sách
               </Link>
               <Link
                 href="/curator/routes/create"
-                className="rounded-full px-4 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
+                className="rounded-full px-4 py-2 text-xs font-medium text-slate-500 transition hover:text-slate-900"
               >
                 Trình tạo tuyến
               </Link>
-              <Link
-                href="/curator/themes"
-                className="rounded-full px-4 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
-              >
-                Chủ đề
-              </Link>
             </div>
 
-            <Link
-              href="/curator/routes/create"
-              className={cn(
-                buttonVariants({ variant: "secondary", size: "lg" }),
-                "inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 shadow-sm",
-              )}
+            <Button
+              asChild
+              variant="secondary"
+              className="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 text-white shadow-sm"
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Tuyến mới
-            </Link>
+              <Link href="/curator/routes/create">
+                <Plus className="h-4 w-4" />
+                Tuyến mới
+              </Link>
+            </Button>
           </div>
         </div>
 

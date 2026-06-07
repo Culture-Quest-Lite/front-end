@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   GripVertical,
   Plus,
   Search,
+  SlidersHorizontal,
   X,
 } from "lucide-react";
 
@@ -85,6 +87,8 @@ const hotspotStatusOptions = [
   ...Array.from(new Set(hotspotItems.map((item) => item.status))),
 ];
 
+const HOTSPOTS_PER_PAGE = 4;
+
 const themeDistanceOffsets: Record<RouteThemeId, number> = {
   timeline: 0.8,
   geo: 0.4,
@@ -122,7 +126,7 @@ function BuilderStep({
       className={cn(
         "inline-flex items-center gap-2 px-1 py-2 text-sm transition disabled:cursor-default disabled:opacity-100",
         state === "active"
-          ? "rounded-full border-2 border-slate-950 bg-[#cf3d37] px-3 font-semibold text-white shadow-sm"
+          ? "rounded-full border border-[#F7DCE8] bg-[linear-gradient(90deg,_#eb489b_0%,_#f58752_58%,_#ffc93c_100%)] px-3 font-semibold text-white shadow-[0_14px_28px_rgba(235,72,155,0.18)]"
           : state === "completed"
             ? "font-medium text-emerald-700 hover:text-emerald-800"
             : interactive
@@ -134,7 +138,7 @@ function BuilderStep({
         className={cn(
           "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs",
           state === "active"
-            ? "bg-white/15 text-white"
+            ? "bg-white/20 text-white"
             : state === "completed"
               ? "bg-emerald-100 text-emerald-700"
               : "bg-[#F7F5EF] text-slate-500",
@@ -169,9 +173,7 @@ function ThemeCard({
       )}
       aria-pressed={selected}
     >
-      <h3 className="text-sm font-semibold text-slate-900 sm:text-[0.95rem]">
-        {theme.title}
-      </h3>
+      <h3 className="cq-card-title sm:text-[0.95rem]">{theme.title}</h3>
       <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-[0.8rem]">
         {theme.description}
       </p>
@@ -222,7 +224,7 @@ function HotspotSelectionCard({
       </div>
 
       <div className="p-4">
-        <h3 className="text-sm font-semibold text-slate-900">{item.title}</h3>
+        <h3 className="cq-card-title">{item.title}</h3>
       </div>
     </button>
   );
@@ -301,7 +303,7 @@ function SummaryRow({
   return (
     <div className="flex items-start justify-between gap-4 text-xs">
       <span className="text-slate-500 sm:text-sm">{label}</span>
-      <span className="text-right text-sm font-semibold text-slate-900 sm:text-[0.95rem]">
+      <span className="cq-card-title text-right sm:text-[0.95rem]">
         {value}
       </span>
     </div>
@@ -318,6 +320,8 @@ export default function CuratorRouteCreatePage() {
     hotspotCategoryOptions[0],
   );
   const [selectedStatus, setSelectedStatus] = useState(hotspotStatusOptions[0]);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [hotspotPage, setHotspotPage] = useState(1);
   const [selectedHotspotSlugs, setSelectedHotspotSlugs] = useState<string[]>(
     [],
   );
@@ -330,9 +334,67 @@ export default function CuratorRouteCreatePage() {
   );
   const [routeDurationInput, setRouteDurationInput] = useState("120");
   const [routeDifficulty, setRouteDifficulty] = useState("Vừa");
+  const filterMenuRef = useRef<HTMLDivElement | null>(null);
 
   const selectedTheme =
     routeThemes.find((theme) => theme.id === selectedThemeId) ?? routeThemes[0];
+
+  useEffect(() => {
+    if (!isFilterOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (filterMenuRef.current && !filterMenuRef.current.contains(target)) {
+        setIsFilterOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsFilterOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isFilterOpen]);
+
+  const activeFilterCount =
+    Number(selectedCategory !== hotspotCategoryOptions[0]) +
+    Number(selectedStatus !== hotspotStatusOptions[0]);
+
+  function handleSearchQueryChange(value: string) {
+    setSearchQuery(value);
+    setHotspotPage(1);
+  }
+
+  function handleCategoryChange(value: string) {
+    setSelectedCategory(value);
+    setHotspotPage(1);
+  }
+
+  function handleStatusChange(value: string) {
+    setSelectedStatus(value);
+    setHotspotPage(1);
+  }
+
+  function handleResetHotspotFilters() {
+    setSelectedCategory(hotspotCategoryOptions[0]);
+    setSelectedStatus(hotspotStatusOptions[0]);
+    setHotspotPage(1);
+  }
 
   const filteredHotspots = hotspotItems.filter((item) => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -350,6 +412,20 @@ export default function CuratorRouteCreatePage() {
 
     return matchesQuery && matchesCategory && matchesStatus;
   });
+
+  const hotspotPageCount = Math.max(
+    1,
+    Math.ceil(filteredHotspots.length / HOTSPOTS_PER_PAGE),
+  );
+  const currentHotspotPage = Math.min(hotspotPage, hotspotPageCount);
+  const paginatedHotspots = filteredHotspots.slice(
+    (currentHotspotPage - 1) * HOTSPOTS_PER_PAGE,
+    currentHotspotPage * HOTSPOTS_PER_PAGE,
+  );
+  const hotspotPageNumbers = Array.from(
+    { length: hotspotPageCount },
+    (_, index) => index + 1,
+  );
 
   const selectedHotspots = selectedHotspotSlugs
     .map((slug) => hotspotItems.find((item) => item.slug === slug))
@@ -542,40 +618,115 @@ export default function CuratorRouteCreatePage() {
             </p>
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_11rem_11rem]">
-            <div className="relative">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <div className="relative min-w-0 w-full">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
                 value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
+                onChange={(event) => handleSearchQueryChange(event.target.value)}
                 placeholder="Tìm theo tên hotspot hoặc địa chỉ..."
                 className="h-11 rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
 
-            <select
-              value={selectedCategory}
-              onChange={(event) => setSelectedCategory(event.target.value)}
-              className="h-11 rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+            <div
+              ref={filterMenuRef}
+              className="relative w-full sm:w-auto sm:justify-self-end"
             >
-              {hotspotCategoryOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
+              <button
+                type="button"
+                onClick={() => setIsFilterOpen((open) => !open)}
+                className="relative ml-auto flex h-11 w-16 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-left shadow-sm transition hover:border-[#F7DCE8] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                aria-expanded={isFilterOpen}
+                aria-haspopup="dialog"
+              >
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FFF1F7] text-[#D94A8D]">
+                  <SlidersHorizontal className="h-4 w-4" />
+                </span>
+                {activeFilterCount > 0 ? (
+                  <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#D94A8D] px-1 text-[10px] font-semibold text-white shadow-sm">
+                    {activeFilterCount}
+                  </span>
+                ) : null}
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 shrink-0 text-slate-400 transition",
+                    isFilterOpen && "rotate-180 text-[#D94A8D]",
+                  )}
+                />
+              </button>
 
-            <select
-              value={selectedStatus}
-              onChange={(event) => setSelectedStatus(event.target.value)}
-              className="h-11 rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-            >
-              {hotspotStatusOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
+              {isFilterOpen ? (
+                <div className="absolute right-0 top-[calc(100%+0.75rem)] z-20 w-[min(24rem,calc(100vw-2rem))] rounded-[1.5rem] border border-[#F3E3EA] bg-white p-4 shadow-[0_20px_45px_rgba(15,23,42,0.12)]">
+                  <div className="space-y-4">
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        Tất cả
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {hotspotCategoryOptions.map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => handleCategoryChange(option)}
+                            className={cn(
+                              "rounded-full border px-3 py-1.5 text-sm transition",
+                              selectedCategory === option
+                                ? "border-[#F7DCE8] bg-[#FFF1F7] font-medium text-[#D94A8D] shadow-sm"
+                                : "border-slate-200 bg-white text-slate-600 hover:border-[#F7DCE8] hover:text-[#D94A8D]",
+                            )}
+                          >
+                            {option}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        Trạng thái
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {hotspotStatusOptions.map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => handleStatusChange(option)}
+                            className={cn(
+                              "rounded-full border px-3 py-1.5 text-sm transition",
+                              selectedStatus === option
+                                ? "border-[#F7DCE8] bg-[#FFF1F7] font-medium text-[#D94A8D] shadow-sm"
+                                : "border-slate-200 bg-white text-slate-600 hover:border-[#F7DCE8] hover:text-[#D94A8D]",
+                            )}
+                          >
+                            {option}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                      <button
+                        type="button"
+                        onClick={handleResetHotspotFilters}
+                        className="text-sm font-medium text-slate-500 transition hover:text-slate-900"
+                      >
+                        Đặt lại
+                      </button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="rounded-full px-4 text-white"
+                        onClick={() => setIsFilterOpen(false)}
+                      >
+                        Xong
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.25rem] bg-[#F7F5EF] px-4 py-3 text-xs text-slate-600">
@@ -595,15 +746,71 @@ export default function CuratorRouteCreatePage() {
           </div>
 
           {filteredHotspots.length > 0 ? (
-            <div className="grid gap-4 xl:grid-cols-2">
-              {filteredHotspots.map((item) => (
-                <HotspotSelectionCard
-                  key={item.slug}
-                  item={item}
-                  selected={selectedHotspotSlugs.includes(item.slug)}
-                  onToggle={handleToggleHotspot}
-                />
-              ))}
+            <div className="space-y-4">
+              <div className="grid gap-4 xl:grid-cols-2">
+                {paginatedHotspots.map((item) => (
+                  <HotspotSelectionCard
+                    key={item.slug}
+                    item={item}
+                    selected={selectedHotspotSlugs.includes(item.slug)}
+                    onToggle={handleToggleHotspot}
+                  />
+                ))}
+              </div>
+
+              {hotspotPageCount > 1 ? (
+                <div className="flex flex-col gap-3 rounded-[1.25rem] border border-slate-200/80 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-slate-500">
+                    Trang {currentHotspotPage} / {hotspotPageCount}
+                  </p>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full px-4"
+                      onClick={() =>
+                        setHotspotPage((page) => Math.max(1, page - 1))
+                      }
+                      disabled={currentHotspotPage === 1}
+                    >
+                      Trước
+                    </Button>
+
+                    {hotspotPageNumbers.map((pageNumber) => (
+                      <button
+                        key={pageNumber}
+                        type="button"
+                        onClick={() => setHotspotPage(pageNumber)}
+                        className={cn(
+                          "inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-full px-3 text-sm transition",
+                          currentHotspotPage === pageNumber
+                            ? "bg-[linear-gradient(90deg,_#eb489b_0%,_#f58752_58%,_#ffc93c_100%)] font-semibold text-white shadow-sm"
+                            : "border border-slate-200 bg-white text-slate-600 hover:border-[#F7DCE8] hover:text-[#D94A8D]",
+                        )}
+                      >
+                        {pageNumber}
+                      </button>
+                    ))}
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full px-4"
+                      onClick={() =>
+                        setHotspotPage((page) =>
+                          Math.min(hotspotPageCount, page + 1),
+                        )
+                      }
+                      disabled={currentHotspotPage === hotspotPageCount}
+                    >
+                      Sau
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-[#faf9f6] px-6 py-10 text-center text-sm text-slate-500">
@@ -788,10 +995,8 @@ export default function CuratorRouteCreatePage() {
       <section className="space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold text-foreground">
-              Tuyến hành trình
-            </h1>
-            <p className="max-w-2xl text-sm text-muted-foreground">
+            <h1 className="cq-page-title">Tuyến hành trình</h1>
+            <p className="cq-page-subtitle max-w-2xl">
               Xây dựng các tuyến khám phá di sản TP.HCM .
             </p>
           </div>
@@ -880,9 +1085,7 @@ export default function CuratorRouteCreatePage() {
               {activeStep === 2 ? (
                 <div className="mt-5 border-t border-slate-200 pt-5">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                      Hotspot đã chọn
-                    </p>
+                    <p className="cq-label">Hotspot đã chọn</p>
                     {selectedHotspots.length > 0 ? (
                       <span className="text-xs font-medium text-slate-500">
                         {selectedHotspots.length} điểm

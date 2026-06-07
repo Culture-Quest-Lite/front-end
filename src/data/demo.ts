@@ -11,7 +11,6 @@ export interface ApprovalItem {
   status: ApprovalStatus;
 }
 
-
 export interface AuditEntry {
   id: string;
   who: string;
@@ -123,7 +122,8 @@ export const users: User[] = [
     id: "user-1",
     name: "Nguyễn Văn A",
     email: "nguyenvana@example.com",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80",
+    avatar:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80",
     role: "Admin",
     status: "Hoạt động",
     checkins: 45,
@@ -132,7 +132,8 @@ export const users: User[] = [
     id: "user-2",
     name: "Lê Thị B",
     email: "lethib@example.com",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80",
+    avatar:
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80",
     role: "Curator",
     status: "Hoạt động",
     checkins: 32,
@@ -141,7 +142,8 @@ export const users: User[] = [
     id: "user-3",
     name: "Trần Minh C",
     email: "tranminhc@example.com",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80",
+    avatar:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80",
     role: "Curator",
     status: "Hoạt động",
     checkins: 28,
@@ -150,7 +152,8 @@ export const users: User[] = [
     id: "user-4",
     name: "Phạm Thị D",
     email: "phamthid@example.com",
-    avatar: "https://images.unsplash.com/photo-1501746074465-4cebaf45b800?auto=format&fit=crop&w=100&q=80",
+    avatar:
+      "https://images.unsplash.com/photo-1501746074465-4cebaf45b800?auto=format&fit=crop&w=100&q=80",
     role: "Explorer",
     status: "Bị khoá",
     checkins: 15,
@@ -159,7 +162,8 @@ export const users: User[] = [
     id: "user-5",
     name: "Hoàng Văn E",
     email: "hoangvane@example.com",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80",
+    avatar:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80",
     role: "Explorer",
     status: "Đang xem xét",
     checkins: 8,
@@ -168,7 +172,8 @@ export const users: User[] = [
     id: "user-6",
     name: "Võ Thị F",
     email: "vothif@example.com",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80",
+    avatar:
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80",
     role: "Guest",
     status: "Hoạt động",
     checkins: 3,
@@ -183,15 +188,39 @@ export const funnel = [
 ];
 
 export const reports = [
-  { id: "rp1", type: "Bình luận", target: "Review của user_4821", reason: "Ngôn ngữ thô tục", reporter: "user_2210", at: "2025-05-21T08:11:00Z", status: "Mới" },
-  { id: "rp2", type: "Hình ảnh", target: "Upload trong Chợ Bến Thành", reason: "Nội dung không phù hợp", reporter: "user_1109", at: "2025-05-20T19:42:00Z", status: "Đang xử lý" },
-  { id: "rp3", type: "Tài khoản", target: "user_5520", reason: "Spam bình luận", reporter: "system", at: "2025-05-19T12:00:00Z", status: "Đã xử lý" },
+  {
+    id: "rp1",
+    type: "Bình luận",
+    target: "Review của user_4821",
+    reason: "Ngôn ngữ thô tục",
+    reporter: "user_2210",
+    at: "2025-05-21T08:11:00Z",
+    status: "Mới",
+  },
+  {
+    id: "rp2",
+    type: "Hình ảnh",
+    target: "Upload trong Chợ Bến Thành",
+    reason: "Nội dung không phù hợp",
+    reporter: "user_1109",
+    at: "2025-05-20T19:42:00Z",
+    status: "Đang xử lý",
+  },
+  {
+    id: "rp3",
+    type: "Tài khoản",
+    target: "user_5520",
+    reason: "Spam bình luận",
+    reporter: "system",
+    at: "2025-05-19T12:00:00Z",
+    status: "Đã xử lý",
+  },
 ];
 export const hotspots = [
   {
     id: "h1",
     cover:
-      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80",
+      "https://i.pinimg.com/736x/1d/0c/34/1d0c3486ffe197fd5907e37cf78966e1.jpg",
     name: "Công viên trung tâm",
     district: "Quận 1",
     xp: 1200,
@@ -199,7 +228,7 @@ export const hotspots = [
   {
     id: "h2",
     cover:
-      "https://images.unsplash.com/photo-1491553895911-0055eca6402d?auto=format&fit=crop&w=800&q=80",
+      "https://i.pinimg.com/1200x/90/50/c2/9050c27fee175aa36681e5feb283c817.jpg",
     name: "Bảo tàng thành phố",
     district: "Quận 3",
     xp: 980,
@@ -207,7 +236,7 @@ export const hotspots = [
   {
     id: "h3",
     cover:
-      "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=800&q=80",
+      "https://i.pinimg.com/736x/4d/1f/b4/4d1fb43e52e4754cbfa20cc737cd89b7.jpg",
     name: "Khu phố cổ",
     district: "Quận 5",
     xp: 860,
@@ -215,22 +244,22 @@ export const hotspots = [
   {
     id: "h4",
     cover:
-      "https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=800&q=80",
+      "https://i.pinimg.com/736x/ff/70/48/ff70480a7e957aca0c446451318cce2d.jpg",
     name: "Công trình nghệ thuật",
     district: "Quận 7",
     xp: 745,
   },
 ];
 
-export const approvals = [
+export const approvals: ApprovalItem[] = [
   {
     id: "a1",
     thumbnail:
       "https://images.unsplash.com/photo-1518733057094-95b53169d5af?auto=format&fit=crop&w=400&q=80",
     title: "Bưu điện Trung tâm - Đề xuất hotspot",
     type: "Hotspot",
-    curator: "Lan Anh",
-    submittedAt: "2025-05-21T11:00:00.000Z",
+    submittedAt: "2026-06-06T01:15:00Z",
+    curator: "Minh Anh",
     status: "pending",
   },
   {
@@ -239,8 +268,8 @@ export const approvals = [
       "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=400&q=80",
     title: "Story: Văn hoá đường phố Sài Gòn",
     type: "Story",
-    curator: "Thu Hà",
-    submittedAt: "2025-05-21T16:40:00.000Z",
+    submittedAt: "2026-06-06T03:40:00Z",
+    curator: "Hương",
     status: "pending",
   },
   {
@@ -279,9 +308,9 @@ export const approvals = [
       "https://images.unsplash.com/photo-1503264116251-35a269479413?auto=format&fit=crop&w=400&q=80",
     title: "Hành trình văn hóa đêm - Đề xuất tuyến mới",
     type: "Route",
+    submittedAt: "2026-06-06T05:05:00Z",
     curator: "Thanh",
-    submittedAt: "2025-05-23T09:15:00.000Z",
-    status: "rejected",
+    status: "pending",
   },
 ] as const;
 
