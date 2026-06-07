@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useDeferredValue, useState } from "react";
-import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { useDeferredValue, useEffect, useState } from "react";
+import { Eye, MoreHorizontal, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,6 +96,7 @@ function getTagDetailHref(tagId: string) {
 export default function CuratorTagsPage() {
   const [tags, setTags] = useState(initialTags);
   const [searchQuery, setSearchQuery] = useState("");
+  const [openMenuTagId, setOpenMenuTagId] = useState<string | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -119,6 +120,30 @@ export default function CuratorTagsPage() {
     pendingDeleteId === null
       ? null
       : (tags.find((tag) => tag.id === pendingDeleteId) ?? null);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+
+      if (!event.target.closest("[data-tag-actions]")) {
+        setOpenMenuTagId(null);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpenMenuTagId(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   function resetForm() {
     setFormName("");
@@ -217,6 +242,7 @@ export default function CuratorTagsPage() {
   }
 
   function handleDeleteRequest(tagId: string) {
+    setOpenMenuTagId(null);
     setPendingDeleteId(tagId);
   }
 
@@ -389,9 +415,10 @@ export default function CuratorTagsPage() {
                     <div
                       key={`${tag.id}-row`}
                       className={cn(
-                        "flex flex-col gap-4 py-4 lg:flex-row lg:items-center",
+                        "relative flex flex-col gap-4 py-4 lg:flex-row lg:items-center",
                         index !== filteredTags.length - 1 &&
                           "border-b border-[#E6DDD1]",
+                        openMenuTagId === tag.id && "z-20",
                       )}
                     >
                       <div className="min-w-0 flex-1">
@@ -422,23 +449,67 @@ export default function CuratorTagsPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div
+                        className="relative self-end lg:self-auto"
+                        data-tag-actions
+                      >
                         <button
                           type="button"
-                          onClick={() => handleEditTag(tag)}
-                          className="inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-white hover:text-slate-700"
-                          aria-label={`Sửa ${tag.name}`}
+                          aria-haspopup="menu"
+                          aria-expanded={openMenuTagId === tag.id}
+                          onClick={() =>
+                            setOpenMenuTagId(
+                              openMenuTagId === tag.id ? null : tag.id,
+                            )
+                          }
+                          className={cn(
+                            "inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-white hover:text-slate-700",
+                            openMenuTagId === tag.id && "bg-white",
+                          )}
+                          aria-label={`Tác vụ cho ${tag.name}`}
                         >
-                          <Pencil className="h-5 w-5" />
+                          <MoreHorizontal className="h-4 w-4" />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteRequest(tag.id)}
-                          className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#FF3B30] transition hover:bg-[#FFF1EF]"
-                          aria-label={`Xóa ${tag.name}`}
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
+
+                        {openMenuTagId === tag.id ? (
+                          <div
+                            role="menu"
+                            className="absolute right-0 top-[calc(100%+0.6rem)] w-40 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
+                          >
+                            <Link
+                              href={getTagDetailHref(tag.id)}
+                              role="menuitem"
+                              onClick={() => setOpenMenuTagId(null)}
+                              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                            >
+                              <Eye className="h-4 w-4" />
+                              <span>Xem</span>
+                            </Link>
+
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                setOpenMenuTagId(null);
+                                handleEditTag(tag);
+                              }}
+                              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                            >
+                              <Pencil className="h-4 w-4" />
+                              <span>Sửa</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => handleDeleteRequest(tag.id)}
+                              className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-slate-100 px-3 pt-3 pb-2.5 text-left text-sm font-medium text-red-500 transition hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span>Xóa</span>
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   );

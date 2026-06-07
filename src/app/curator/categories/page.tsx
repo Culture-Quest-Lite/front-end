@@ -1,7 +1,7 @@
 "use client";
 
-import { useDeferredValue, useRef, useState } from "react";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,6 +74,9 @@ function getCategoryInitial(name: string) {
 export default function CuratorCategoriesPage() {
   const [categories, setCategories] = useState(initialCategories);
   const [searchQuery, setSearchQuery] = useState("");
+  const [openMenuCategoryId, setOpenMenuCategoryId] = useState<string | null>(
+    null,
+  );
   const [draftName, setDraftName] = useState("");
   const [draftColor, setDraftColor] = useState("#C2410C");
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(
@@ -93,6 +96,30 @@ export default function CuratorCategoriesPage() {
     return normalizeText(category.name).includes(normalizedQuery);
   });
   const isEditing = editingCategoryId !== null;
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+
+      if (!event.target.closest("[data-category-actions]")) {
+        setOpenMenuCategoryId(null);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpenMenuCategoryId(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   function handleCreateFocus() {
     createSectionRef.current?.scrollIntoView({
@@ -182,6 +209,7 @@ export default function CuratorCategoriesPage() {
     setCategories((current) =>
       current.filter((category) => category.id !== categoryId),
     );
+    setOpenMenuCategoryId(null);
 
     if (editingCategoryId === categoryId) {
       resetForm();
@@ -235,9 +263,10 @@ export default function CuratorCategoriesPage() {
               <div
                 key={category.id}
                 className={cn(
-                  "flex items-center gap-4 py-5",
+                  "relative flex items-center gap-4 py-5",
                   index !== filteredCategories.length - 1 &&
                     "border-b border-[#E6DDD1]",
+                  openMenuCategoryId === category.id && "z-20",
                 )}
               >
                 <div
@@ -256,23 +285,57 @@ export default function CuratorCategoriesPage() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div
+                  className="relative self-start sm:self-auto"
+                  data-category-actions
+                >
                   <button
                     type="button"
-                    onClick={() => handleEditCategory(category)}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
-                    aria-label={`Sửa ${category.name}`}
+                    aria-haspopup="menu"
+                    aria-expanded={openMenuCategoryId === category.id}
+                    onClick={() =>
+                      setOpenMenuCategoryId(
+                        openMenuCategoryId === category.id ? null : category.id,
+                      )
+                    }
+                    className={cn(
+                      "inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700",
+                      openMenuCategoryId === category.id && "bg-slate-100",
+                    )}
+                    aria-label={`Tác vụ cho ${category.name}`}
                   >
-                    <Pencil className="h-5 w-5" />
+                    <MoreHorizontal className="h-4 w-4" />
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteCategory(category.id)}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#FF3B30] transition hover:bg-[#FFF1EF]"
-                    aria-label={`Xóa ${category.name}`}
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </button>
+
+                  {openMenuCategoryId === category.id ? (
+                    <div
+                      role="menu"
+                      className="absolute right-0 top-[calc(100%+0.6rem)] w-40 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setOpenMenuCategoryId(null);
+                          handleEditCategory(category);
+                        }}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        <span>Sửa</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => handleDeleteCategory(category.id)}
+                        className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-slate-100 px-3 pt-3 pb-2.5 text-left text-sm font-medium text-red-500 transition hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span>Xóa</span>
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ))}
