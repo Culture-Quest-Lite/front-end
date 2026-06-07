@@ -19,6 +19,7 @@ export interface AuditEntry {
   at: string;
   before?: string;
   after?: string;
+  details?: string;
 }
 
 export const audit: AuditEntry[] = [
@@ -28,6 +29,7 @@ export const audit: AuditEntry[] = [
     action: "Duyệt",
     target: "Hotspot lịch sử Nhà thờ Đức Bà",
     at: "2026-05-29T08:45:00Z",
+    details: "Nội dung được xác nhận phù hợp, không phát hiện thông tin nhạy cảm hoặc sai sự kiện lịch sử.",
   },
   {
     id: "audit-2",
@@ -37,6 +39,7 @@ export const audit: AuditEntry[] = [
     at: "2026-05-30T14:15:00Z",
     before: "Nội dung không chính xác",
     after: "Nội dung đã được cập nhật",
+    details: "Kiểm duyệt viên yêu cầu sửa đổi phần năm sản xuất và nguồn gốc xe trước khi duyệt lại.",
   },
   {
     id: "audit-3",
@@ -44,6 +47,7 @@ export const audit: AuditEntry[] = [
     action: "Khoá",
     target: "Tuyến tham quan đường sách",
     at: "2026-06-01T09:20:00Z",
+    details: "Tuyến bị khoá tạm thời do phát hiện thông tin sai lệch về thời gian hoạt động.",
   },
   {
     id: "audit-4",
@@ -53,6 +57,7 @@ export const audit: AuditEntry[] = [
     at: "2026-06-02T13:50:00Z",
     before: "Giờ mở cửa: 7:00-22:00",
     after: "Giờ mở cửa: 6:00-23:00",
+    details: "Dữ liệu mở cửa đã được cập nhật theo thông tin mới từ ban quản lý khu ẩm thực.",
   },
   {
     id: "audit-5",

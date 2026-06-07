@@ -44,6 +44,21 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
   return body as T;
 }
 
+export interface AuditEntry {
+  id: string;
+  who: string;
+  action: string;
+  target: string;
+  at: string;
+  before?: string;
+  after?: string;
+  details?: string;
+}
+
+export async function fetchAuditHistory() {
+  return apiFetch<AuditEntry[]>("/audit/history");
+}
+
 export async function loginUser(credentials: LoginCredentials) {
   return apiFetch<{ token: string; user?: Record<string, unknown> }>("/auth/login", {
     method: "POST",

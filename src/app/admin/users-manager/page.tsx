@@ -4,223 +4,172 @@ import { useState } from "react";
 import { PageHeader } from "@/components/app/ui-bits";
 import { users, type User } from "@/data/demo";
 import { Button } from "@/components/ui/button";
-import { Search, Lock, Unlock, ShieldAlert, MoreHorizontal, UserCog } from "lucide-react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Search, MoreHorizontal } from "lucide-react";
 
-const roleTone: Record<string, string> = {
-  Admin: "bg-destructive/15 text-destructive border-destructive/30",
-  Curator: "bg-info/15 text-info border-info/30",
-  Explorer: "bg-success/15 text-success border-success/30",
-  Guest: "bg-muted text-muted-foreground border-border",
+const roleClasses: Record<string, string> = {
+  Admin: "bg-red-100 text-red-700",
+  Curator: "bg-sky-100 text-sky-700",
+  Explorer: "bg-emerald-100 text-emerald-700",
+  Guest: "bg-slate-100 text-slate-700",
 };
 
-const statusTone: Record<string, string> = {
-  "Hoạt động": "bg-success/15 text-success",
-  "Bị khoá": "bg-destructive/15 text-destructive",
-  "Đang xem xét": "bg-warning/20 text-warning-foreground",
+const statusClasses: Record<string, string> = {
+  "Hoạt động": "bg-emerald-100 text-emerald-700",
+  "Đang xem xét": "bg-amber-100 text-amber-700",
+  "Bị khoá": "bg-red-100 text-red-700",
 };
 
 export default function UsersManagerPage() {
-  const [q, setQ] = useState("");
-  const [role, setRole] = useState("all");
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [showLockDialog, setShowLockDialog] = useState(false);
+  const [query, setQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
-  const filtered = users.filter(
-    (u) =>
-      (!q || u.name.toLowerCase().includes(q.toLowerCase()) || u.email.includes(q)) &&
-      (role === "all" || u.role === role)
+  const filteredUsers = users.filter(
+    (user) =>
+      (!query || user.name.toLowerCase().includes(query.toLowerCase()) || user.email.toLowerCase().includes(query.toLowerCase())) &&
+      (roleFilter === "all" || user.role === roleFilter)
   );
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
-        title="Người dùng &amp; phân quyền"
-        subtitle="Quản lý vai trò RBAC: Guest · Explorer · Curator · Admin (BR-20, BR-23, BR-25)."
+        title="Quản lý người dùng"
+        subtitle="Bố cục dashboard quản trị hiện đại cho vai trò, trạng thái và hành động hàng loạt."
       />
 
-      <div className="card-elev rounded-2xl p-3 flex flex-col md:flex-row gap-2">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Tìm tên, email…"
-            className="w-full h-10 pl-9 pr-3 rounded-lg bg-surface-2 border border-border text-sm outline-none"
-          />
+      <div className="rounded-[16px] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Danh sách người dùng</h2>
+            <p className="mt-1 text-sm text-slate-500">Tìm kiếm và sắp xếp người dùng trước khi thực hiện hành động.</p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative w-full min-w-[220px] md:max-w-sm">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Tìm tên hoặc email"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-10 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="all">Tất cả vai trò</option>
+              <option value="Admin">Quản trị viên</option>
+              <option value="Curator">Người quản lý nội dung</option>
+              <option value="Explorer">Người khám phá</option>
+              <option value="Guest">Khách</option>
+            </select>
+          </div>
         </div>
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          className="h-10 px-3 rounded-lg bg-surface-2 border border-border text-sm"
-        >
-          <option value="all">Mọi vai trò</option>
-          <option>Admin</option>
-          <option>Curator</option>
-          <option>Explorer</option>
-          <option>Guest</option>
-        </select>
       </div>
 
-      <div className="card-elev rounded-2xl overflow-hidden">
-        <div className="hidden md:grid grid-cols-12 px-4 py-2 text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
-          <div className="col-span-4">Người dùng</div>
-          <div className="col-span-2">Vai trò</div>
-          <div className="col-span-2">Trạng thái</div>
-          <div className="col-span-2">Check-in</div>
-          <div className="col-span-2 text-right">Hành động</div>
-        </div>
-        <ul className="divide-y divide-border">
-          {filtered.map((u) => (
-            <li key={u.id} className="grid grid-cols-12 px-4 py-3 items-center gap-2 hover:bg-surface-2/60">
-              <Sheet>
-                <SheetTrigger asChild>
-                  <button className="col-span-12 md:col-span-4 flex items-center gap-3 text-left">
-                    <img src={u.avatar} alt={u.name} className="w-10 h-10 rounded-full" />
+      <div className="rounded-[16px] border border-slate-200 bg-slate-50 p-5 shadow-sm">
+        <div className="overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-sm">
+          <div className="hidden min-w-[720px] grid-cols-[3.5fr_1fr_1fr_0.8fr_0.8fr] gap-4 px-5 py-4 text-[11px] uppercase tracking-[0.18em] text-slate-500 md:grid">
+            <div>Người dùng</div>
+            <div>Vai trò</div>
+            <div>Trạng thái</div>
+            <div className="text-center">Lần check-in</div>
+            <div className="text-right">Hành động</div>
+          </div>
+
+          <ul className="space-y-3 p-4 md:p-5">
+            {filteredUsers.map((user) => (
+              <li key={user.id} className="overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md md:shadow-none md:hover:shadow-sm">
+                <div className="grid gap-4 p-4 md:grid-cols-[3.5fr_1fr_1fr_0.8fr_0.8fr] md:items-center md:p-4">
+                  <div className="flex items-center gap-4">
+                    <img src={user.avatar} alt={user.name} className="h-12 w-12 rounded-full object-cover" />
                     <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">{u.name}</div>
-                      <div className="text-[11px] text-muted-foreground truncate">{u.email}</div>
-                    </div>
-                  </button>
-                </SheetTrigger>
-                <SheetContent className="w-full sm:max-w-md">
-                  <SheetHeader>
-                    <SheetTitle>Chi tiết người dùng</SheetTitle>
-                  </SheetHeader>
-                  <div className="mt-4 flex items-center gap-3">
-                    <img src={u.avatar} alt={u.name} className="w-16 h-16 rounded-full" />
-                    <div>
-                      <div className="font-semibold">{u.name}</div>
-                      <div className="text-xs text-muted-foreground">{u.email}</div>
-                      <div className="mt-2 flex gap-2">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full border ${roleTone[u.role]}`}>
-                          {u.role}
-                        </span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${statusTone[u.status]}`}>
-                          {u.status}
-                        </span>
-                      </div>
+                      <div className="text-sm font-semibold text-slate-900 truncate">{user.name}</div>
+                      <div className="mt-1 text-sm text-slate-500 truncate">{user.email}</div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 mt-4 text-xs">
-                    <Stat label="Check-in" value={String(u.checkins)} />
-                    <Stat label="Đóng góp" value="12" />
-                    <Stat label="Báo cáo" value="0" />
+
+                  <div className="flex items-center">
+                    <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${roleClasses[user.role]}`}>
+                      {user.role}
+                    </span>
                   </div>
-                  <div className="mt-4 space-y-2">
-                    <div className="text-xs font-semibold">Đổi vai trò</div>
-                    <select
-                      defaultValue={u.role}
-                      className="w-full h-9 px-3 rounded-lg bg-surface-2 border border-border text-sm"
-                    >
-                      <option>Admin</option>
-                      <option>Curator</option>
-                      <option>Explorer</option>
-                      <option>Guest</option>
-                    </select>
-                    <div className="text-[11px] text-warning-foreground inline-flex items-center gap-1.5">
-                      <ShieldAlert className="w-3.5 h-3.5" />
-                      Cảnh báo: hành động này thay đổi quyền truy cập.
-                    </div>
+
+                  <div className="flex items-center">
+                    <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${statusClasses[user.status]}`}>
+                      {user.status}
+                    </span>
                   </div>
-                  <div className="mt-4 flex gap-2">
-                    {u.status === "Bị khoá" ? (
-                      <Button className="flex-1" variant="outline">
-                        <Unlock className="w-4 h-4 mr-1.5" />
-                        Mở khoá
-                      </Button>
-                    ) : (
-                      <Button
-                        className="flex-1"
-                        variant="destructive"
-                        onClick={() => {
-                          setSelectedUser(u);
-                          setShowLockDialog(true);
-                        }}
+
+                  <div className="flex items-center justify-center font-medium text-slate-900">{user.checkins}</div>
+
+                  <div className="flex justify-end">
+                    <div className="relative inline-flex text-left" tabIndex={-1} onBlur={(event) => {
+                      if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                        setOpenMenuId(null);
+                      }
+                    }}>
+                      <button
+                        type="button"
+                        onClick={() => setOpenMenuId(openMenuId === user.id ? null : user.id)}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100"
+                        aria-expanded={openMenuId === user.id}
+                        aria-label="Mở menu hành động"
                       >
-                        <Lock className="w-4 h-4 mr-1.5" />
-                        Khoá tài khoản
-                      </Button>
-                    )}
-                    <Button className="flex-1" variant="outline">
-                      <UserCog className="w-4 h-4 mr-1.5" />
-                      Cảnh cáo
-                    </Button>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
+                      {openMenuId === user.id ? (
+                        <div className="absolute right-0 top-full z-10 mt-2 min-w-[180px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+                          <button className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50">Xem chi tiết</button>
+                          <button className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50">Chỉnh sửa</button>
+                          <button className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50">Khoá tài khoản</button>
+                          <button className="w-full px-4 py-3 text-left text-sm text-red-600 transition hover:bg-slate-50">Xóa người dùng</button>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
-                </SheetContent>
-              </Sheet>
-              <div className="col-span-6 md:col-span-2">
-                <span className={`text-[10px] px-2 py-0.5 rounded-full border ${roleTone[u.role]}`}>
-                  {u.role}
-                </span>
-              </div>
-              <div className="col-span-6 md:col-span-2">
-                <span className={`text-[10px] px-2 py-0.5 rounded-full ${statusTone[u.status]}`}>
-                  {u.status}
-                </span>
-              </div>
-              <div className="hidden md:block col-span-2 text-sm">{u.checkins}</div>
-              <div className="hidden md:flex col-span-2 justify-end">
-                <button className="w-8 h-8 rounded-lg hover:bg-surface-2 grid place-items-center">
-                  <MoreHorizontal className="w-4 h-4" />
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
+                </div>
 
-      {showLockDialog && selectedUser && (
-        <LockAccountDialog
-          user={selectedUser}
-          onClose={() => {
-            setShowLockDialog(false);
-            setSelectedUser(null);
-          }}
-          onConfirm={() => {
-            setShowLockDialog(false);
-            setSelectedUser(null);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-surface-2 p-3">
-      <div className="text-[10px] text-muted-foreground">{label}</div>
-      <div className="font-display font-bold text-lg">{value}</div>
-    </div>
-  );
-}
-
-function LockAccountDialog({
-  user,
-  onClose,
-  onConfirm,
-}: {
-  user: User;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-zinc-950">
-        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">
-          Khoá tài khoản {user.name}?
-        </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Người dùng sẽ không thể đăng nhập cho tới khi được mở khoá. Hành động được ghi log audit.
-        </p>
-        <div className="mt-6 flex gap-3 justify-end">
-          <Button variant="outline" onClick={onClose}>
-            Huỷ
-          </Button>
-          <Button variant="destructive" onClick={onConfirm}>
-            Xác nhận khoá
-          </Button>
+                <div className="grid gap-3 border-t border-slate-200 px-4 py-4 md:hidden">
+                  <div className="flex flex-wrap gap-2">
+                    <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${roleClasses[user.role]}`}>
+                      {user.role}
+                    </span>
+                    <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${statusClasses[user.status]}`}>
+                      {user.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm font-medium text-slate-900">
+                    <span>{user.checkins} check-ins</span>
+                    <div className="relative inline-flex text-left" tabIndex={-1} onBlur={(event) => {
+                      if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                        setOpenMenuId(null);
+                      }
+                    }}>
+                      <button
+                          type="button"
+                          onClick={() => setOpenMenuId(openMenuId === user.id ? null : user.id)}
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100"
+                          aria-expanded={openMenuId === user.id}
+                          aria-label="Mở menu hành động"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
+                        {openMenuId === user.id ? (
+                          <div className="absolute right-0 top-full z-10 mt-2 min-w-[180px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+                            <button className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50">Xem chi tiết</button>
+                            <button className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50">Chỉnh sửa</button>
+                            <button className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50">Khoá tài khoản</button>
+                            <button className="w-full px-4 py-3 text-left text-sm text-red-600 transition hover:bg-slate-50">Xóa người dùng</button>
+                          </div>
+                        ) : null}
+                    </div>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </div>
