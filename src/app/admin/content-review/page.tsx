@@ -20,6 +20,7 @@ type OpenDialog = { type: "approve" | "reject"; itemId: string } | null;
 export default function ContentReviewPage() {
   const [type, setType] = useState<FilterType>("all");
   const [dialog, setDialog] = useState<OpenDialog>(null);
+  const [detailItem, setDetailItem] = useState<(typeof approvals)[number] | null>(null);
 
   const filtered = useMemo(
     () => approvals.filter((item) => type === "all" || item.type === type),
@@ -42,7 +43,6 @@ export default function ContentReviewPage() {
     <div className="space-y-6 py-6">
       <PageHeader
         title="Duyệt nội dung"
-        subtitle="Xem xét và phê duyệt nội dung do Curator gửi (BR-03, BR-09)."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-muted-foreground">SLA trung bình: 6h</span>
@@ -61,7 +61,7 @@ export default function ContentReviewPage() {
             onClick={() => setType(filter.key)}
             className={`shrink-0 rounded-full border px-3 py-1.5 text-xs transition ${
               type === filter.key
-                ? "bg-primary text-primary-foreground border-primary"
+                ? "bg-red-50 text-red-700 border-red-100"
                 : "bg-surface border-border text-muted-foreground"
             }`}
           >
@@ -72,7 +72,7 @@ export default function ContentReviewPage() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {filtered.map((item) => (
-          <div key={item.id} className="overflow-hidden rounded-3xl border border-border bg-white shadow-sm dark:bg-zinc-950">
+          <div key={item.id} onClick={() => setDetailItem(item)} className="cursor-pointer overflow-hidden rounded-3xl border border-border bg-white shadow-sm dark:bg-zinc-950">
             <div className="flex gap-3 p-3">
               <img src={item.thumbnail} alt={item.title} className="h-24 w-24 flex-none rounded-2xl object-cover" />
               <div className="min-w-0 flex-1">
@@ -90,18 +90,18 @@ export default function ContentReviewPage() {
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 border-t border-border">
+              <div className="grid grid-cols-2 border-t border-border">
               <button
                 type="button"
-                onClick={() => setDialog({ type: "reject", itemId: item.id })}
-                className="flex items-center justify-center gap-1.5 border-r border-border py-2.5 text-sm font-medium text-destructive hover:bg-destructive/5"
+                onClick={(e) => { e.stopPropagation(); setDialog({ type: "reject", itemId: item.id }) }}
+                className="flex items-center justify-center gap-1.5 border-r border-border py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
               >
                 <X className="h-4 w-4" /> Từ chối
               </button>
               <button
                 type="button"
-                onClick={() => setDialog({ type: "approve", itemId: item.id })}
-                className="flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium text-success hover:bg-success/5"
+                onClick={(e) => { e.stopPropagation(); setDialog({ type: "approve", itemId: item.id }) }}
+                className="flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium text-emerald-600 hover:bg-emerald-50"
               >
                 <Check className="h-4 w-4" /> Phê duyệt
               </button>
@@ -121,13 +121,47 @@ export default function ContentReviewPage() {
             <Button variant="outline" onClick={() => setDialog(null)}>
               Huỷ
             </Button>
-            <Button variant={dialog?.type === "approve" ? "default" : "destructive"} onClick={() => setDialog(null)}>
+            <Button
+              onClick={() => setDialog(null)}
+              className={
+                dialog?.type === "approve"
+                  ? "bg-emerald-600 text-white hover:bg-emerald-700 border-transparent gap-1.5"
+                  : "bg-red-600 text-white hover:bg-red-700 border-transparent gap-1.5"
+              }
+            >
               {dialog?.type === "approve" ? (
                 <><Check className="h-4 w-4 mr-1.5" /> Phê duyệt & xuất bản</>
               ) : (
                 <><MessageSquare className="h-4 w-4 mr-1.5" /> Gửi từ chối</>
               )}
             </Button>
+          </div>
+        </Modal>
+      ) : null}
+
+      {detailItem ? (
+        <Modal open onClose={() => setDetailItem(null)} title={`${detailItem.type} — ${detailItem.title}`}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <img src={detailItem.thumbnail} alt={detailItem.title} className="h-56 w-full rounded-3xl object-cover" />
+            <div className="space-y-3 text-sm text-slate-700 dark:text-slate-300">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1">{detailItem.type}</span>
+                <span>·</span>
+                <span>Gửi lúc {new Date(detailItem.submittedAt).toLocaleString("vi-VN")}</span>
+              </div>
+              <div className="text-lg font-semibold text-slate-950 dark:text-slate-50">{detailItem.title}</div>
+              <div className="flex items-center gap-2">
+                <div className="grid h-6 w-6 place-items-center rounded-full bg-primary-soft text-primary text-[10px] font-bold">{detailItem.curator.charAt(0)}</div>
+                <div className="text-sm">{detailItem.curator}</div>
+                <StatusPill status={detailItem.status} />
+              </div>
+              <p className="text-sm text-muted-foreground">Mô tả mẫu: Nội dung mô tả chi tiết sẽ hiển thị ở đây. (Dữ liệu demo)</p>
+              <div className="mt-3 flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setDetailItem(null)}>Đóng</Button>
+                <Button className="text-emerald-600 hover:bg-emerald-50" onClick={() => { setDialog({ type: 'approve', itemId: detailItem.id }); setDetailItem(null); }}>Phê duyệt</Button>
+                <Button className="text-red-600 hover:bg-red-50" onClick={() => { setDialog({ type: 'reject', itemId: detailItem.id }); setDetailItem(null); }}>Từ chối</Button>
+              </div>
+            </div>
           </div>
         </Modal>
       ) : null}
