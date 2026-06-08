@@ -11,7 +11,6 @@ import {
   LocateFixed,
   MapPin,
   PencilLine,
-  Route,
   ShieldCheck,
   Sparkles,
   Tag,
@@ -189,72 +188,51 @@ export default async function HotspotDetailPage({
           <MetricTile value={profile.stats.routes} label="Tuyến chứa điểm" />
         </div>
 
-        <div className="mt-6 grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
-          <div className="grid gap-4">
-            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
-              <div className="flex items-start gap-3">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
-                <div>
-                  <p className="cq-label">
-                    Địa chỉ
-                  </p>
-                  <p className="mt-1 text-sm font-medium leading-6 text-slate-900">
-                    {hotspot.address}
-                  </p>
-                  <p className="cq-page-subtitle mt-1">
-                    {profile.coordinates} · {profile.district}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
-                <div className="flex items-center gap-3">
-                  <Clock3 className="h-4 w-4 text-amber-600" />
-                  <div>
-                    <p className="cq-label">
-                      Thời lượng tham quan
-                    </p>
-                    <p className="cq-card-title mt-1">
-                      {profile.estimatedVisit}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
-                <div className="flex items-center gap-3">
-                  <Compass className="h-4 w-4 text-emerald-600" />
-                  <div>
-                    <p className="cq-label">
-                      Khung giờ đẹp
-                    </p>
-                    <p className="cq-card-title mt-1">
-                      {profile.bestTime}
-                    </p>
-                  </div>
-                </div>
+        <div className="mt-6 grid gap-4">
+          <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
+            <div className="flex items-start gap-3">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+              <div>
+                <p className="cq-label">
+                  Địa chỉ
+                </p>
+                <p className="mt-1 text-sm font-medium leading-6 text-slate-900">
+                  {hotspot.address}
+                </p>
+                <p className="cq-page-subtitle mt-1">
+                  {profile.coordinates} · {profile.district}
+                </p>
               </div>
             </div>
           </div>
 
-          <div className="rounded-[1.5rem] border border-slate-200 bg-[linear-gradient(180deg,#fffaf0_0%,#ffffff_100%)] px-4 py-4 sm:px-5">
-            <div className="flex items-center gap-2">
-              <Route className="h-4 w-4 text-sky-600" />
-              <p className="cq-card-title">
-                Tuyến liên quan
-              </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
+              <div className="flex items-center gap-3">
+                <Clock3 className="h-4 w-4 text-amber-600" />
+                <div>
+                  <p className="cq-label">
+                    Thời lượng tham quan
+                  </p>
+                  <p className="cq-card-title mt-1">
+                    {profile.estimatedVisit}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {hotspot.relatedTopics.map((topic) => (
-                <span
-                  key={topic}
-                  className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 ring-1 ring-sky-100"
-                >
-                  {topic}
-                </span>
-              ))}
+
+            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
+              <div className="flex items-center gap-3">
+                <Compass className="h-4 w-4 text-emerald-600" />
+                <div>
+                  <p className="cq-label">
+                    Khung giờ đẹp
+                  </p>
+                  <p className="cq-card-title mt-1">
+                    {profile.bestTime}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

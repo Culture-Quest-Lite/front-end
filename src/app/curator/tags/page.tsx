@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { useDeferredValue, useEffect, useState } from "react";
-import { Eye, MoreHorizontal, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import {
+  Eye,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -284,41 +292,20 @@ export default function CuratorTagsPage() {
             </Button>
           </div>
 
+          <div className="relative w-full lg:max-w-[320px]">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Tìm thẻ phù hợp"
+              className="h-11 rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
+            />
+          </div>
+
           <section className="rounded-[1.75rem] border border-slate-200/80 bg-card p-4 shadow-sm sm:p-5">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <h2 className="cq-section-title">
-                Thẻ ({tags.length})
-              </h2>
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="relative w-full sm:w-[240px]">
-                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Tìm thẻ phù hợp"
-                    className="h-11 rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
-                  />
-                </div>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="lg"
-                  onClick={openCreateModal}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm shadow-sm hover:bg-slate-50"
-                >
-                  <Plus className="h-4 w-4" />
-                  Thẻ mới
-                </Button>
-              </div>
-            </div>
-
-            <div className="mt-6 grid gap-6 xl:grid-cols-[0.94fr_1.06fr]">
+            <div className="grid gap-6 xl:grid-cols-[0.94fr_1.06fr]">
               <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
-                <h3 className="cq-card-title">
-                  Thẻ đang dùng
-                </h3>
+                <h3 className="cq-card-title">Thẻ đang dùng</h3>
 
                 <div className="mt-4 flex flex-wrap gap-3">
                   {filteredTags.map((tag) => {
@@ -352,9 +339,7 @@ export default function CuratorTagsPage() {
               </div>
 
               <div className="rounded-[1.5rem] border border-slate-200 bg-white p-4">
-                <h3 className="cq-card-title">
-                  Thống kê sử dụng
-                </h3>
+                <h3 className="cq-card-title">Thống kê sử dụng</h3>
 
                 <div className="mt-4 space-y-4">
                   {filteredTags.map((tag) => (
@@ -394,9 +379,7 @@ export default function CuratorTagsPage() {
             <div className="mt-6 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h3 className="cq-card-title">
-                    Quản lý thẻ
-                  </h3>
+                  <h3 className="cq-card-title">Quản lý thẻ</h3>
                   <p className="cq-page-subtitle mt-1 text-xs sm:text-sm">
                     Tạo, chỉnh sửa và xóa thẻ trực tiếp trên cùng một trang.
                   </p>
@@ -483,7 +466,7 @@ export default function CuratorTagsPage() {
                               className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
                             >
                               <Eye className="h-4 w-4" />
-                              <span>Xem</span>
+                              <span>Xem chi tiết</span>
                             </Link>
 
                             <button
@@ -496,7 +479,7 @@ export default function CuratorTagsPage() {
                               className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
                             >
                               <Pencil className="h-4 w-4" />
-                              <span>Sửa</span>
+                              <span>Chỉnh sửa</span>
                             </button>
 
                             <button

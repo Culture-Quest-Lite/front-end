@@ -1,4 +1,8 @@
+"use client";
+
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { CuratorPagination } from "@/components/curator/CuratorPagination";
 import {
   curatorRoutes,
   routeStatusClasses,
@@ -6,6 +10,8 @@ import {
 } from "@/data/routes";
 import { ChevronRight, Clock3, MapPin, Plus, TrendingUp } from "lucide-react";
 import Link from "next/link";
+
+const ROUTES_PER_PAGE = 8;
 
 function RouteStatusBadge({
   status,
@@ -125,9 +131,17 @@ function RouteCard({ item }: { item: CuratorRoute }) {
 }
 
 export default function CuratorRoutesPage() {
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(curatorRoutes.length / ROUTES_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedRoutes = curatorRoutes.slice(
+    (safeCurrentPage - 1) * ROUTES_PER_PAGE,
+    safeCurrentPage * ROUTES_PER_PAGE,
+  );
+
   return (
-    <div className="space-y-6">
-      <section className="space-y-4">
+    <div className="flex min-h-full flex-col gap-6">
+      <section className="flex flex-1 flex-col gap-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="cq-page-title">
@@ -168,10 +182,20 @@ export default function CuratorRoutesPage() {
         </div>
 
         <div className="mt-7 grid gap-4 xl:grid-cols-2">
-          {curatorRoutes.map((item) => (
+          {paginatedRoutes.map((item) => (
             <RouteCard key={item.slug} item={item} />
           ))}
         </div>
+
+        {curatorRoutes.length > 0 ? (
+          <div className="mt-auto flex justify-end pt-6">
+            <CuratorPagination
+              currentPage={safeCurrentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        ) : null}
       </section>
     </div>
   );

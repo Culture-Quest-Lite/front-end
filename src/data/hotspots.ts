@@ -212,6 +212,26 @@ export const hotspotItems: HotspotItem[] = [
       "https://i.pinimg.com/1200x/ac/38/46/ac3846610b7bd4f3bb2d2873fac300d6.jpg",
     tags: ["#vanhoa"],
   },
+  {
+    slug: "pho-di-bo-nguyen-hue",
+    title: "Phố đi bộ Nguyễn Huệ",
+    subtitle: "Không gian công cộng · Quận 1",
+    author: "Hữu Phước",
+    date: "30/4/2025",
+    address: "Nguyễn Huệ, Bến Nghé, Quận 1, TP.HCM",
+    description:
+      "Trục không gian công cộng trung tâm nối từ trụ sở UBND Thành phố đến bến Bạch Đằng, là nơi diễn ra nhiều hoạt động văn hóa, lễ hội và trải nghiệm phố đi bộ về đêm.",
+    category: "Văn hoá",
+    relatedTopics: ["Hành trình 30/4"],
+    xp: "60 XP",
+    status: "Đã lưu trữ",
+    statusStyle: "bg-slate-500/95 text-white",
+    badge: "Đã lưu trữ",
+    gps: "GPS OK",
+    image:
+      "https://i.pinimg.com/1200x/ac/38/46/ac3846610b7bd4f3bb2d2873fac300d6.jpg",
+    tags: ["#vanhoa"],
+  },
 ];
 
 const hotspotProfiles: Record<string, HotspotProfile> = {
@@ -286,7 +306,8 @@ const hotspotProfiles: Record<string, HotspotProfile> = {
     district: "Quận 3, TP.HCM",
     estimatedVisit: "75 - 120 phút",
     bestTime: "09:00 - 11:30",
-    accessibility: "Phù hợp tuyến học thuật, khách quốc tế và nhóm học sinh lớn.",
+    accessibility:
+      "Phù hợp tuyến học thuật, khách quốc tế và nhóm học sinh lớn.",
     lastUpdated: "24/5/2025",
     factSheet: [
       "Nội dung nên có cảnh báo cảm xúc vì đây là điểm chạm mạnh về chủ đề chiến tranh.",
@@ -330,7 +351,8 @@ const hotspotProfiles: Record<string, HotspotProfile> = {
     district: "Huyện Củ Chi, TP.HCM",
     estimatedVisit: "120 - 180 phút",
     bestTime: "08:00 - 10:00",
-    accessibility: "Phù hợp tour nửa ngày, nhóm học sinh và khách tìm hiểu lịch sử.",
+    accessibility:
+      "Phù hợp tour nửa ngày, nhóm học sinh và khách tìm hiểu lịch sử.",
     lastUpdated: "20/5/2025",
     factSheet: [
       "Nội dung cần nhấn vào trải nghiệm không gian hẹp và mạng lưới địa đạo đa tầng.",
