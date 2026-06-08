@@ -1,7 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, useEffect, type FormEvent, type ReactNode } from "react";
+import { loginByGoogle } from "@/lib/api";
+import { createSessionFromToken, saveAuthSession } from "@/lib/auth";
+
 
 type TravelCardDefinition = {
   id: number;
@@ -73,11 +76,55 @@ export default function TravelLogin() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    if (code) {
+      setLoading(true);
+      window.history.replaceState(null, "", window.location.pathname);
+      
+      const redirectUri = window.location.origin;
+      loginByGoogle(code, redirectUri)
+        .then((response) => {
+          const accessToken = response.accessToken;
+          const refreshToken = response.refreshToken;
+          const session = createSessionFromToken(accessToken, refreshToken);
+          if (session) {
+            saveAuthSession(session);
+            if (session.role === "admin") {
+              window.location.href = "/admin";
+            } else {
+              window.location.href = "/curator";
+            }
+          } else {
+            alert("Bạn không có quyền truy cập trang quản trị này!");
+            setLoading(false);
+          }
+        })
+        .catch((err) => {
+          alert("Đăng nhập bằng Google thất bại: " + (err instanceof Error ? err.message : String(err)));
+          setLoading(false);
+        });
+    }
+  }, []);
+
+  const handleGoogleLogin = () => {
+    const keycloakUrl = process.env.NEXT_PUBLIC_KEYCLOAK_URL ?? "http://localhost:8180";
+    const realm = process.env.NEXT_PUBLIC_KEYCLOAK_REALM ?? "culture-quest-lite";
+    const clientId = process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID ?? "identity-client";
+    const redirectUri = window.location.origin;
+    
+    const url = `${keycloakUrl}/realms/${realm}/protocol/openid-connect/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20profile%20email&kc_idp_hint=google`;
+    
+    window.location.href = url;
+  };
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
     window.setTimeout(() => setLoading(false), 1500);
   };
+
 
   return (
     <div className="h-dvh overflow-hidden bg-[linear-gradient(180deg,_#fbfbfc_0%,_#f6f8fb_100%)] px-4 py-4 sm:px-6 lg:px-8">
@@ -167,7 +214,7 @@ export default function TravelLogin() {
               </div>
 
               <div className="mt-3.5 flex justify-center gap-3">
-                <SocialButton label="Google">
+                <SocialButton label="Google" onClick={handleGoogleLogin}>
                   <GoogleIcon />
                 </SocialButton>
 
@@ -293,13 +340,16 @@ function DecorativePaths() {
 function SocialButton({
   children,
   label,
+  onClick,
 }: {
   children: ReactNode;
   label: string;
+  onClick?: () => void;
 }) {
   return (
     <button
       aria-label={label}
+      onClick={onClick}
       className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-800 transition hover:-translate-y-0.5 hover:border-[#ffcfdf] hover:text-[#de4b8e]"
       type="button"
     >

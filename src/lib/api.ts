@@ -73,3 +73,26 @@ export async function fetchUserProfile(token: string) {
     },
   });
 }
+
+export interface KeycloakTokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+  expiresIn: number;
+  refreshExpiresIn: number;
+}
+
+export async function loginByGoogle(code: string, redirectUri: string) {
+  return apiFetch<KeycloakTokenResponse>("/api/auth/login-by-google", {
+    method: "POST",
+    body: { code, redirectUri },
+  });
+}
+
+export async function logoutUser(refreshToken: string) {
+  return apiFetch<{ message: string }>("/api/auth/logout", {
+    method: "POST",
+    body: { refreshToken },
+  });
+}
+

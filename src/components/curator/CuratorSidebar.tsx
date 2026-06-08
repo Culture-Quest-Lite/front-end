@@ -25,6 +25,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
+import { useAuth } from "@/hooks/use-auth";
 // import { toast } from "sonner";
 // import { logoutFromNextClientToNextServer } from "@/services/auth.service";
 // import { useAppContext } from "@/app/AppProvider";
@@ -64,6 +65,7 @@ const cn = (...classes: Array<string | false | null | undefined>) =>
 
 export function CuratorSidebar() {
   const pathname = usePathname();
+  const { logout } = useAuth();
   //   const { setTokens } = useAppContext();
 
   const isActive = (href: string) => {
@@ -71,28 +73,6 @@ export function CuratorSidebar() {
     if (href === "/curator") return pathname === "/curator";
     return pathname === href || pathname.startsWith(`${href}/`);
   };
-
-  //   const handleLogout = async () => {
-  //     try {
-  //     //   await logoutFromNextClientToNextServer();
-  //       toast.success("Đăng xuất thành công");
-  //     } catch (e) {
-  //       console.error(e);
-  //       toast.error(e instanceof Error ? e.message : "Đăng xuất thất bại");
-  //     } finally {
-  //       try {
-  //         setTokens({ accessToken: "", refreshToken: "", expiresAt: "" });
-  //       } catch (err) {
-  //         console.error("Clear tokens error:", err);
-  //       }
-
-  //       try {
-  //         router.replace("/login");
-  //       } catch (err) {
-  //         console.error("Redirect error:", err);
-  //       }
-  //     }
-  //   };
 
   return (
     <Sidebar className="h-screen border-r border-[#E7EBF2] bg-[#FCFCFD]">
@@ -162,7 +142,7 @@ export function CuratorSidebar() {
         <button
           type="button"
           className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] text-slate-600 transition-colors hover:bg-[#FFF7FA] hover:text-[#D94A8D]"
-          // onClick={() => void handleLogout()}
+          onClick={logout}
         >
           <LogOut className="h-4 w-4" />
           <span className="font-medium">Đăng xuất</span>
