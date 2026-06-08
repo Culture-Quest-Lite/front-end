@@ -11,6 +11,7 @@ export interface AuthSession {
   name: string;
   role: Role;
   token: string;
+  refreshToken?: string;
 }
 
 const STORAGE_KEY = "culture-quest-auth-session";
@@ -81,3 +82,48 @@ export const sampleAccounts = mockUsers.map(({ email, role }) => ({
   password: role === "admin" ? "Admin123" : "Curator123",
   role,
 }));
+
+export function parseJwt(token: string) {
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      window
+        .atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
+export function createSessionFromToken(token: string, refreshToken?: string): AuthSession | null {
+  const payload = parseJwt(token);
+  if (!payload) return null;
+
+  const realmRoles: string[] = payload.realm_access?.roles || [];
+  let role: Role | null = null;
+
+  if (realmRoles.includes("ADMIN")) {
+    role = "admin";
+  } else if (realmRoles.includes("CURATOR")) {
+    role = "curator";
+  }
+
+  if (!role) {
+    return null;
+  }
+
+  return {
+    id: payload.sub || "",
+    email: payload.email || "",
+    name: payload.name || payload.preferred_username || "",
+    role,
+    token,
+    refreshToken,
+  };
+}
+
