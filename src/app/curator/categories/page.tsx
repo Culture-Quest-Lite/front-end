@@ -3,6 +3,7 @@
 import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
 
+import { CuratorPagination } from "@/components/curator/CuratorPagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,7 @@ const initialCategories: CategoryItem[] = [
     color: "#F59E0B",
   },
 ];
+const CATEGORIES_PER_PAGE = 8;
 
 function normalizeText(value: string) {
   return value
@@ -74,6 +76,7 @@ function getCategoryInitial(name: string) {
 export default function CuratorCategoriesPage() {
   const [categories, setCategories] = useState(initialCategories);
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [openMenuCategoryId, setOpenMenuCategoryId] = useState<string | null>(
     null,
   );
@@ -95,6 +98,15 @@ export default function CuratorCategoriesPage() {
 
     return normalizeText(category.name).includes(normalizedQuery);
   });
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredCategories.length / CATEGORIES_PER_PAGE),
+  );
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedCategories = filteredCategories.slice(
+    (safeCurrentPage - 1) * CATEGORIES_PER_PAGE,
+    safeCurrentPage * CATEGORIES_PER_PAGE,
+  );
   const isEditing = editingCategoryId !== null;
 
   useEffect(() => {
@@ -216,9 +228,19 @@ export default function CuratorCategoriesPage() {
     }
   }
 
+  function handleSearchChange(value: string) {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  }
+
+  function handlePageChange(page: number) {
+    setOpenMenuCategoryId(null);
+    setCurrentPage(page);
+  }
+
   return (
-    <div className="space-y-6">
-      <section className="space-y-4">
+    <div className="flex min-h-full flex-col gap-6">
+      <section className="flex flex-1 flex-col gap-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">
             <h1 className="cq-page-title">Danh mục</h1>
@@ -239,112 +261,176 @@ export default function CuratorCategoriesPage() {
           </Button>
         </div>
 
-        <section className="rounded-[1.75rem] border border-slate-200/80 bg-card p-4 shadow-sm sm:p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <h2 className="cq-section-title">Danh mục ({categories.length})</h2>
+        <div className="relative w-full lg:max-w-[320px]">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            value={searchQuery}
+            onChange={(event) => handleSearchChange(event.target.value)}
+            placeholder="Tìm danh mục phù hợp"
+            className="h-11 rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
+          />
+        </div>
 
-            <div className="relative w-full lg:max-w-[218px]">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Tìm danh mục phù hợp"
-                className="h-11 rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
+        <section className="flex flex-1 flex-col gap-5">
+          {filteredCategories.length > 0 ? (
+            <div className="overflow-x-auto rounded-[1.5rem] border border-slate-200 bg-white">
+              <table className="min-w-[780px] w-full border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/90 text-left">
+                    <th className="w-14 px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      #
+                    </th>
+                    <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      Danh mục
+                    </th>
+                    <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      Mã danh mục
+                    </th>
+                    <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      Màu chủ đạo
+                    </th>
+                    <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      Hotspot sử dụng
+                    </th>
+                    <th className="w-20 px-4 py-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedCategories.map((category, index) => (
+                    <tr
+                      key={category.id}
+                      className={cn(
+                        "border-t border-slate-200 align-top",
+                        openMenuCategoryId === category.id && "relative z-20",
+                      )}
+                    >
+                      <td className="px-4 py-4 text-sm font-semibold text-slate-500">
+                        {(safeCurrentPage - 1) * CATEGORIES_PER_PAGE +
+                          index +
+                          1}
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold text-slate-950">
+                            {category.name}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Ký hiệu hiển thị: {category.initial}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="inline-flex rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
+                          {category.id}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="inline-flex items-center gap-3 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
+                          <span
+                            className="h-3 w-3 rounded-full"
+                            style={{ backgroundColor: category.color }}
+                          />
+                          <span className="text-xs font-semibold text-slate-700">
+                            {category.color}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-slate-900">
+                            {category.usageCount}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            hotspot đang dùng
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div
+                          className="relative flex justify-end"
+                          data-category-actions
+                        >
+                          <button
+                            type="button"
+                            aria-haspopup="menu"
+                            aria-expanded={openMenuCategoryId === category.id}
+                            onClick={() =>
+                              setOpenMenuCategoryId(
+                                openMenuCategoryId === category.id
+                                  ? null
+                                  : category.id,
+                              )
+                            }
+                            className={cn(
+                              "inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700",
+                              openMenuCategoryId === category.id &&
+                                "bg-slate-100",
+                            )}
+                            aria-label={`Tác vụ cho ${category.name}`}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+
+                          {openMenuCategoryId === category.id ? (
+                            <div
+                              role="menu"
+                              className="absolute right-0 top-[calc(100%+0.6rem)] w-40 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
+                            >
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => {
+                                  setOpenMenuCategoryId(null);
+                                  handleEditCategory(category);
+                                }}
+                                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                              >
+                                <Pencil className="h-4 w-4" />
+                                <span>Chỉnh sửa</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() =>
+                                  handleDeleteCategory(category.id)
+                                }
+                                className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-slate-100 px-3 pt-3 pb-2.5 text-left text-sm font-medium text-red-500 transition hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                <span>Xóa</span>
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-card px-5 py-10 text-center">
+              <p className="cq-card-title sm:text-base">
+                Không tìm thấy danh mục
+              </p>
+              <p className="cq-page-subtitle mt-2">
+                Thử đổi từ khóa hoặc tạo một danh mục mới.
+              </p>
+            </div>
+          )}
+
+          {filteredCategories.length > 0 ? (
+            <div className="mt-auto flex justify-end pt-6">
+              <CuratorPagination
+                currentPage={safeCurrentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
               />
             </div>
-          </div>
-
-          <div className="mt-5">
-            {filteredCategories.map((category, index) => (
-              <div
-                key={category.id}
-                className={cn(
-                  "relative flex items-center gap-4 py-5",
-                  index !== filteredCategories.length - 1 &&
-                    "border-b border-[#E6DDD1]",
-                  openMenuCategoryId === category.id && "z-20",
-                )}
-              >
-                <div
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lg font-semibold text-white"
-                  style={{ backgroundColor: category.color }}
-                >
-                  {category.initial}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <p className="cq-card-title leading-tight">{category.name}</p>
-                  <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-                    {category.usageCount} hotspot sử dụng
-                  </p>
-                </div>
-
-                <div
-                  className="relative self-start sm:self-auto"
-                  data-category-actions
-                >
-                  <button
-                    type="button"
-                    aria-haspopup="menu"
-                    aria-expanded={openMenuCategoryId === category.id}
-                    onClick={() =>
-                      setOpenMenuCategoryId(
-                        openMenuCategoryId === category.id ? null : category.id,
-                      )
-                    }
-                    className={cn(
-                      "inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700",
-                      openMenuCategoryId === category.id && "bg-slate-100",
-                    )}
-                    aria-label={`Tác vụ cho ${category.name}`}
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </button>
-
-                  {openMenuCategoryId === category.id ? (
-                    <div
-                      role="menu"
-                      className="absolute right-0 top-[calc(100%+0.6rem)] w-40 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
-                    >
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setOpenMenuCategoryId(null);
-                          handleEditCategory(category);
-                        }}
-                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-                      >
-                        <Pencil className="h-4 w-4" />
-                        <span>Sửa</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => handleDeleteCategory(category.id)}
-                        className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-slate-100 px-3 pt-3 pb-2.5 text-left text-sm font-medium text-red-500 transition hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        <span>Xóa</span>
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            ))}
-
-            {filteredCategories.length === 0 ? (
-              <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-card px-5 py-10 text-center">
-                <p className="cq-card-title sm:text-base">
-                  Không tìm thấy danh mục
-                </p>
-                <p className="cq-page-subtitle mt-2">
-                  Thử đổi từ khóa hoặc tạo một danh mục mới.
-                </p>
-              </div>
-            ) : null}
-          </div>
+          ) : null}
         </section>
       </section>
     </div>

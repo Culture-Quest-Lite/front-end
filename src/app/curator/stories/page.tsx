@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { CuratorPagination } from "@/components/curator/CuratorPagination";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -65,19 +66,13 @@ const statusOptions: Array<{ label: string; value: StoryStatus | "all" }> = [
   { label: "Bản nháp", value: "Bản nháp" },
   { label: "Bị từ chối", value: "Bị từ chối" },
 ];
+const STORIES_PER_PAGE = 8;
 
 const statusBadgeClasses: Record<StoryStatus, string> = {
   "Đã xuất bản": "bg-emerald-100 text-emerald-700",
   "Chờ duyệt": "bg-amber-100 text-amber-700",
   "Bản nháp": "bg-slate-100 text-slate-600",
   "Bị từ chối": "bg-rose-100 text-rose-700",
-};
-
-const statusAccentClasses: Record<StoryStatus, string> = {
-  "Đã xuất bản": "bg-emerald-500",
-  "Chờ duyệt": "bg-amber-500",
-  "Bản nháp": "bg-slate-400",
-  "Bị từ chối": "bg-rose-500",
 };
 
 function normalizeText(value: string) {
@@ -92,10 +87,6 @@ function buildStoryId(value: string) {
   return normalizeText(value)
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-}
-
-function getStoryInitial(title: string) {
-  return title.trim().charAt(0).toUpperCase() || "S";
 }
 
 function getTodayLabel() {
@@ -118,6 +109,7 @@ function StatusBadge({ status }: { status: StoryStatus }) {
 export default function CuratorStoriesPage() {
   const [stories, setStories] = useState(initialStories);
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedStatus, setSelectedStatus] = useState<StoryStatus | "all">(
     "all",
   );
@@ -143,6 +135,15 @@ export default function CuratorStoriesPage() {
 
     return matchesQuery && matchesStatus;
   });
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredStories.length / STORIES_PER_PAGE),
+  );
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedStories = filteredStories.slice(
+    (safeCurrentPage - 1) * STORIES_PER_PAGE,
+    safeCurrentPage * STORIES_PER_PAGE,
+  );
   const isEditing = editingStoryId !== null;
 
   useEffect(() => {
@@ -284,9 +285,24 @@ export default function CuratorStoriesPage() {
     }
   }
 
+  function handleSearchChange(value: string) {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  }
+
+  function handleStatusFilterChange(value: StoryStatus | "all") {
+    setSelectedStatus(value);
+    setCurrentPage(1);
+  }
+
+  function handlePageChange(page: number) {
+    setOpenMenuStoryId(null);
+    setCurrentPage(page);
+  }
+
   return (
-    <div className="space-y-6">
-      <section className="space-y-4">
+    <div className="flex min-h-full flex-col gap-6">
+      <section className="flex flex-1 flex-col gap-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">
             <h1 className="cq-page-title">Quản lý câu chuyện</h1>
@@ -308,142 +324,177 @@ export default function CuratorStoriesPage() {
           </Button>
         </div>
 
-        <section className="rounded-[1.75rem] border border-slate-200/80 bg-card p-4 shadow-sm sm:p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <h2 className="cq-section-title">Story ({stories.length})</h2>
-
-            <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:items-center">
-              <div className="relative w-full lg:max-w-[218px]">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <Input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Tìm story phù hợp"
-                  className="h-11 rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
-                />
-              </div>
-
-              <div className="relative w-full lg:w-[220px]">
-                <select
-                  value={selectedStatus}
-                  onChange={(event) =>
-                    setSelectedStatus(event.target.value as StoryStatus | "all")
-                  }
-                  className="h-11 w-full appearance-none rounded-full border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-                >
-                  {statusOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              </div>
-            </div>
+        <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="relative w-full lg:max-w-[320px]">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={searchQuery}
+              onChange={(event) => handleSearchChange(event.target.value)}
+              placeholder="Tìm story phù hợp"
+              className="h-11 rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
+            />
           </div>
 
-          <div className="mt-5">
-            {filteredStories.map((story, index) => (
-              <article
-                key={story.id}
-                className={cn(
-                  "relative flex flex-col gap-4 py-5 sm:flex-row sm:items-center",
-                  index !== filteredStories.length - 1 &&
-                    "border-b border-[#E6DDD1]",
-                  openMenuStoryId === story.id && "z-20",
-                )}
-              >
-                <div className="flex min-w-0 flex-1 items-start gap-4">
-                  <div
-                    className={cn(
-                      "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lg font-semibold text-white",
-                      statusAccentClasses[story.status],
-                    )}
-                  >
-                    {getStoryInitial(story.title)}
-                  </div>
+          <div className="relative w-full lg:max-w-[220px]">
+            <select
+              value={selectedStatus}
+              onChange={(event) =>
+                handleStatusFilterChange(event.target.value as StoryStatus | "all")
+              }
+              className="h-11 w-full appearance-none rounded-full border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+            >
+              {statusOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          </div>
+        </div>
 
-                  <div className="min-w-0 flex-1">
-                    <p className="cq-card-title leading-tight">{story.title}</p>
+        <section className="flex flex-1 flex-col gap-5">
+          <div>
+            {filteredStories.length > 0 ? (
+              <div className="overflow-x-auto rounded-[1.5rem] border border-slate-200 bg-white">
+                <table className="min-w-[760px] w-full border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/90 text-left">
+                      <th className="w-14 px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        #
+                      </th>
+                      <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        Tiêu đề
+                      </th>
+                      <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        Hotspot
+                      </th>
+                      <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        Cập nhật
+                      </th>
+                      <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        Trạng thái
+                      </th>
+                      <th className="w-20 px-4 py-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedStories.map((story, index) => {
+                      return (
+                        <tr
+                          key={story.id}
+                          className={cn(
+                            "border-t border-slate-200 align-top",
+                            openMenuStoryId === story.id && "relative z-20",
+                          )}
+                        >
+                          <td className="px-4 py-4 text-sm font-semibold text-slate-500">
+                            {(safeCurrentPage - 1) * STORIES_PER_PAGE + index + 1}
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold leading-6 text-slate-950">
+                                {story.title}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                Story ID: {story.id}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <span className="inline-flex rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
+                              {story.hotspot}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="space-y-1">
+                              <p className="text-sm font-medium text-slate-900">
+                                {story.updatedAt}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                Cập nhật gần nhất
+                              </p>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <StatusBadge status={story.status} />
+                          </td>
+                          <td className="px-4 py-4">
+                            <div
+                              className="relative flex justify-end"
+                              data-story-actions
+                            >
+                              <button
+                                type="button"
+                                aria-haspopup="menu"
+                                aria-expanded={openMenuStoryId === story.id}
+                                onClick={() =>
+                                  setOpenMenuStoryId(
+                                    openMenuStoryId === story.id
+                                      ? null
+                                      : story.id,
+                                  )
+                                }
+                                className={cn(
+                                  "inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700",
+                                  openMenuStoryId === story.id &&
+                                    "bg-slate-100",
+                                )}
+                                aria-label={`Tác vụ cho ${story.title}`}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
 
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500 sm:text-sm">
-                      <span>{story.hotspot}</span>
-                      <StatusBadge status={story.status} />
-                      <span>Cập nhật {story.updatedAt}</span>
-                    </div>
+                              {openMenuStoryId === story.id ? (
+                                <div
+                                  role="menu"
+                                  className="absolute right-0 top-[calc(100%+0.6rem)] w-40 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
+                                >
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => setOpenMenuStoryId(null)}
+                                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                    <span>Xem chi tiết</span>
+                                  </button>
 
-                    {story.reviewNote ? (
-                      <p className="mt-2 text-xs font-medium text-[#CF3F34] sm:text-sm">
-                        {story.reviewNote}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setOpenMenuStoryId(null);
+                                      handleEditStory(story);
+                                    }}
+                                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                    <span>Chỉnh sửa</span>
+                                  </button>
 
-                <div
-                  className="relative self-end sm:self-auto"
-                  data-story-actions
-                >
-                  <button
-                    type="button"
-                    aria-haspopup="menu"
-                    aria-expanded={openMenuStoryId === story.id}
-                    onClick={() =>
-                      setOpenMenuStoryId(
-                        openMenuStoryId === story.id ? null : story.id,
-                      )
-                    }
-                    className={cn(
-                      "inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700",
-                      openMenuStoryId === story.id && "bg-slate-100",
-                    )}
-                    aria-label={`Tác vụ cho ${story.title}`}
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </button>
-
-                  {openMenuStoryId === story.id ? (
-                    <div
-                      role="menu"
-                      className="absolute right-0 top-[calc(100%+0.6rem)] w-40 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
-                    >
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => setOpenMenuStoryId(null)}
-                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-                      >
-                        <Eye className="h-4 w-4" />
-                        <span>Xem</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setOpenMenuStoryId(null);
-                          handleEditStory(story);
-                        }}
-                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-                      >
-                        <Pencil className="h-4 w-4" />
-                        <span>Sửa</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => handleDeleteStory(story.id)}
-                        className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-slate-100 px-3 pt-3 pb-2.5 text-left text-sm font-medium text-red-500 transition hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        <span>Xóa</span>
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              </article>
-            ))}
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => handleDeleteStory(story.id)}
+                                    className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-slate-100 px-3 pt-3 pb-2.5 text-left text-sm font-medium text-red-500 transition hover:bg-red-50"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                    <span>Xóa</span>
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
 
             {filteredStories.length === 0 ? (
               <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-card px-5 py-10 text-center">
@@ -456,6 +507,16 @@ export default function CuratorStoriesPage() {
               </div>
             ) : null}
           </div>
+
+          {filteredStories.length > 0 ? (
+            <div className="mt-auto flex justify-end pt-6">
+              <CuratorPagination
+                currentPage={safeCurrentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+              />
+            </div>
+          ) : null}
         </section>
       </section>
     </div>

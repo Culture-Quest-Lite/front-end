@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { hotspotItems } from "@/data/hotspots";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -18,12 +19,7 @@ import {
 } from "lucide-react";
 
 const hotspotCategories = ["Kiến trúc", "Lịch sử", "Văn hoá", "Bảo tàng"];
-const tags = ["#lichsu", "#kientruc", "#disan", "#vanhoa"];
-const relatedTopics = [
-  "Sài Gòn 100 năm kiến trúc",
-  "Hành trình 30/4",
-  "Củ Chi - Lòng đất bất khuất",
-];
+const tagOptions = Array.from(new Set(hotspotItems.flatMap((item) => item.tags)));
 
 const defaultAddress = "2 Công xã Paris, Bến Nghé, Quận 1, TP.HCM";
 const suggestedAddresses = [
@@ -35,6 +31,10 @@ const suggestedAddresses = [
 export default function Page() {
   const [address, setAddress] = useState(defaultAddress);
   const [selectedAddress, setSelectedAddress] = useState(defaultAddress);
+  const [selectedTags, setSelectedTags] = useState<string[]>([
+    "#kientruc",
+    "#disan",
+  ]);
 
   const normalizedSelectedAddress = selectedAddress.trim();
   const hasSelectedAddress = normalizedSelectedAddress.length > 0;
@@ -60,6 +60,14 @@ export default function Page() {
   function handleSuggestedAddress(nextAddress: string) {
     setAddress(nextAddress);
     setSelectedAddress(nextAddress);
+  }
+
+  function handleToggleTag(tag: string) {
+    setSelectedTags((current) =>
+      current.includes(tag)
+        ? current.filter((item) => item !== tag)
+        : [...current, tag],
+    );
   }
 
   return (
@@ -165,30 +173,38 @@ export default function Page() {
                     Thẻ
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700"
-                      >
-                        {tag}
-                      </span>
-                    ))}
+                    {tagOptions.map((tag) => {
+                      const isSelected = selectedTags.includes(tag);
+
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => handleToggleTag(tag)}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                            isSelected
+                              ? "border-[#F7DCE8] bg-[#FFF1F7] text-[#D94A8D] shadow-sm"
+                              : "border-slate-200 bg-slate-50 text-slate-700 hover:border-[#F7DCE8] hover:bg-[#FFF1F7] hover:text-[#D94A8D]"
+                          }`}
+                          aria-pressed={isSelected}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
                   </div>
-                </div>
-                <div>
-                  <label className="cq-label mb-2 block">
-                    Tuyến liên quan
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {relatedTopics.map((topic) => (
-                      <span
-                        key={topic}
-                        className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700"
-                      >
-                        {topic}
-                      </span>
-                    ))}
-                  </div>
+                  <p className="mt-2 text-xs text-slate-500">
+                    Chọn một hoặc nhiều thẻ nội dung cho hotspot này.
+                  </p>
+                  {selectedTags.length > 0 ? (
+                    <p className="mt-2 text-xs font-medium text-[#D94A8D]">
+                      Đã chọn: {selectedTags.join(", ")}
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-xs font-medium text-amber-700">
+                      Chưa chọn thẻ nào.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

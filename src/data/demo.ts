@@ -29,7 +29,8 @@ export const audit: AuditEntry[] = [
     action: "Duyệt",
     target: "Hotspot lịch sử Nhà thờ Đức Bà",
     at: "2026-05-29T08:45:00Z",
-    details: "Nội dung được xác nhận phù hợp, không phát hiện thông tin nhạy cảm hoặc sai sự kiện lịch sử.",
+    details:
+      "Nội dung được xác nhận phù hợp, không phát hiện thông tin nhạy cảm hoặc sai sự kiện lịch sử.",
   },
   {
     id: "audit-2",
@@ -39,7 +40,8 @@ export const audit: AuditEntry[] = [
     at: "2026-05-30T14:15:00Z",
     before: "Nội dung không chính xác",
     after: "Nội dung đã được cập nhật",
-    details: "Kiểm duyệt viên yêu cầu sửa đổi phần năm sản xuất và nguồn gốc xe trước khi duyệt lại.",
+    details:
+      "Kiểm duyệt viên yêu cầu sửa đổi phần năm sản xuất và nguồn gốc xe trước khi duyệt lại.",
   },
   {
     id: "audit-3",
@@ -47,7 +49,8 @@ export const audit: AuditEntry[] = [
     action: "Khoá",
     target: "Tuyến tham quan đường sách",
     at: "2026-06-01T09:20:00Z",
-    details: "Tuyến bị khoá tạm thời do phát hiện thông tin sai lệch về thời gian hoạt động.",
+    details:
+      "Tuyến bị khoá tạm thời do phát hiện thông tin sai lệch về thời gian hoạt động.",
   },
   {
     id: "audit-4",
@@ -57,7 +60,8 @@ export const audit: AuditEntry[] = [
     at: "2026-06-02T13:50:00Z",
     before: "Giờ mở cửa: 7:00-22:00",
     after: "Giờ mở cửa: 6:00-23:00",
-    details: "Dữ liệu mở cửa đã được cập nhật theo thông tin mới từ ban quản lý khu ẩm thực.",
+    details:
+      "Dữ liệu mở cửa đã được cập nhật theo thông tin mới từ ban quản lý khu ẩm thực.",
   },
   {
     id: "audit-5",
@@ -260,7 +264,7 @@ export const approvals: ApprovalItem[] = [
   {
     id: "a1",
     thumbnail:
-      "https://images.unsplash.com/photo-1518733057094-95b53169d5af?auto=format&fit=crop&w=400&q=80",
+      "https://i.pinimg.com/1200x/91/62/f1/9162f1d87a84d588fba7c4f56d2db035.jpg",
     title: "Bưu điện Trung tâm - Đề xuất hotspot",
     type: "Hotspot",
     submittedAt: "2026-06-06T01:15:00Z",
@@ -270,7 +274,7 @@ export const approvals: ApprovalItem[] = [
   {
     id: "a2",
     thumbnail:
-      "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=400&q=80",
+      "https://i.pinimg.com/736x/37/cf/ab/37cfabf80927932a39335f1eff259e75.jpg",
     title: "Story: Văn hoá đường phố Sài Gòn",
     type: "Story",
     submittedAt: "2026-06-06T03:40:00Z",
@@ -280,7 +284,7 @@ export const approvals: ApprovalItem[] = [
   {
     id: "a3",
     thumbnail:
-      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=400&q=80",
+      "https://i.pinimg.com/736x/29/82/1b/29821b2eed1c7853752aeabde29ba9c9.jpg",
     title: "Cù Chi - Lòng đất bất khuất",
     type: "Route",
     curator: "Thu Hà",
@@ -290,7 +294,7 @@ export const approvals: ApprovalItem[] = [
   {
     id: "a4",
     thumbnail:
-      "https://images.unsplash.com/photo-1533777324565-a040eb52fac2?auto=format&fit=crop&w=400&q=80",
+      "https://i.pinimg.com/1200x/4d/cf/ee/4dcfeef50eb40863e663912c143d0cd2.jpg",
     title: "Lá thư từ Bưu điện trăm tuổi",
     type: "Story",
     curator: "Lan Anh",
@@ -300,7 +304,7 @@ export const approvals: ApprovalItem[] = [
   {
     id: "a5",
     thumbnail:
-      "https://images.unsplash.com/photo-1511763368359-5f6d7a4a1b3c?auto=format&fit=crop&w=400&q=80",
+      "https://i.pinimg.com/736x/3f/78/75/3f7875abd8c9c8ad5251fc54c2c74ef1.jpg",
     title: "Bảo tàng Chứng tích Chiến tranh - bài viết",
     type: "Hotspot",
     curator: "Thu Hà",
@@ -310,7 +314,7 @@ export const approvals: ApprovalItem[] = [
   {
     id: "a6",
     thumbnail:
-      "https://images.unsplash.com/photo-1503264116251-35a269479413?auto=format&fit=crop&w=400&q=80",
+      "https://i.pinimg.com/736x/90/52/c4/9052c43e5062c3f2fa314d176f6bf82f.jpg",
     title: "Hành trình văn hóa đêm - Đề xuất tuyến mới",
     type: "Route",
     submittedAt: "2026-06-06T05:05:00Z",
