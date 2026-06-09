@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState, useEffect, type FormEvent, type ReactNode } from "react";
-import { loginByGoogle } from "@/lib/api";
+import { loginByGoogle, loginByFacebook } from "@/lib/api";
 import { createSessionFromToken, saveAuthSession } from "@/lib/auth";
 
 
@@ -84,7 +84,12 @@ export default function TravelLogin() {
       window.history.replaceState(null, "", window.location.pathname);
       
       const redirectUri = window.location.origin;
-      loginByGoogle(code, redirectUri)
+      const provider = sessionStorage.getItem("login_provider");
+      const loginPromise = provider === "facebook"
+        ? loginByFacebook(code, redirectUri)
+        : loginByGoogle(code, redirectUri);
+
+      loginPromise
         .then((response) => {
           const accessToken = response.accessToken;
           const refreshToken = response.refreshToken;
@@ -102,19 +107,33 @@ export default function TravelLogin() {
           }
         })
         .catch((err) => {
-          alert("Đăng nhập bằng Google thất bại: " + (err instanceof Error ? err.message : String(err)));
+          const providerName = provider === "facebook" ? "Facebook" : "Google";
+          alert(`Đăng nhập bằng ${providerName} thất bại: ` + (err instanceof Error ? err.message : String(err)));
           setLoading(false);
         });
     }
   }, []);
 
   const handleGoogleLogin = () => {
+    sessionStorage.setItem("login_provider", "google");
     const keycloakUrl = process.env.NEXT_PUBLIC_KEYCLOAK_URL ?? "http://localhost:8180";
     const realm = process.env.NEXT_PUBLIC_KEYCLOAK_REALM ?? "culture-quest-lite";
     const clientId = process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID ?? "identity-client";
     const redirectUri = window.location.origin;
     
     const url = `${keycloakUrl}/realms/${realm}/protocol/openid-connect/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20profile%20email&kc_idp_hint=google`;
+    
+    window.location.href = url;
+  };
+
+  const handleFacebookLogin = () => {
+    sessionStorage.setItem("login_provider", "facebook");
+    const keycloakUrl = process.env.NEXT_PUBLIC_KEYCLOAK_URL ?? "http://localhost:8180";
+    const realm = process.env.NEXT_PUBLIC_KEYCLOAK_REALM ?? "culture-quest-lite";
+    const clientId = process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID ?? "identity-client";
+    const redirectUri = window.location.origin;
+    
+    const url = `${keycloakUrl}/realms/${realm}/protocol/openid-connect/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20profile%20email&kc_idp_hint=facebook`;
     
     window.location.href = url;
   };
@@ -218,7 +237,7 @@ export default function TravelLogin() {
                   <GoogleIcon />
                 </SocialButton>
 
-                <SocialButton label="Facebook">
+                <SocialButton label="Facebook" onClick={handleFacebookLogin}>
                   <FacebookIcon />
                 </SocialButton>
               </div>
