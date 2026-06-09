@@ -89,6 +89,13 @@ export async function loginByGoogle(code: string, redirectUri: string) {
   });
 }
 
+export async function loginByFacebook(code: string, redirectUri: string) {
+  return apiFetch<KeycloakTokenResponse>("/api/auth/login-by-facebook", {
+    method: "POST",
+    body: { code, redirectUri },
+  });
+}
+
 export async function logoutUser(refreshToken: string) {
   return apiFetch<{ message: string }>("/api/auth/logout", {
     method: "POST",
