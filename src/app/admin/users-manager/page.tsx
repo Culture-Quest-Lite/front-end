@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/app/ui-bits";
-import { users, type User } from "@/data/demo";
-import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/admin/Pagination";
+import { users } from "@/data/demo";
 import { Search, MoreHorizontal } from "lucide-react";
+
+const PAGE_SIZE = 5;
 
 const roleClasses: Record<string, string> = {
   Admin: "bg-red-100 text-red-700",
@@ -23,39 +25,61 @@ export default function UsersManagerPage() {
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
-  const filteredUsers = users.filter(
-    (user) =>
-      (!query || user.name.toLowerCase().includes(query.toLowerCase()) || user.email.toLowerCase().includes(query.toLowerCase())) &&
-      (roleFilter === "all" || user.role === roleFilter)
+  const filteredUsers = useMemo(
+    () =>
+      users.filter(
+        (user) =>
+          (!query ||
+            user.name.toLowerCase().includes(query.toLowerCase()) ||
+            user.email.toLowerCase().includes(query.toLowerCase())) &&
+          (roleFilter === "all" || user.role === roleFilter)
+      ),
+    [query, roleFilter]
   );
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+  const paginatedUsers = filteredUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  function handleSearchChange(value: string) {
+    setQuery(value);
+    setPage(1);
+  }
+
+  function handleRoleChange(value: string) {
+    setRoleFilter(value);
+    setPage(1);
+  }
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Quản lý người dùng"
-        subtitle="Bố cục dashboard quản trị hiện đại cho vai trò, trạng thái và hành động hàng loạt."
+        subtitle="Tìm kiếm, lọc và quản lý người dùng theo vai trò và trạng thái."
       />
 
       <div className="rounded-[16px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Danh sách người dùng</h2>
-            <p className="mt-1 text-sm text-slate-500">Tìm kiếm và sắp xếp người dùng trước khi thực hiện hành động.</p>
+            <p className="mt-1 text-sm text-slate-500">
+              {filteredUsers.length} người dùng · {PAGE_SIZE} mục/trang
+            </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative w-full min-w-[220px] md:max-w-sm">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder="Tìm tên hoặc email"
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-10 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
             </div>
             <select
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
+              onChange={(e) => handleRoleChange(e.target.value)}
               className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             >
               <option value="all">Tất cả vai trò</option>
@@ -79,99 +103,107 @@ export default function UsersManagerPage() {
           </div>
 
           <ul className="space-y-3 p-4 md:p-5">
-            {filteredUsers.map((user) => (
-              <li key={user.id} className="overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md md:shadow-none md:hover:shadow-sm">
-                <div className="grid gap-4 p-4 md:grid-cols-[3.5fr_1fr_1fr_0.8fr_0.8fr] md:items-center md:p-4">
-                  <div className="flex items-center gap-4">
-                    <img src={user.avatar} alt={user.name} className="h-12 w-12 rounded-full object-cover" />
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-slate-900 truncate">{user.name}</div>
-                      <div className="mt-1 text-sm text-slate-500 truncate">{user.email}</div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center">
-                    <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${roleClasses[user.role]}`}>
-                      {user.role}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center">
-                    <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${statusClasses[user.status]}`}>
-                      {user.status}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-center font-medium text-slate-900">{user.checkins}</div>
-
-                  <div className="flex justify-end">
-                    <div className="relative inline-flex text-left" tabIndex={-1} onBlur={(event) => {
-                      if (!event.currentTarget.contains(event.relatedTarget as Node)) {
-                        setOpenMenuId(null);
-                      }
-                    }}>
-                      <button
-                        type="button"
-                        onClick={() => setOpenMenuId(openMenuId === user.id ? null : user.id)}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100"
-                        aria-expanded={openMenuId === user.id}
-                        aria-label="Mở menu hành động"
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
-                      {openMenuId === user.id ? (
-                        <div className="absolute right-0 top-full z-10 mt-2 min-w-[180px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
-                          <button className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50">Xem chi tiết</button>
-                          <button className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50">Chỉnh sửa</button>
-                          <button className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50">Khoá tài khoản</button>
-                          <button className="w-full px-4 py-3 text-left text-sm text-red-600 transition hover:bg-slate-50">Xóa người dùng</button>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 border-t border-slate-200 px-4 py-4 md:hidden">
-                  <div className="flex flex-wrap gap-2">
-                    <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${roleClasses[user.role]}`}>
-                      {user.role}
-                    </span>
-                    <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${statusClasses[user.status]}`}>
-                      {user.status}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 text-sm font-medium text-slate-900">
-                    <span>{user.checkins} check-ins</span>
-                    <div className="relative inline-flex text-left" tabIndex={-1} onBlur={(event) => {
-                      if (!event.currentTarget.contains(event.relatedTarget as Node)) {
-                        setOpenMenuId(null);
-                      }
-                    }}>
-                      <button
-                          type="button"
-                          onClick={() => setOpenMenuId(openMenuId === user.id ? null : user.id)}
-                          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100"
-                          aria-expanded={openMenuId === user.id}
-                          aria-label="Mở menu hành động"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
-                        {openMenuId === user.id ? (
-                          <div className="absolute right-0 top-full z-10 mt-2 min-w-[180px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
-                            <button className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50">Xem chi tiết</button>
-                            <button className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50">Chỉnh sửa</button>
-                            <button className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50">Khoá tài khoản</button>
-                            <button className="w-full px-4 py-3 text-left text-sm text-red-600 transition hover:bg-slate-50">Xóa người dùng</button>
-                          </div>
-                        ) : null}
-                    </div>
-                  </div>
-                </div>
-              </li>
-            ))}
+            {paginatedUsers.length === 0 ? (
+              <li className="py-10 text-center text-sm text-slate-500">Không tìm thấy người dùng phù hợp.</li>
+            ) : (
+              paginatedUsers.map((user) => (
+                <UserRow
+                  key={user.id}
+                  user={user}
+                  openMenuId={openMenuId}
+                  setOpenMenuId={setOpenMenuId}
+                />
+              ))
+            )}
           </ul>
+        </div>
+
+        <div className="mt-4">
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={filteredUsers.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
         </div>
       </div>
     </div>
+  );
+}
+
+function UserRow({
+  user,
+  openMenuId,
+  setOpenMenuId,
+}: {
+  user: (typeof users)[number];
+  openMenuId: string | null;
+  setOpenMenuId: (id: string | null) => void;
+}) {
+  const menu = (
+    <div className="relative inline-flex text-left" tabIndex={-1} onBlur={(event) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+        setOpenMenuId(null);
+      }
+    }}>
+      <button
+        type="button"
+        onClick={() => setOpenMenuId(openMenuId === user.id ? null : user.id)}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100"
+        aria-expanded={openMenuId === user.id}
+        aria-label="Mở menu hành động"
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+      {openMenuId === user.id ? (
+        <div className="absolute right-0 top-full z-10 mt-2 min-w-[180px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+          <button className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50">Xem chi tiết</button>
+          <button className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50">Chỉnh sửa</button>
+          <button className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50">Khoá tài khoản</button>
+          <button className="w-full px-4 py-3 text-left text-sm text-red-600 transition hover:bg-slate-50">Xóa người dùng</button>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  return (
+    <li className="overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md md:shadow-none md:hover:shadow-sm">
+      <div className="grid gap-4 p-4 md:grid-cols-[3.5fr_1fr_1fr_0.8fr_0.8fr] md:items-center md:p-4">
+        <div className="flex items-center gap-4">
+          <img src={user.avatar} alt={user.name} className="h-12 w-12 rounded-full object-cover" />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold text-slate-900">{user.name}</div>
+            <div className="mt-1 truncate text-sm text-slate-500">{user.email}</div>
+          </div>
+        </div>
+        <div className="flex items-center">
+          <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${roleClasses[user.role]}`}>
+            {user.role}
+          </span>
+        </div>
+        <div className="flex items-center">
+          <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${statusClasses[user.status]}`}>
+            {user.status}
+          </span>
+        </div>
+        <div className="flex items-center justify-center font-medium text-slate-900">{user.checkins}</div>
+        <div className="flex justify-end">{menu}</div>
+      </div>
+      <div className="grid gap-3 border-t border-slate-200 px-4 py-4 md:hidden">
+        <div className="flex flex-wrap gap-2">
+          <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${roleClasses[user.role]}`}>
+            {user.role}
+          </span>
+          <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${statusClasses[user.status]}`}>
+            {user.status}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-3 text-sm font-medium text-slate-900">
+          <span>{user.checkins} check-ins</span>
+          {menu}
+        </div>
+      </div>
+    </li>
   );
 }

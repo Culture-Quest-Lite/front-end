@@ -187,6 +187,162 @@ export const users: User[] = [
     status: "Hoạt động",
     checkins: 3,
   },
+  {
+    id: "user-7",
+    name: "Đặng Văn G",
+    email: "dangvang@example.com",
+    avatar:
+      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=100&q=80",
+    role: "Explorer",
+    status: "Hoạt động",
+    checkins: 22,
+  },
+  {
+    id: "user-8",
+    name: "Bùi Thị H",
+    email: "buithih@example.com",
+    avatar:
+      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=100&q=80",
+    role: "Curator",
+    status: "Hoạt động",
+    checkins: 41,
+  },
+  {
+    id: "user-9",
+    name: "Ngô Văn I",
+    email: "ngovani@example.com",
+    avatar:
+      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=100&q=80",
+    role: "Explorer",
+    status: "Bị khoá",
+    checkins: 5,
+  },
+  {
+    id: "user-10",
+    name: "Lý Thị K",
+    email: "lythik@example.com",
+    avatar:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=100&q=80",
+    role: "Guest",
+    status: "Hoạt động",
+    checkins: 1,
+  },
+  {
+    id: "user-11",
+    name: "Mai Văn L",
+    email: "maivanl@example.com",
+    avatar:
+      "https://images.unsplash.com/photo-1519345182560-3f2917c472ef?auto=format&fit=crop&w=100&q=80",
+    role: "Explorer",
+    status: "Đang xem xét",
+    checkins: 12,
+  },
+  {
+    id: "user-12",
+    name: "Trịnh Thị M",
+    email: "trinhthim@example.com",
+    avatar:
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80",
+    role: "Curator",
+    status: "Hoạt động",
+    checkins: 36,
+  },
+  {
+    id: "user-13",
+    name: "Phan Văn N",
+    email: "phanvann@example.com",
+    avatar:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80",
+    role: "Explorer",
+    status: "Hoạt động",
+    checkins: 19,
+  },
+  {
+    id: "user-14",
+    name: "Đỗ Thị O",
+    email: "dothio@example.com",
+    avatar:
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80",
+    role: "Guest",
+    status: "Hoạt động",
+    checkins: 0,
+  },
+  {
+    id: "user-15",
+    name: "Hồ Văn P",
+    email: "hovanp@example.com",
+    avatar:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80",
+    role: "Admin",
+    status: "Hoạt động",
+    checkins: 67,
+  },
+];
+
+export type SubscriptionStatus = "active" | "inactive" | "draft";
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  currency: string;
+  durationDays: number;
+  features: string[];
+  status: SubscriptionStatus;
+  subscribers: number;
+  createdAt: string;
+}
+
+export const subscriptions: SubscriptionPlan[] = [
+  {
+    id: "sub-1",
+    name: "Explorer Free",
+    description: "Gói miễn phí cho người dùng mới khám phá văn hóa.",
+    price: 0,
+    currency: "VND",
+    durationDays: 365,
+    features: ["3 tuyến/tháng", "Check-in cơ bản", "Huy hiệu cơ bản"],
+    status: "active",
+    subscribers: 3840,
+    createdAt: "2025-01-15T00:00:00Z",
+  },
+  {
+    id: "sub-2",
+    name: "Explorer Pro",
+    description: "Trải nghiệm đầy đủ với tuyến không giới hạn và XP x2.",
+    price: 99000,
+    currency: "VND",
+    durationDays: 30,
+    features: ["Tuyến không giới hạn", "XP x2", "Huy hiệu độc quyền", "Ưu tiên hỗ trợ"],
+    status: "active",
+    subscribers: 412,
+    createdAt: "2025-03-01T00:00:00Z",
+  },
+  {
+    id: "sub-3",
+    name: "Curator Plus",
+    description: "Dành cho người quản lý nội dung với công cụ nâng cao.",
+    price: 199000,
+    currency: "VND",
+    durationDays: 30,
+    features: ["Phân tích nội dung", "Xuất bản ưu tiên", "Báo cáo chi tiết", "API truy cập"],
+    status: "active",
+    subscribers: 28,
+    createdAt: "2025-04-10T00:00:00Z",
+  },
+  {
+    id: "sub-4",
+    name: "Enterprise",
+    description: "Gói doanh nghiệp cho đối tác du lịch và bảo tàng.",
+    price: 4990000,
+    currency: "VND",
+    durationDays: 365,
+    features: ["White-label", "Quản lý đa tổ chức", "SLA 99.9%", "Tích hợp tùy chỉnh"],
+    status: "draft",
+    subscribers: 0,
+    createdAt: "2026-05-20T00:00:00Z",
+  },
 ];
 export const funnel = [
   { stage: "Xem tuyến", v: 10000 },

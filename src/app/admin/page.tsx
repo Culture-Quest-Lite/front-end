@@ -74,7 +74,7 @@ export default function AdminDashboardPage() {
         title={`Chào buổi sáng, ${session.name} 👋`}
         subtitle="Tổng quan quyền quản trị Culture Quest Lite hôm nay."
         actions={
-          <Link href="/admin/reports">
+          <Link href="/admin/moderation">
             <Button size="sm" variant="outline" className="gap-1.5">
               <ShieldAlert className="w-4 h-4" /> Xem báo cáo
             </Button>
@@ -246,7 +246,7 @@ export default function AdminDashboardPage() {
               Tuyến tương tác nhiều nhất
             </div>
             <Link
-              href="/analytics"
+              href="/admin/analytics"
               className="text-xs text-primary inline-flex items-center gap-0.5"
             >
               Xem tất cả <ArrowUpRight className="w-3 h-3" />
@@ -302,12 +302,12 @@ export default function AdminDashboardPage() {
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm font-semibold">Hàng đợi duyệt</div>
-            <Link href="/approvals" className="text-xs text-primary">
+            <Link href="/admin/content-review" className="text-xs text-primary">
               Mở
             </Link>
           </div>
           <ul className="space-y-2.5">
-            {approvals.map((a) => (
+            {approvals.filter((a) => a.status === "pending").map((a) => (
               <li key={a.id} className="flex items-center gap-3">
                 <img
                   src={a.thumbnail}
@@ -337,7 +337,7 @@ export default function AdminDashboardPage() {
         <div className="rounded-2xl bg-white p-4 shadow-sm xl:col-span-2">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm font-semibold">Người dùng gần đây</div>
-            <Link href="/admin/users" className="text-xs text-primary">
+            <Link href="/admin/users-manager" className="text-xs text-primary">
               Quản lý
             </Link>
           </div>
@@ -368,7 +368,7 @@ export default function AdminDashboardPage() {
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm font-semibold">Báo cáo mới</div>
-            <Link href="/reports" className="text-xs text-primary">
+            <Link href="/admin/moderation" className="text-xs text-primary">
               Xem tất cả
             </Link>
           </div>
@@ -405,7 +405,7 @@ export default function AdminDashboardPage() {
           <div className="text-sm font-semibold">
             Hoạt động quản trị gần đây
           </div>
-          <Link href="/admin/audit" className="text-xs text-primary">
+          <Link href="/admin/review-history" className="text-xs text-primary">
             Xem lịch sử
           </Link>
         </div>
