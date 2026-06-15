@@ -16,6 +16,7 @@ import {
   BarChart3,
   Shield,
   Settings,
+  CreditCard,
 } from "lucide-react";
 
 import {
@@ -44,7 +45,9 @@ const menuGroups: Array<{
   items: MenuItem[];
 }> = [
   {
-    items: [{ title: "Tổng quan", href: "/admin", icon: LayoutDashboard },
+    items: [
+      { title: "Tổng quan", href: "/admin", icon: LayoutDashboard },
+      { title: "Kiểm duyệt", href: "/admin/moderation", icon: Shield },
       {
         title: "Duyệt nội dung",
         href: "/admin/content-review",
@@ -52,8 +55,8 @@ const menuGroups: Array<{
       },
       { title: "Lịch sử duyệt", href: "/admin/review-history", icon: Clock },
       { title: "Người dùng", href: "/admin/users-manager", icon: Users },
+      { title: "Gói đăng ký", href: "/admin/subscriptions", icon: CreditCard },
       { title: "Phân tích", href: "/admin/analytics", icon: BarChart3 },
-      { title: "Kiểm duyệt", href: "/admin/moderation", icon: Shield },
       { title: "Cài đặt", href: "/admin/settings", icon: Settings },
     ],
   },

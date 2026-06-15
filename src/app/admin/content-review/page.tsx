@@ -4,8 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { PageHeader, StatusPill } from "@/components/app/ui-bits";
-import { approvals } from "@/data/demo";
-import { Check, X, MessageSquare, MapPin, FileText, Route as RouteIcon, Clock, ShieldCheck } from "lucide-react";
+import { approvals as initialApprovals, type ApprovalItem } from "@/data/demo";
+import { Check, X, MessageSquare, MapPin, FileText, Route as RouteIcon, Clock, ShieldCheck, Trash2 } from "lucide-react";
 
 const filters = [
   { key: "all", label: "Tất cả" },
@@ -15,38 +15,69 @@ const filters = [
 ] as const;
 
 type FilterType = (typeof filters)[number]["key"];
-
 type OpenDialog = { type: "approve" | "reject"; itemId: string } | null;
 
 export default function ContentReviewPage() {
+  const [items, setItems] = useState<ApprovalItem[]>(initialApprovals);
   const [type, setType] = useState<FilterType>("all");
   const [dialog, setDialog] = useState<OpenDialog>(null);
-  const [detailItem, setDetailItem] = useState<(typeof approvals)[number] | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
 
   const filtered = useMemo(
-    () => approvals.filter((item) => type === "all" || item.type === type),
-    [type]
+    () => items.filter((item) => (type === "all" || item.type === type) && item.status === "pending"),
+    [items, type]
   );
 
   const counts = useMemo(
     () => ({
-      all: approvals.length,
-      Hotspot: approvals.filter((item) => item.type === "Hotspot").length,
-      Story: approvals.filter((item) => item.type === "Story").length,
-      Route: approvals.filter((item) => item.type === "Route").length,
+      all: items.filter((i) => i.status === "pending").length,
+      Hotspot: items.filter((i) => i.type === "Hotspot" && i.status === "pending").length,
+      Story: items.filter((i) => i.type === "Story" && i.status === "pending").length,
+      Route: items.filter((i) => i.type === "Route" && i.status === "pending").length,
     }),
-    []
+    [items]
   );
 
-  const selectedItem = dialog ? approvals.find((item) => item.id === dialog.itemId) : null;
+  const selectedItem = dialog ? items.find((item) => item.id === dialog.itemId) : null;
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  function handleApprove(id: string) {
+    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, status: "approved" as const } : item)));
+    setDialog(null);
+    showToast("Đã phê duyệt và xuất bản nội dung.");
+  }
+
+  function handleReject(id: string) {
+    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, status: "rejected" as const } : item)));
+    setDialog(null);
+    setRejectReason("");
+    showToast("Đã từ chối nội dung. Curator sẽ nhận thông báo.");
+  }
+
+  function handleDelete(id: string) {
+    setItems((prev) => prev.filter((item) => item.id !== id));
+    showToast("Đã xóa nội dung khỏi hàng đợi.");
+  }
 
   return (
     <div className="space-y-6 py-6">
+      {toast ? (
+        <div className="fixed bottom-6 right-6 z-50 rounded-2xl bg-slate-900 px-4 py-3 text-sm text-white shadow-lg">
+          {toast}
+        </div>
+      ) : null}
+
       <PageHeader
         title="Duyệt nội dung"
+        subtitle="Phê duyệt, từ chối hoặc xóa nội dung do Curator gửi."
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-muted-foreground">SLA trung bình: 6h</span>
+            <span className="text-xs text-muted-foreground">{counts.all} chờ duyệt · SLA trung bình: 6h</span>
             <Button variant="outline" size="sm" className="gap-1.5">
               <ShieldCheck className="w-4 h-4" /> Quy tắc kiểm duyệt
             </Button>
@@ -71,59 +102,76 @@ export default function ContentReviewPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {filtered.map((item) => (
-          <Link key={item.id} href={`/admin/content-review/${item.id}`} className="cursor-pointer overflow-hidden rounded-3xl border border-border bg-white shadow-sm dark:bg-zinc-950">
-            <div className="flex gap-3 p-3">
-              <img src={item.thumbnail} alt={item.title} className="h-24 w-24 flex-none rounded-2xl object-cover" />
-              <div className="min-w-0 flex-1">
-                <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                  {item.type === "Hotspot" ? <MapPin className="h-3 w-3" /> : item.type === "Story" ? <FileText className="h-3 w-3" /> : <RouteIcon className="h-3 w-3" />}
-                  <span>{item.type}</span>
-                  <Clock className="h-3 w-3" />
-                  <span>Gửi lúc {new Date(item.submittedAt).toLocaleString("vi-VN")}</span>
+      {filtered.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-12 text-center">
+          <ShieldCheck className="mx-auto h-10 w-10 text-slate-300" />
+          <p className="mt-3 text-sm font-medium text-slate-600">Không có nội dung chờ duyệt</p>
+          <p className="mt-1 text-xs text-slate-400">Tất cả đề xuất đã được xử lý.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {filtered.map((item) => (
+            <div key={item.id} className="overflow-hidden rounded-3xl border border-border bg-white shadow-sm dark:bg-zinc-950">
+              <Link href={`/admin/content-review/${item.id}`} className="block">
+                <div className="flex gap-3 p-3">
+                  <img src={item.thumbnail} alt={item.title} className="h-24 w-24 flex-none rounded-2xl object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                      {item.type === "Hotspot" ? <MapPin className="h-3 w-3" /> : item.type === "Story" ? <FileText className="h-3 w-3" /> : <RouteIcon className="h-3 w-3" />}
+                      <span>{item.type}</span>
+                      <Clock className="h-3 w-3" />
+                      <span>Gửi lúc {new Date(item.submittedAt).toLocaleString("vi-VN")}</span>
+                    </div>
+                    <div className="truncate text-lg font-semibold text-slate-950 dark:text-slate-50">{item.title}</div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <div className="grid h-5 w-5 place-items-center rounded-full bg-primary-soft text-primary text-[10px] font-bold">{item.curator.charAt(0)}</div>
+                      <span className="text-xs text-slate-700 dark:text-slate-300">{item.curator}</span>
+                      <StatusPill status={item.status} />
+                    </div>
+                  </div>
                 </div>
-                <div className="truncate text-lg font-semibold text-slate-950 dark:text-slate-50">{item.title}</div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <div className="grid h-5 w-5 place-items-center rounded-full bg-primary-soft text-primary text-[10px] font-bold">{item.curator.charAt(0)}</div>
-                  <span className="text-xs text-slate-700 dark:text-slate-300">{item.curator}</span>
-                  <StatusPill status={item.status} />
-                </div>
+              </Link>
+              <div className="grid grid-cols-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setDialog({ type: "reject", itemId: item.id })}
+                  className="flex items-center justify-center gap-1.5 border-r border-border py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
+                >
+                  <X className="h-4 w-4" /> Từ chối
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDialog({ type: "approve", itemId: item.id })}
+                  className="flex items-center justify-center gap-1.5 border-r border-border py-2.5 text-sm font-medium text-emerald-600 hover:bg-emerald-50"
+                >
+                  <Check className="h-4 w-4" /> Duyệt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(item.id)}
+                  className="flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-50"
+                >
+                  <Trash2 className="h-4 w-4" /> Xóa
+                </button>
               </div>
             </div>
-              <div className="grid grid-cols-2 border-t border-border">
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setDialog({ type: "reject", itemId: item.id }) }}
-                className="flex items-center justify-center gap-1.5 border-r border-border py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
-              >
-                <X className="h-4 w-4" /> Từ chối
-              </button>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setDialog({ type: "approve", itemId: item.id }) }}
-                className="flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium text-emerald-600 hover:bg-emerald-50"
-              >
-                <Check className="h-4 w-4" /> Phê duyệt
-              </button>
-            </div>
-          </Link>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {selectedItem ? (
         <Modal open onClose={() => setDialog(null)} title={dialog?.type === "approve" ? "Xem trước & phê duyệt" : `Từ chối: ${selectedItem.title}`}>
           {dialog?.type === "approve" ? (
             <ApprovePreview item={selectedItem} />
           ) : (
-            <RejectPreview />
+            <RejectPreview reason={rejectReason} onReasonChange={setRejectReason} />
           )}
           <div className="mt-6 flex flex-wrap gap-3 justify-end">
             <Button variant="outline" onClick={() => setDialog(null)}>
               Huỷ
             </Button>
             <Button
-              onClick={() => setDialog(null)}
+              onClick={() => dialog?.type === "approve" ? handleApprove(selectedItem.id) : handleReject(selectedItem.id)}
               className={
                 dialog?.type === "approve"
                   ? "bg-emerald-600 text-white hover:bg-emerald-700 border-transparent gap-1.5"
@@ -139,38 +187,11 @@ export default function ContentReviewPage() {
           </div>
         </Modal>
       ) : null}
-
-      {detailItem ? (
-        <Modal open onClose={() => setDetailItem(null)} title={`${detailItem.type} — ${detailItem.title}`}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <img src={detailItem.thumbnail} alt={detailItem.title} className="h-56 w-full rounded-3xl object-cover" />
-            <div className="space-y-3 text-sm text-slate-700 dark:text-slate-300">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1">{detailItem.type}</span>
-                <span>·</span>
-                <span>Gửi lúc {new Date(detailItem.submittedAt).toLocaleString("vi-VN")}</span>
-              </div>
-              <div className="text-lg font-semibold text-slate-950 dark:text-slate-50">{detailItem.title}</div>
-              <div className="flex items-center gap-2">
-                <div className="grid h-6 w-6 place-items-center rounded-full bg-primary-soft text-primary text-[10px] font-bold">{detailItem.curator.charAt(0)}</div>
-                <div className="text-sm">{detailItem.curator}</div>
-                <StatusPill status={detailItem.status} />
-              </div>
-              <p className="text-sm text-muted-foreground">Mô tả mẫu: Nội dung mô tả chi tiết sẽ hiển thị ở đây. (Dữ liệu demo)</p>
-              <div className="mt-3 flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setDetailItem(null)}>Đóng</Button>
-                <Button className="text-emerald-600 hover:bg-emerald-50" onClick={() => { setDialog({ type: 'approve', itemId: detailItem.id }); setDetailItem(null); }}>Phê duyệt</Button>
-                <Button className="text-red-600 hover:bg-red-50" onClick={() => { setDialog({ type: 'reject', itemId: detailItem.id }); setDetailItem(null); }}>Từ chối</Button>
-              </div>
-            </div>
-          </div>
-        </Modal>
-      ) : null}
     </div>
   );
 }
 
-function ApprovePreview({ item }: { item: (typeof approvals)[number] }) {
+function ApprovePreview({ item }: { item: ApprovalItem }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <img src={item.thumbnail} alt="Preview" className="h-56 w-full rounded-3xl object-cover" />
@@ -189,7 +210,7 @@ function ApprovePreview({ item }: { item: (typeof approvals)[number] }) {
   );
 }
 
-function RejectPreview() {
+function RejectPreview({ reason, onReasonChange }: { reason: string; onReasonChange: (v: string) => void }) {
   return (
     <div className="space-y-4 text-sm text-slate-700 dark:text-slate-300">
       <p className="text-xs text-muted-foreground">Lý do bắt buộc theo BR-09. Curator sẽ nhận được thông báo.</p>
@@ -200,10 +221,10 @@ function RejectPreview() {
           "Ảnh chất lượng thấp",
           "Nội dung không đúng sự kiện lịch sử",
           "Khác",
-        ].map((reason) => (
-          <label key={reason} className="flex items-center gap-2 text-sm">
-            <input type="radio" name="reason" className="accent-primary" />
-            {reason}
+        ].map((r) => (
+          <label key={r} className="flex items-center gap-2 text-sm">
+            <input type="radio" name="reason" className="accent-primary" checked={reason === r} onChange={() => onReasonChange(r)} />
+            {r}
           </label>
         ))}
       </div>
