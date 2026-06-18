@@ -7,10 +7,25 @@ import { logoutUser } from "@/lib/api";
 export function useAuth() {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    setSession(getAuthSession());
+    // Get session from localStorage
+    const savedSession = getAuthSession();
+    
+    if (savedSession) {
+      console.debug("Session found in localStorage:", { 
+        email: savedSession.email, 
+        role: savedSession.role 
+      });
+      setSession(savedSession);
+    } else {
+      console.debug("No session found in localStorage");
+      setSession(null);
+    }
+    
     setLoading(false);
+    setInitialized(true);
   }, []);
 
   const logout = useCallback(async () => {
@@ -27,5 +42,5 @@ export function useAuth() {
     window.location.href = "/";
   }, []);
 
-  return { session, loading, logout } as const;
+  return { session, loading: loading || !initialized, logout } as const;
 }

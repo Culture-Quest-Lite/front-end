@@ -1,4 +1,4 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
 export interface LoginCredentials {
   email: string;
@@ -11,8 +11,8 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
-export type ApiRequestOptions = RequestInit & {
-  body?: BodyInit | Record<string, unknown>;
+export type ApiRequestOptions = Omit<RequestInit, 'body'> & {
+  body?: BodyInit | object;
 };
 
 export async function apiFetch<T>(path: string, options: ApiRequestOptions = {}) {
@@ -23,10 +23,13 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
       ...(options.headers || {}),
     },
     ...options,
+    body: undefined,
   };
 
   if (options.body && typeof options.body !== "string") {
     init.body = JSON.stringify(options.body);
+  } else if (options.body) {
+    init.body = options.body as BodyInit;
   }
 
   const response = await fetch(url, {
