@@ -2,8 +2,10 @@
 
 import Image from "next/image";
 import { useState, useEffect, type FormEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { loginByGoogle, loginByFacebook } from "@/lib/api";
-import { createSessionFromToken, saveAuthSession } from "@/lib/auth";
+import { createSessionFromToken, saveAuthSession, getAuthSession } from "@/lib/auth";
+import { authApi, extractUserFromToken } from "@/services/api";
 
 
 type TravelCardDefinition = {
@@ -72,8 +74,10 @@ const featuredCard = {
 };
 
 export default function TravelLogin() {
-  const [email, setEmail] = useState("");
+  const router = useRouter();
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -138,10 +142,66 @@ export default function TravelLogin() {
     window.location.href = url;
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setError("");
     setLoading(true);
-    window.setTimeout(() => setLoading(false), 1500);
+
+    try {
+      console.log("Attempting login with username:", username);
+      const response = await authApi.login(username, password);
+      console.log("Login response received:", { 
+        hasAccessToken: !!response.accessToken,
+        hasRefreshToken: !!response.refreshToken 
+      });
+
+      if (response.accessToken && response.refreshToken) {
+        const userInfo = extractUserFromToken(response.accessToken);
+        console.log("User info extracted:", userInfo);
+        
+        if (userInfo) {
+          const sessionData = {
+            id: userInfo.id,
+            email: userInfo.email,
+            name: userInfo.name,
+            role: userInfo.role,
+            token: response.accessToken,
+            refreshToken: response.refreshToken,
+          };
+          
+          console.log("Saving session to localStorage:", { 
+            email: sessionData.email, 
+            role: sessionData.role 
+          });
+          
+          saveAuthSession(sessionData);
+          
+          // Verify session was saved
+          const savedSession = getAuthSession();
+          console.log("Session saved verification:", savedSession ? "SUCCESS" : "FAILED");
+
+          // Redirect based on role
+          if (userInfo.role === "admin") {
+            console.log("Redirecting to admin dashboard...");
+            router.push("/admin");
+          } else {
+            console.log("Redirecting to curator dashboard...");
+            router.push("/curator");
+          }
+        } else {
+          setError("Không thể xử lý thông tin người dùng. Vui lòng thử lại.");
+          setLoading(false);
+        }
+      } else {
+        setError("Phản hồi từ máy chủ không hợp lệ. Vui lòng thử lại.");
+        setLoading(false);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Đăng nhập thất bại. Vui lòng thử lại.";
+      console.error("Login error:", err);
+      setError(errorMessage);
+      setLoading(false);
+    }
   };
 
 
@@ -177,18 +237,23 @@ export default function TravelLogin() {
             </div>
 
             <form className="mt-7 space-y-3.5" onSubmit={handleSubmit}>
+              {error && (
+                <div className="rounded-lg bg-red-50 p-3 text-center">
+                  <p className="text-[11px] font-medium text-red-800">{error}</p>
+                </div>
+              )}
               <div>
-                <label className="sr-only" htmlFor="email">
-                  Email
+                <label className="sr-only" htmlFor="username">
+                  Tên đăng nhập
                 </label>
                 <input
-                  id="email"
+                  id="username"
                   className="h-[3rem] w-full rounded-full bg-[#f1f6fb] px-5 text-[11px] text-slate-700 outline-none transition placeholder:text-slate-400 focus:bg-white focus:shadow-[0_0_0_4px_rgba(255,103,154,0.08)]"
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="Hãy nhập email hoặc số điện thoại"
+                  onChange={(event) => setUsername(event.target.value)}
+                  placeholder="Nhập tên đăng nhập"
                   required
-                  type="email"
-                  value={email}
+                  type="text"
+                  value={username}
                 />
               </div>
 

@@ -47,8 +47,29 @@ export default function AdminDashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && (!session || session.role !== "admin")) {
-      router.push("/");
+    console.log("Admin page - useEffect triggered", { 
+      loading, 
+      hasSession: !!session,
+      sessionRole: session?.role,
+      sessionEmail: session?.email 
+    });
+
+    if (!loading) {
+      // Check if user has session
+      if (!session) {
+        console.warn("No session found, redirecting to login");
+        router.push("/");
+        return;
+      }
+
+      // Allow both admin and curator to access admin page (tạm thời)
+      if (session.role !== "admin" && session.role !== "curator") {
+        console.warn("User role not authorized:", session.role, "redirecting to login");
+        router.push("/");
+        return;
+      }
+
+      console.log("Admin page: User authorized with role:", session.role);
     }
   }, [loading, router, session]);
 

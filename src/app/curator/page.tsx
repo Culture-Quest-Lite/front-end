@@ -1,6 +1,10 @@
 "use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PageHeader, StatCard, StatusPill } from "@/components/app/ui-bits";
+import { useAuth } from "@/hooks/use-auth";
 import {
   hotspots,
   approvals,
@@ -33,10 +37,56 @@ import {
 import { Button } from "@/components/ui/button";
 
 export default function CuratorDashboardPage() {
+  const { session, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    console.log("Curator page - useEffect triggered", { 
+      loading, 
+      hasSession: !!session,
+      sessionRole: session?.role,
+      sessionEmail: session?.email 
+    });
+
+    if (!loading) {
+      // Check if user has session
+      if (!session) {
+        console.warn("No session found, redirecting to login");
+        router.push("/");
+        return;
+      }
+
+      // Allow both admin and curator roles to access curator page
+      if (session.role !== "curator" && session.role !== "admin") {
+        console.warn("User role not authorized:", session.role, "redirecting to login");
+        router.push("/");
+        return;
+      }
+
+      console.log("Curator page: User authorized");
+    }
+  }, [loading, router, session]);
+
+  if (loading) {
+    return (
+      <div className="cq-page-subtitle p-8">
+        Đang kiểm tra quyền truy cập...
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="cq-page-subtitle p-8">
+        Bạn cần đăng nhập để truy cập trang Curator.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Chào buổi sáng, Ngọc 👋"
+        title={`Chào buổi sáng, ${session.name} 👋`}
         subtitle="Tổng quan hoạt động hệ thống Culture Quest Lite hôm nay."
         actions={
           <Link href="/approvals">

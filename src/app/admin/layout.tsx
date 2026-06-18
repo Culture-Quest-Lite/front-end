@@ -6,5 +6,7 @@ export default function AdminLayoutWrapper({
 }: {
   children: ReactNode;
 }) {
-  return <AdminLayout>{children}</AdminLayout>;
+  return (
+    <AdminLayout>{children}</AdminLayout>
+  );
 }
