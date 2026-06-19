@@ -1,11 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect, type FormEvent, type ReactNode } from "react";
+import { useState, useEffect, useRef, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { loginByGoogle, loginByFacebook } from "@/lib/api";
-import { createSessionFromToken, saveAuthSession, getAuthSession } from "@/lib/auth";
-import { authApi, extractUserFromToken } from "@/services/api";
+import { clearAuthSession, createSessionFromToken, saveAccessToken } from "@/lib/auth";
+import { authApi } from "@/services/api";
 
 
 type TravelCardDefinition = {
@@ -78,13 +78,13 @@ export default function TravelLogin() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => hasOAuthCallbackCode());
+  const loginRequestInFlight = useRef(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
     if (code) {
-      setLoading(true);
       window.history.replaceState(null, "", window.location.pathname);
       
       const redirectUri = window.location.origin;
@@ -96,10 +96,9 @@ export default function TravelLogin() {
       loginPromise
         .then((response) => {
           const accessToken = response.accessToken;
-          const refreshToken = response.refreshToken;
-          const session = createSessionFromToken(accessToken, refreshToken);
+          saveAccessToken(accessToken, response.expiresIn);
+          const session = createSessionFromToken(accessToken);
           if (session) {
-            saveAuthSession(session);
             if (session.role === "admin") {
               window.location.href = "/admin";
             } else {
@@ -144,63 +143,61 @@ export default function TravelLogin() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (loading || loginRequestInFlight.current) return;
+
+    loginRequestInFlight.current = true;
     setError("");
     setLoading(true);
 
     try {
-      console.log("Attempting login with username:", username);
-      const response = await authApi.login(username, password);
+      clearAuthSession();
+
+      const normalizedUsername = username.trim();
+      console.log("Attempting login with username:", normalizedUsername);
+      const response = await authApi.login(normalizedUsername, password);
       console.log("Login response received:", { 
         hasAccessToken: !!response.accessToken,
-        hasRefreshToken: !!response.refreshToken 
+        tokenType: response.tokenType,
+        expiresIn: response.expiresIn,
       });
 
-      if (response.accessToken && response.refreshToken) {
-        const userInfo = extractUserFromToken(response.accessToken);
-        console.log("User info extracted:", userInfo);
-        
-        if (userInfo) {
-          const sessionData = {
-            id: userInfo.id,
-            email: userInfo.email,
-            name: userInfo.name,
-            role: userInfo.role,
-            token: response.accessToken,
-            refreshToken: response.refreshToken,
-          };
-          
-          console.log("Saving session to localStorage:", { 
-            email: sessionData.email, 
-            role: sessionData.role 
-          });
-          
-          saveAuthSession(sessionData);
-          
-          // Verify session was saved
-          const savedSession = getAuthSession();
-          console.log("Session saved verification:", savedSession ? "SUCCESS" : "FAILED");
+      if (response.accessToken) {
+        saveAccessToken(response.accessToken, response.expiresIn);
+        const session = createSessionFromToken(response.accessToken);
+        console.log("User info extracted:", session);
 
-          // Redirect based on role
-          if (userInfo.role === "admin") {
-            console.log("Redirecting to admin dashboard...");
-            router.push("/admin");
-          } else {
-            console.log("Redirecting to curator dashboard...");
-            router.push("/curator");
-          }
-        } else {
+        if (!session) {
           setError("Không thể xử lý thông tin người dùng. Vui lòng thử lại.");
           setLoading(false);
+          loginRequestInFlight.current = false;
+          return;
+        }
+
+        console.log("Saving access token to cookie:", {
+          email: session.email,
+          role: session.role,
+        });
+
+        loginRequestInFlight.current = false;
+
+        if (session.role === "admin") {
+          console.log("Redirecting to admin dashboard...");
+          router.push("/admin");
+        } else {
+          console.log("Redirecting to curator dashboard...");
+          router.push("/curator");
         }
       } else {
         setError("Phản hồi từ máy chủ không hợp lệ. Vui lòng thử lại.");
         setLoading(false);
+        loginRequestInFlight.current = false;
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Đăng nhập thất bại. Vui lòng thử lại.";
       console.error("Login error:", err);
       setError(errorMessage);
       setLoading(false);
+      loginRequestInFlight.current = false;
     }
   };
 
@@ -517,4 +514,12 @@ function FacebookIcon() {
       <path d="M13.5 21v-7.05h2.37l.35-2.75H13.5V9.44c0-.8.22-1.34 1.37-1.34h1.46V5.64c-.25-.04-1.13-.11-2.15-.11-2.13 0-3.58 1.3-3.58 3.68v2.01H8.2v2.75h2.4V21h2.9Z" />
     </svg>
   );
+}
+
+function hasOAuthCallbackCode() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return new URLSearchParams(window.location.search).has("code");
 }
