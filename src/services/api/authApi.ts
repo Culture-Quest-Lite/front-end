@@ -2,10 +2,8 @@ import { apiFetch } from "@/lib/api";
 
 export interface LoginResponse {
   accessToken: string;
-  refreshToken: string;
   tokenType: string;
   expiresIn: number;
-  refreshExpiresIn: number;
 }
 
 export interface TokenData {
@@ -14,7 +12,6 @@ export interface TokenData {
   name: string;
   role: "admin" | "curator";
   token: string;
-  refreshToken?: string;
 }
 
 export interface RegisterRequest {
@@ -57,10 +54,17 @@ export interface OAuthLoginRequest {
 // Đăng nhập
 export const authApi = {
   // Đăng nhập với username/password
-  login: async (username: string, password: string): Promise<LoginResponse> => {
+  login: async (
+    username: string,
+    password: string
+  ): Promise<LoginResponse> => {
     return apiFetch<LoginResponse>("/api/auth/login", {
       method: "POST",
+      headers: {
+        "X-Client-Type": "web",
+      },
       body: { username, password },
+      sameOrigin: true,
     });
   },
 
@@ -69,6 +73,7 @@ export const authApi = {
     return apiFetch("/api/auth/register", {
       method: "POST",
       body: data,
+      sameOrigin: true,
     });
   },
 
@@ -77,6 +82,7 @@ export const authApi = {
     return apiFetch("/api/auth/verify-otp", {
       method: "POST",
       body: data,
+      sameOrigin: true,
     });
   },
 
@@ -85,6 +91,7 @@ export const authApi = {
     return apiFetch("/api/auth/resend-otp", {
       method: "POST",
       body: data,
+      sameOrigin: true,
     });
   },
 
@@ -92,6 +99,10 @@ export const authApi = {
   logout: async () => {
     return apiFetch("/api/auth/logout", {
       method: "POST",
+      headers: {
+        "X-Client-Type": "web",
+      },
+      sameOrigin: true,
     });
   },
 
@@ -100,6 +111,7 @@ export const authApi = {
     return apiFetch("/api/auth/forgot-password", {
       method: "POST",
       body: data,
+      sameOrigin: true,
     });
   },
 
@@ -108,6 +120,7 @@ export const authApi = {
     return apiFetch("/api/auth/reset-password", {
       method: "POST",
       body: data,
+      sameOrigin: true,
     });
   },
 
@@ -116,6 +129,7 @@ export const authApi = {
     return apiFetch("/api/auth/change-password", {
       method: "POST",
       body: data,
+      sameOrigin: true,
     });
   },
 
@@ -123,7 +137,11 @@ export const authApi = {
   loginByGoogle: async (data: OAuthLoginRequest) => {
     return apiFetch("/api/auth/login-by-google", {
       method: "POST",
+      headers: {
+        "X-Client-Type": "web",
+      },
       body: data,
+      sameOrigin: true,
     });
   },
 
@@ -131,7 +149,11 @@ export const authApi = {
   loginByFacebook: async (data: OAuthLoginRequest) => {
     return apiFetch("/api/auth/login-by-facebook", {
       method: "POST",
+      headers: {
+        "X-Client-Type": "web",
+      },
       body: data,
+      sameOrigin: true,
     });
   },
 };
@@ -155,7 +177,7 @@ export function parseJwt(token: string) {
 }
 
 // Extract user info from access token
-export function extractUserFromToken(accessToken: string): Omit<TokenData, "token" | "refreshToken"> | null {
+export function extractUserFromToken(accessToken: string): Omit<TokenData, "token"> | null {
   const decoded = parseJwt(accessToken);
   if (!decoded) {
     console.error("Failed to decode token");
@@ -176,13 +198,15 @@ export function extractUserFromToken(accessToken: string): Omit<TokenData, "toke
   
   // Kiểm tra resource_access (alternative Keycloak format)
   if (decoded.resource_access && typeof decoded.resource_access === "object") {
-    for (const [resourceName, resourceData] of Object.entries(decoded.resource_access)) {
+    for (const resourceData of Object.values(decoded.resource_access)) {
       if (resourceData && typeof resourceData === "object" && "roles" in resourceData) {
-        const resourceRoles = (resourceData as any).roles;
+        const resourceRoles = (resourceData as { roles?: unknown }).roles;
         if (Array.isArray(resourceRoles)) {
           if (resourceRoles.includes("admin") || resourceRoles.includes("ADMIN")) {
             role = "admin";
             break;
+          } else if (resourceRoles.includes("curator") || resourceRoles.includes("CURATOR")) {
+            role = "curator";
           }
         }
       }
