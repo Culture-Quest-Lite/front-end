@@ -1,46 +1,87 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/app/ui-bits";
 import { Pagination } from "@/components/admin/Pagination";
-import { users } from "@/data/demo";
-import { Search, MoreHorizontal } from "lucide-react";
+import { adminApi, type UserProfile, type UserRole } from "@/services/api/admin/adminApi";
+import { Search, MoreHorizontal, Loader2 } from "lucide-react";
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 
-const roleClasses: Record<string, string> = {
-  Admin: "bg-red-100 text-red-700",
-  Curator: "bg-sky-100 text-sky-700",
-  Explorer: "bg-emerald-100 text-emerald-700",
-  Guest: "bg-slate-100 text-slate-700",
+const roleLabels: Record<UserRole, string> = {
+  ADMIN: "Quản trị viên",
+  CURATOR: "Người quản lý nội dung",
+  EXPLORER: "Người khám phá",
+  PARTNER: "Đối tác",
+};
+
+const roleClasses: Record<UserRole, string> = {
+  ADMIN: "bg-red-100 text-red-700",
+  CURATOR: "bg-sky-100 text-sky-700",
+  EXPLORER: "bg-emerald-100 text-emerald-700",
+  PARTNER: "bg-violet-100 text-violet-700",
+};
+
+const statusLabels: Record<string, string> = {
+  ACTIVE: "Hoạt động",
+  INACTIVE: "Bị khoá",
+  PENDING: "Đang xem xét",
+  DELETED: "Đã xóa",
 };
 
 const statusClasses: Record<string, string> = {
-  "Hoạt động": "bg-emerald-100 text-emerald-700",
-  "Đang xem xét": "bg-amber-100 text-amber-700",
-  "Bị khoá": "bg-red-100 text-red-700",
+  ACTIVE: "bg-emerald-100 text-emerald-700",
+  INACTIVE: "bg-red-100 text-red-700",
+  PENDING: "bg-amber-100 text-amber-700",
+  DELETED: "bg-slate-100 text-slate-700",
 };
 
 export default function UsersManagerPage() {
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [query, setQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
 
-  const filteredUsers = useMemo(
-    () =>
-      users.filter(
-        (user) =>
-          (!query ||
-            user.name.toLowerCase().includes(query.toLowerCase()) ||
-            user.email.toLowerCase().includes(query.toLowerCase())) &&
-          (roleFilter === "all" || user.role === roleFilter)
-      ),
-    [query, roleFilter]
-  );
+  const loadUsers = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await adminApi.getUsers({
+        page: page - 1,
+        size: PAGE_SIZE,
+        search: query.trim() || undefined,
+        sortBy: "createdAt",
+        sortDir: "desc",
+      });
+      const filtered =
+        roleFilter === "all"
+          ? response.content
+          : response.content.filter((user) => user.role === roleFilter);
+      setUsers(filtered);
+      setTotalItems(response.totalElements);
+      setTotalPages(Math.max(1, response.totalPages));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể tải danh sách người dùng.");
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, query, roleFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
-  const paginatedUsers = filteredUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
+
+  const displayTotal = useMemo(() => {
+    if (roleFilter === "all") return totalItems;
+    return users.length;
+  }, [roleFilter, totalItems, users.length]);
 
   function handleSearchChange(value: string) {
     setQuery(value);
@@ -48,8 +89,38 @@ export default function UsersManagerPage() {
   }
 
   function handleRoleChange(value: string) {
-    setRoleFilter(value);
+    setRoleFilter(value as UserRole | "all");
     setPage(1);
+  }
+
+  async function handleLockToggle(user: UserProfile) {
+    setActionLoadingId(user.userId);
+    try {
+      if (user.status === "INACTIVE") {
+        await adminApi.unlockUser(user.userId);
+      } else {
+        await adminApi.lockUser(user.userId);
+      }
+      await loadUsers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể cập nhật trạng thái tài khoản.");
+    } finally {
+      setActionLoadingId(null);
+      setOpenMenuId(null);
+    }
+  }
+
+  async function handleRoleUpdate(user: UserProfile, role: UserRole) {
+    setActionLoadingId(user.userId);
+    try {
+      await adminApi.updateUserRole(user.userId, role);
+      await loadUsers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể cập nhật vai trò.");
+    } finally {
+      setActionLoadingId(null);
+      setOpenMenuId(null);
+    }
   }
 
   return (
@@ -59,12 +130,18 @@ export default function UsersManagerPage() {
         subtitle="Tìm kiếm, lọc và quản lý người dùng theo vai trò và trạng thái."
       />
 
+      {error ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
+
       <div className="rounded-[16px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Danh sách người dùng</h2>
             <p className="mt-1 text-sm text-slate-500">
-              {filteredUsers.length} người dùng · {PAGE_SIZE} mục/trang
+              {displayTotal} người dùng · {PAGE_SIZE} mục/trang
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -83,10 +160,10 @@ export default function UsersManagerPage() {
               className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             >
               <option value="all">Tất cả vai trò</option>
-              <option value="Admin">Quản trị viên</option>
-              <option value="Curator">Người quản lý nội dung</option>
-              <option value="Explorer">Người khám phá</option>
-              <option value="Guest">Khách</option>
+              <option value="ADMIN">Quản trị viên</option>
+              <option value="CURATOR">Người quản lý nội dung</option>
+              <option value="EXPLORER">Người khám phá</option>
+              <option value="PARTNER">Đối tác</option>
             </select>
           </div>
         </div>
@@ -98,20 +175,27 @@ export default function UsersManagerPage() {
             <div>Người dùng</div>
             <div>Vai trò</div>
             <div>Trạng thái</div>
-            <div className="text-center">Lần check-in</div>
+            <div className="text-center">Điểm</div>
             <div className="text-right">Hành động</div>
           </div>
 
           <ul className="space-y-3 p-4 md:p-5">
-            {paginatedUsers.length === 0 ? (
+            {loading ? (
+              <li className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
+                <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
+              </li>
+            ) : users.length === 0 ? (
               <li className="py-10 text-center text-sm text-slate-500">Không tìm thấy người dùng phù hợp.</li>
             ) : (
-              paginatedUsers.map((user) => (
+              users.map((user) => (
                 <UserRow
-                  key={user.id}
+                  key={user.userId}
                   user={user}
                   openMenuId={openMenuId}
                   setOpenMenuId={setOpenMenuId}
+                  actionLoading={actionLoadingId === user.userId}
+                  onLockToggle={() => void handleLockToggle(user)}
+                  onRoleUpdate={(role) => void handleRoleUpdate(user, role)}
                 />
               ))
             )}
@@ -122,7 +206,7 @@ export default function UsersManagerPage() {
           <Pagination
             page={page}
             totalPages={totalPages}
-            totalItems={filteredUsers.length}
+            totalItems={displayTotal}
             pageSize={PAGE_SIZE}
             onPageChange={setPage}
           />
@@ -136,32 +220,62 @@ function UserRow({
   user,
   openMenuId,
   setOpenMenuId,
+  actionLoading,
+  onLockToggle,
+  onRoleUpdate,
 }: {
-  user: (typeof users)[number];
-  openMenuId: string | null;
-  setOpenMenuId: (id: string | null) => void;
+  user: UserProfile;
+  openMenuId: number | null;
+  setOpenMenuId: (id: number | null) => void;
+  actionLoading: boolean;
+  onLockToggle: () => void;
+  onRoleUpdate: (role: UserRole) => void;
 }) {
+  const displayName = user.displayName || user.username;
+  const avatar =
+    user.avatarUrl ||
+    `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(displayName)}`;
+
   const menu = (
-    <div className="relative inline-flex text-left" tabIndex={-1} onBlur={(event) => {
-      if (!event.currentTarget.contains(event.relatedTarget as Node)) {
-        setOpenMenuId(null);
-      }
-    }}>
+    <div
+      className="relative inline-flex text-left"
+      tabIndex={-1}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+          setOpenMenuId(null);
+        }
+      }}
+    >
       <button
         type="button"
-        onClick={() => setOpenMenuId(openMenuId === user.id ? null : user.id)}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100"
-        aria-expanded={openMenuId === user.id}
+        disabled={actionLoading}
+        onClick={() => setOpenMenuId(openMenuId === user.userId ? null : user.userId)}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
+        aria-expanded={openMenuId === user.userId}
         aria-label="Mở menu hành động"
       >
-        <MoreHorizontal className="h-4 w-4" />
+        {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
       </button>
-      {openMenuId === user.id ? (
-        <div className="absolute right-0 top-full z-10 mt-2 min-w-[180px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
-          <button className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50">Xem chi tiết</button>
-          <button className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50">Chỉnh sửa</button>
-          <button className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50">Khoá tài khoản</button>
-          <button className="w-full px-4 py-3 text-left text-sm text-red-600 transition hover:bg-slate-50">Xóa người dùng</button>
+      {openMenuId === user.userId ? (
+        <div className="absolute right-0 top-full z-10 mt-2 min-w-[200px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+          <button
+            type="button"
+            className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+            onClick={onLockToggle}
+          >
+            {user.status === "INACTIVE" ? "Mở khóa tài khoản" : "Khoá tài khoản"}
+          </button>
+          {(["ADMIN", "CURATOR", "EXPLORER", "PARTNER"] as UserRole[]).map((role) => (
+            <button
+              key={role}
+              type="button"
+              className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50 disabled:text-slate-400"
+              disabled={user.role === role}
+              onClick={() => onRoleUpdate(role)}
+            >
+              Đặt vai trò: {roleLabels[role]}
+            </button>
+          ))}
         </div>
       ) : null}
     </div>
@@ -171,36 +285,38 @@ function UserRow({
     <li className="overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md md:shadow-none md:hover:shadow-sm">
       <div className="grid gap-4 p-4 md:grid-cols-[3.5fr_1fr_1fr_0.8fr_0.8fr] md:items-center md:p-4">
         <div className="flex items-center gap-4">
-          <img src={user.avatar} alt={user.name} className="h-12 w-12 rounded-full object-cover" />
+          <img src={avatar} alt={displayName} className="h-12 w-12 rounded-full object-cover" />
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-slate-900">{user.name}</div>
+            <div className="truncate text-sm font-semibold text-slate-900">{displayName}</div>
             <div className="mt-1 truncate text-sm text-slate-500">{user.email}</div>
           </div>
         </div>
         <div className="flex items-center">
           <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${roleClasses[user.role]}`}>
-            {user.role}
+            {roleLabels[user.role]}
           </span>
         </div>
         <div className="flex items-center">
-          <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${statusClasses[user.status]}`}>
-            {user.status}
+          <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${statusClasses[user.status] ?? statusClasses.PENDING}`}>
+            {statusLabels[user.status] ?? user.status}
           </span>
         </div>
-        <div className="flex items-center justify-center font-medium text-slate-900">{user.checkins}</div>
+        <div className="flex items-center justify-center font-medium text-slate-900">
+          {user.totalPoints ?? 0}
+        </div>
         <div className="flex justify-end">{menu}</div>
       </div>
       <div className="grid gap-3 border-t border-slate-200 px-4 py-4 md:hidden">
         <div className="flex flex-wrap gap-2">
           <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${roleClasses[user.role]}`}>
-            {user.role}
+            {roleLabels[user.role]}
           </span>
-          <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${statusClasses[user.status]}`}>
-            {user.status}
+          <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${statusClasses[user.status] ?? statusClasses.PENDING}`}>
+            {statusLabels[user.status] ?? user.status}
           </span>
         </div>
         <div className="flex items-center justify-between gap-3 text-sm font-medium text-slate-900">
-          <span>{user.checkins} check-ins</span>
+          <span>{user.totalPoints ?? 0} điểm</span>
           {menu}
         </div>
       </div>

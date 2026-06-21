@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/app/ui-bits";
 import { Pagination } from "@/components/admin/Pagination";
+import { fetchAuditHistory } from "@/lib/api";
 import { audit, type AuditEntry } from "@/data/demo";
 import {
   Check,
@@ -70,8 +71,14 @@ export default function ReviewHistoryPage() {
 
   async function loadEntries() {
     setLoading(true);
-    setEntries(audit);
-    setLoading(false);
+    try {
+      const data = await fetchAuditHistory();
+      setEntries(data);
+    } catch {
+      setEntries(audit);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const filtered = useMemo(() => {
