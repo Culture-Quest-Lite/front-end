@@ -1,3 +1,5 @@
+import { extractUserFromToken } from "@/services/api/authApi";
+
 export type Role = "admin" | "curator";
 
 export interface LoginCredentials {
@@ -11,10 +13,11 @@ export interface AuthSession {
   name: string;
   role: Role;
   token: string;
-  refreshToken?: string;
 }
 
 const STORAGE_KEY = "culture-quest-auth-session";
+const ACCESS_TOKEN_COOKIE_KEY = "culture-quest-access-token";
+export const AUTH_SESSION_EVENT = "auth-session-changed";
 
 const mockUsers: Array<AuthSession & { password: string }> = [
   {
@@ -49,32 +52,73 @@ export function mockLogin(credentials: LoginCredentials): Promise<AuthSession> {
         return;
       }
 
-      const { password, ...session } = user;
-      resolve(session);
+      resolve({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        token: user.token,
+      });
     }, 500);
   });
 }
 
 export function saveAuthSession(session: AuthSession) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  saveAccessToken(session.token);
 }
 
-export function getAuthSession(): AuthSession | null {
+export function saveAccessToken(token: string, expiresIn?: number) {
+  if (typeof window === "undefined" || !token) return;
+
+  const maxAge =
+    typeof expiresIn === "number" ? expiresIn : getTokenMaxAge(token);
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  const expires = typeof maxAge === "number" ? `; Max-Age=${maxAge}` : "";
+
+  document.cookie = `${ACCESS_TOKEN_COOKIE_KEY}=${encodeURIComponent(token)}; Path=/; SameSite=Lax${expires}${secure}`;
+  window.localStorage.removeItem(STORAGE_KEY);
+  console.debug("Access token cookie updated:", {
+    cookieName: ACCESS_TOKEN_COOKIE_KEY,
+    exists: getCookieValue(ACCESS_TOKEN_COOKIE_KEY) !== null,
+  });
+  window.dispatchEvent(new Event(AUTH_SESSION_EVENT));
+}
+
+export function getAccessToken(): string | null {
   if (typeof window === "undefined") return null;
+
+  const cookieToken = getCookieValue(ACCESS_TOKEN_COOKIE_KEY);
+  if (cookieToken) {
+    return cookieToken;
+  }
+
   const raw = window.localStorage.getItem(STORAGE_KEY);
   if (!raw) return null;
 
   try {
-    return JSON.parse(raw) as AuthSession;
+    const legacySession = JSON.parse(raw) as AuthSession;
+
+    if (!legacySession.token) {
+      return null;
+    }
+
+    return legacySession.token;
   } catch {
     return null;
   }
 }
 
+export function getAuthSession(): AuthSession | null {
+  const token = getAccessToken();
+  return token ? createSessionFromToken(token) : null;
+}
+
 export function clearAuthSession() {
   if (typeof window === "undefined") return;
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${ACCESS_TOKEN_COOKIE_KEY}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
   window.localStorage.removeItem(STORAGE_KEY);
+  window.dispatchEvent(new Event(AUTH_SESSION_EVENT));
 }
 
 export const sampleAccounts = mockUsers.map(({ email, role }) => ({
@@ -100,30 +144,36 @@ export function parseJwt(token: string) {
   }
 }
 
-export function createSessionFromToken(token: string, refreshToken?: string): AuthSession | null {
-  const payload = parseJwt(token);
-  if (!payload) return null;
-
-  const realmRoles: string[] = payload.realm_access?.roles || [];
-  let role: Role | null = null;
-
-  if (realmRoles.includes("ADMIN")) {
-    role = "admin";
-  } else if (realmRoles.includes("CURATOR")) {
-    role = "curator";
-  }
-
-  if (!role) {
+export function createSessionFromToken(token: string): AuthSession | null {
+  const user = extractUserFromToken(token);
+  if (!user) {
     return null;
   }
 
   return {
-    id: payload.sub || "",
-    email: payload.email || "",
-    name: payload.name || payload.preferred_username || "",
-    role,
+    ...user,
     token,
-    refreshToken,
   };
+}
+
+function getCookieValue(name: string) {
+  if (typeof document === "undefined") return null;
+
+  const prefix = `${name}=`;
+  const entry = document.cookie
+    .split("; ")
+    .find((cookie) => cookie.startsWith(prefix));
+
+  return entry ? decodeURIComponent(entry.slice(prefix.length)) : null;
+}
+
+function getTokenMaxAge(token: string) {
+  const payload = parseJwt(token);
+  if (!payload || typeof payload.exp !== "number") {
+    return undefined;
+  }
+
+  const maxAge = payload.exp - Math.floor(Date.now() / 1000);
+  return maxAge > 0 ? maxAge : 0;
 }
 

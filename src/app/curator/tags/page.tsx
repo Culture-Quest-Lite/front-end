@@ -14,95 +14,71 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { hotspotItems } from "@/data/hotspots";
+import {
+  buildTagChipLabel,
+  buildTagDetailHref,
+  buildTagSlug,
+  buildTagStatsLabel,
+  buildTagToken,
+  formatTagDateTime,
+  formatTagStatus,
+  getTagStatusTone,
+  getTagColor,
+  getTagColorState,
+  normalizeTagText,
+  tagColorPalette,
+  type TagRecord,
+} from "@/lib/tags";
+import { CuratorPagination } from "@/components/curator/CuratorPagination";
 import { cn } from "@/lib/utils";
+import { tagApi } from "@/services/api";
 
 type TagItem = {
   id: string;
+  backendId: number | null;
+  slug: string;
   name: string;
   usageCount: number;
   color: string;
+  status: string;
+  createdAt: string | null;
+  updatedAt: string | null;
 };
 
-const initialTags: TagItem[] = [
-  {
-    id: "lich-su",
-    name: "Lịch sử",
-    usageCount: 42,
-    color: "#C84E14",
-  },
-  {
-    id: "kien-truc",
-    name: "Kiến trúc",
-    usageCount: 31,
-    color: "#7C3AED",
-  },
-  {
-    id: "di-san",
-    name: "Di sản",
-    usageCount: 25,
-    color: "#0F9D74",
-  },
-  {
-    id: "chien-tranh",
-    name: "Chiến tranh",
-    usageCount: 12,
-    color: "#A72222",
-  },
-  {
-    id: "van-hoa",
-    name: "Văn hóa",
-    usageCount: 38,
-    color: "#F59E0B",
-  },
-];
+function getUsageCountForTag(tagName: string) {
+  const tagToken = buildTagToken(tagName);
 
-const tagColorPalette = ["#C84E14", "#7C3AED", "#0F9D74", "#A72222", "#F59E0B"];
-
-function normalizeText(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+  return hotspotItems.filter((hotspot) =>
+    hotspot.tags.some((tag) => buildTagToken(tag) === tagToken),
+  ).length;
 }
 
-function buildTagId(value: string) {
-  return normalizeText(value)
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function buildChipLabel(name: string) {
-  return `# ${name.trim().toLowerCase()}`;
-}
-
-function buildStatsLabel(name: string) {
-  return `#${name.trim().toLowerCase().replace(/\s+/g, "")}`;
-}
-
-function withHexAlpha(color: string, alpha: string) {
-  const normalized = color.trim().toUpperCase();
-
-  if (/^#[0-9A-F]{6}$/.test(normalized)) {
-    return `${normalized}${alpha}`;
-  }
-
-  return color;
-}
-
-function getTagColorState(color: string) {
+function mapTagRecordToTagItem(tag: TagRecord): TagItem {
   return {
-    chipBg: withHexAlpha(color, "14"),
-    chipBorder: withHexAlpha(color, "4D"),
+    id: String(tag.tagId),
+    backendId: tag.tagId,
+    slug: buildTagSlug(tag.tagName) || `tag-${tag.tagId}`,
+    name: tag.tagName,
+    usageCount: getUsageCountForTag(tag.tagName),
+    color: getTagColor(tag.tagId - 1),
+    status: tag.tagStatus,
+    createdAt: tag.createdAt,
+    updatedAt: tag.updatedAt,
   };
 }
 
-function getTagDetailHref(tagId: string) {
-  return `/curator/tags/${tagId}`;
-}
+const TAGS_PAGE_SIZE = 10;
 
 export default function CuratorTagsPage() {
-  const [tags, setTags] = useState(initialTags);
+  const [tags, setTags] = useState<TagItem[]>([]);
+  const [isLoadingTags, setIsLoadingTags] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalElements, setTotalElements] = useState(0);
+  const [reloadVersion, setReloadVersion] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [openMenuTagId, setOpenMenuTagId] = useState<string | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -114,20 +90,72 @@ export default function CuratorTagsPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const deferredSearch = useDeferredValue(searchQuery);
-  const normalizedQuery = normalizeText(deferredSearch);
-  const filteredTags = tags.filter((tag) => {
-    if (!normalizedQuery) {
-      return true;
-    }
-
-    return normalizeText(tag.name).includes(normalizedQuery);
-  });
-  const maxTagCount = Math.max(...filteredTags.map((tag) => tag.usageCount), 1);
+  const effectiveSearchQuery = deferredSearch.trim();
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const maxTagCount = Math.max(...tags.map((tag) => tag.usageCount), 1);
   const isEditing = editingTagId !== null;
+  const showEmptyState = !isLoadingTags && tags.length === 0;
+  const editingTag =
+    editingTagId === null
+      ? null
+      : (tags.find((tag) => tag.id === editingTagId) ?? null);
   const pendingDeleteTag =
     pendingDeleteId === null
       ? null
       : (tags.find((tag) => tag.id === pendingDeleteId) ?? null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTags() {
+      try {
+        setIsLoadingTags(true);
+        setLoadError(null);
+
+        const response = await tagApi.getTags({
+          search: effectiveSearchQuery || undefined,
+          page: currentPage - 1,
+          size: TAGS_PAGE_SIZE,
+        });
+        if (cancelled) {
+          return;
+        }
+
+        setTags(response.content.map(mapTagRecordToTagItem));
+        setTotalElements(response.page.totalElements);
+
+        const nextTotalPages = Math.max(1, response.page.totalPages || 1);
+        const nextCurrentPage =
+          response.page.totalPages === 0 ? 1 : response.page.number + 1;
+
+        setTotalPages(nextTotalPages);
+
+        if (nextCurrentPage !== currentPage) {
+          setCurrentPage(nextCurrentPage);
+        }
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Không thể tải danh sách thẻ.";
+        setLoadError(message);
+      } finally {
+        if (!cancelled) {
+          setIsLoadingTags(false);
+        }
+      }
+    }
+
+    loadTags();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentPage, effectiveSearchQuery, reloadVersion]);
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
@@ -180,7 +208,7 @@ export default function CuratorTagsPage() {
     setIsEditorOpen(true);
   }
 
-  function handleSubmitTag(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmitTag(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const trimmedName = formName.trim();
@@ -190,17 +218,10 @@ export default function CuratorTagsPage() {
       return;
     }
 
-    const usageCount = Number(formUsageCount);
-
-    if (!Number.isInteger(usageCount) || usageCount < 0) {
-      setFormError("Số lượt sử dụng phải là số nguyên từ 0 trở lên.");
-      return;
-    }
-
     const duplicate = tags.some(
       (tag) =>
         tag.id !== editingTagId &&
-        normalizeText(tag.name) === normalizeText(trimmedName),
+        normalizeTagText(tag.name) === normalizeTagText(trimmedName),
     );
 
     if (duplicate) {
@@ -208,45 +229,43 @@ export default function CuratorTagsPage() {
       return;
     }
 
-    const normalizedColor = formColor.toUpperCase();
     setFormError(null);
 
     if (editingTagId) {
-      setTags((current) =>
-        current.map((tag) =>
-          tag.id === editingTagId
-            ? {
-                ...tag,
-                name: trimmedName,
-                usageCount,
-                color: normalizedColor,
-              }
-            : tag,
-        ),
-      );
-      closeEditor();
+      if (!editingTag?.backendId) {
+        setFormError("Không tìm thấy ID backend của thẻ để cập nhật.");
+        return;
+      }
+    }
+
+    if (isSubmitting) {
       return;
     }
 
-    const nextIdBase = buildTagId(trimmedName) || `the-${tags.length + 1}`;
-    let nextId = nextIdBase;
-    let suffix = 2;
+    try {
+      setIsSubmitting(true);
+      if (editingTag?.backendId) {
+        await tagApi.updateTag(editingTag.backendId, {
+          tagName: trimmedName,
+        });
+      } else {
+        await tagApi.createTag({ tagName: trimmedName });
+      }
 
-    while (tags.some((tag) => tag.id === nextId)) {
-      nextId = `${nextIdBase}-${suffix}`;
-      suffix += 1;
+      setCurrentPage(1);
+      setReloadVersion((version) => version + 1);
+      closeEditor();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : isEditing
+            ? "Không thể cập nhật thẻ."
+            : "Không thể tạo thẻ mới.";
+      setFormError(message);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setTags((current) => [
-      ...current,
-      {
-        id: nextId,
-        name: trimmedName,
-        usageCount,
-        color: normalizedColor,
-      },
-    ]);
-    closeEditor();
   }
 
   function handleDeleteRequest(tagId: string) {
@@ -254,18 +273,34 @@ export default function CuratorTagsPage() {
     setPendingDeleteId(tagId);
   }
 
-  function handleConfirmDelete() {
+  async function handleConfirmDelete() {
     if (!pendingDeleteId) {
       return;
     }
 
-    setTags((current) => current.filter((tag) => tag.id !== pendingDeleteId));
-
-    if (editingTagId === pendingDeleteId) {
-      closeEditor();
+    if (!pendingDeleteTag?.backendId) {
+      setPendingDeleteId(null);
+      return;
     }
 
-    setPendingDeleteId(null);
+    try {
+      setIsSubmitting(true);
+      await tagApi.deleteTag(pendingDeleteTag.backendId);
+
+      if (editingTagId === pendingDeleteId) {
+        closeEditor();
+      }
+
+      setReloadVersion((version) => version + 1);
+      setPendingDeleteId(null);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  function handlePageChange(page: number) {
+    setOpenMenuTagId(null);
+    setCurrentPage(page);
   }
 
   return (
@@ -274,9 +309,11 @@ export default function CuratorTagsPage() {
         <section className="space-y-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-2">
-              <h1 className="cq-page-title">Thẻ</h1>
+              <h1 className="cq-page-title">Thẻ hành trình</h1>
               <p className="cq-page-subtitle max-w-2xl">
-                Quản lý gắn thẻ nội dung di sản.
+                Tạo và quản lý các thẻ chủ đề để phân loại địa điểm, câu chuyện
+                và tuyến hành trình, giúp người dùng dễ dàng khám phá nội dung
+                liên quan.
               </p>
             </div>
 
@@ -296,11 +333,20 @@ export default function CuratorTagsPage() {
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
+              onChange={(event) => {
+                setSearchQuery(event.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Tìm thẻ phù hợp"
               className="h-11 rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
             />
           </div>
+
+          {loadError ? (
+            <div className="rounded-[1.25rem] border border-[#F3D1CD] bg-[#FFF6F5] px-4 py-3 text-sm font-medium text-[#CF3F34]">
+              Không thể tải danh sách thẻ từ API: {loadError}
+            </div>
+          ) : null}
 
           <section className="rounded-[1.75rem] border border-slate-200/80 bg-card p-4 shadow-sm sm:p-5">
             <div className="grid gap-6 xl:grid-cols-[0.94fr_1.06fr]">
@@ -308,13 +354,22 @@ export default function CuratorTagsPage() {
                 <h3 className="cq-card-title">Thẻ đang dùng</h3>
 
                 <div className="mt-4 flex flex-wrap gap-3">
-                  {filteredTags.map((tag) => {
+                  {isLoadingTags ? (
+                    <p className="cq-page-subtitle">
+                      Đang tải danh sách thẻ...
+                    </p>
+                  ) : null}
+
+                  {tags.map((tag) => {
                     const colorState = getTagColorState(tag.color);
 
                     return (
                       <Link
                         key={tag.id}
-                        href={getTagDetailHref(tag.id)}
+                        href={buildTagDetailHref(
+                          tag.backendId ?? tag.id,
+                          tag.name,
+                        )}
                         className="inline-flex items-center gap-2.5 rounded-full border px-4 py-2 text-xs font-medium transition hover:opacity-85 sm:text-sm"
                         style={{
                           color: tag.color,
@@ -322,7 +377,7 @@ export default function CuratorTagsPage() {
                           borderColor: colorState.chipBorder,
                         }}
                       >
-                        <span>{buildChipLabel(tag.name)}</span>
+                        <span>{buildTagChipLabel(tag.name)}</span>
                         <span className="text-sm opacity-75">
                           {tag.usageCount}
                         </span>
@@ -330,7 +385,7 @@ export default function CuratorTagsPage() {
                     );
                   })}
 
-                  {filteredTags.length === 0 ? (
+                  {showEmptyState ? (
                     <p className="cq-page-subtitle">
                       Không có thẻ nào khớp với từ khóa hiện tại.
                     </p>
@@ -339,16 +394,20 @@ export default function CuratorTagsPage() {
               </div>
 
               <div className="rounded-[1.5rem] border border-slate-200 bg-white p-4">
-                <h3 className="cq-card-title">Thống kê sử dụng</h3>
+                <h3 className="cq-card-title">Thống kê sử dụng thẻ</h3>
 
                 <div className="mt-4 space-y-4">
-                  {filteredTags.map((tag) => (
+                  {isLoadingTags ? (
+                    <p className="cq-page-subtitle">Đang tải thống kê thẻ...</p>
+                  ) : null}
+
+                  {tags.map((tag) => (
                     <div
                       key={`${tag.id}-stats`}
                       className="grid grid-cols-[minmax(0,128px)_minmax(0,1fr)_40px] items-center gap-4"
                     >
                       <span className="text-xs text-slate-800 sm:text-sm">
-                        {buildStatsLabel(tag.name)}
+                        {buildTagStatsLabel(tag.name)}
                       </span>
 
                       <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
@@ -367,7 +426,7 @@ export default function CuratorTagsPage() {
                     </div>
                   ))}
 
-                  {filteredTags.length === 0 ? (
+                  {showEmptyState ? (
                     <p className="cq-page-subtitle">
                       Chưa có dữ liệu để hiển thị thống kê.
                     </p>
@@ -386,12 +445,23 @@ export default function CuratorTagsPage() {
                 </div>
 
                 <span className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-xs font-medium text-slate-600 shadow-sm sm:text-sm">
-                  {filteredTags.length} kết quả
-                </span>
-              </div>
+                  {totalElements} kết quả
+                  </span>
+                </div>
 
               <div className="mt-4">
-                {filteredTags.map((tag, index) => {
+                {isLoadingTags ? (
+                  <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-white px-5 py-10 text-center">
+                    <p className="cq-card-title sm:text-base">
+                      Đang tải dữ liệu thẻ
+                    </p>
+                    <p className="cq-page-subtitle mt-2">
+                      Danh sách sẽ hiển thị ngay khi API phản hồi.
+                    </p>
+                  </div>
+                ) : null}
+
+                {tags.map((tag, index) => {
                   const colorState = getTagColorState(tag.color);
 
                   return (
@@ -399,7 +469,7 @@ export default function CuratorTagsPage() {
                       key={`${tag.id}-row`}
                       className={cn(
                         "relative flex flex-col gap-4 py-4 lg:flex-row lg:items-center",
-                        index !== filteredTags.length - 1 &&
+                        index !== tags.length - 1 &&
                           "border-b border-[#E6DDD1]",
                         openMenuTagId === tag.id && "z-20",
                       )}
@@ -407,7 +477,10 @@ export default function CuratorTagsPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-3">
                           <Link
-                            href={getTagDetailHref(tag.id)}
+                            href={buildTagDetailHref(
+                              tag.backendId ?? tag.id,
+                              tag.name,
+                            )}
                             className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium sm:text-sm"
                             style={{
                               color: tag.color,
@@ -415,11 +488,14 @@ export default function CuratorTagsPage() {
                               borderColor: colorState.chipBorder,
                             }}
                           >
-                            {buildChipLabel(tag.name)}
+                            {buildTagChipLabel(tag.name)}
                           </Link>
 
                           <Link
-                            href={getTagDetailHref(tag.id)}
+                            href={buildTagDetailHref(
+                              tag.backendId ?? tag.id,
+                              tag.name,
+                            )}
                             className="cq-card-title transition hover:text-[#cf3d37]"
                           >
                             {tag.name}
@@ -427,8 +503,22 @@ export default function CuratorTagsPage() {
                         </div>
 
                         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 sm:text-sm">
-                          <span>{buildStatsLabel(tag.name)}</span>
+                          <span>{buildTagStatsLabel(tag.name)}</span>
                           <span>{tag.usageCount} hotspot sử dụng</span>
+                          <span className="inline-flex items-center gap-2">
+                            <span>Trạng thái:</span>
+                            <span
+                              className={cn(
+                                "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium",
+                                getTagStatusTone(tag.status),
+                              )}
+                            >
+                              {formatTagStatus(tag.status)}
+                            </span>
+                          </span>
+                          <span>
+                            Cập nhật: {formatTagDateTime(tag.updatedAt)}
+                          </span>
                         </div>
                       </div>
 
@@ -460,7 +550,10 @@ export default function CuratorTagsPage() {
                             className="absolute right-0 top-[calc(100%+0.6rem)] w-40 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
                           >
                             <Link
-                              href={getTagDetailHref(tag.id)}
+                              href={buildTagDetailHref(
+                                tag.backendId ?? tag.id,
+                                tag.name,
+                              )}
                               role="menuitem"
                               onClick={() => setOpenMenuTagId(null)}
                               className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
@@ -498,7 +591,7 @@ export default function CuratorTagsPage() {
                   );
                 })}
 
-                {filteredTags.length === 0 ? (
+                {showEmptyState ? (
                   <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-white px-5 py-10 text-center">
                     <p className="cq-card-title sm:text-base">
                       Không tìm thấy thẻ
@@ -509,6 +602,16 @@ export default function CuratorTagsPage() {
                   </div>
                 ) : null}
               </div>
+
+              {tags.length > 0 ? (
+                <div className="mt-auto flex justify-end pt-6">
+                  <CuratorPagination
+                    currentPage={safeCurrentPage}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
+                  />
+                </div>
+              ) : null}
             </div>
           </section>
         </section>
@@ -537,7 +640,8 @@ export default function CuratorTagsPage() {
                 {isEditing ? "Chỉnh sửa thẻ" : "Tạo thẻ mới"}
               </h2>
               <p className="cq-page-subtitle">
-                Điền thông tin cơ bản để tạo thẻ nội dung cho hotspot.
+                Điền thông tin cơ bản để tạo thẻ nội dung cho địa điểm và câu
+                chuyện.
               </p>
             </div>
 
@@ -552,54 +656,8 @@ export default function CuratorTagsPage() {
                   placeholder="Ví dụ: Lịch sử kháng chiến"
                   className="h-12 rounded-3xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
                   autoFocus
+                  disabled={isSubmitting}
                 />
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_180px]">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-900">
-                    Số lượt sử dụng
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={formUsageCount}
-                    onChange={(event) => setFormUsageCount(event.target.value)}
-                    className="h-12 rounded-3xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm outline-none transition focus-visible:border-primary focus-visible:ring-primary/20"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-900">
-                    Màu chủ đạo
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <label className="relative inline-flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                      <div
-                        className="absolute inset-[3px] rounded-[0.8rem]"
-                        style={{ backgroundColor: formColor }}
-                      />
-                      <input
-                        type="color"
-                        value={formColor}
-                        onChange={(event) =>
-                          setFormColor(event.target.value.toUpperCase())
-                        }
-                        className="absolute inset-0 cursor-pointer opacity-0"
-                        aria-label="Chọn màu thẻ"
-                      />
-                    </label>
-
-                    <Input
-                      value={formColor}
-                      onChange={(event) =>
-                        setFormColor(event.target.value.toUpperCase())
-                      }
-                      className="h-12 rounded-3xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm outline-none transition focus-visible:border-primary focus-visible:ring-primary/20"
-                    />
-                  </div>
-                </div>
               </div>
 
               <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
@@ -616,15 +674,13 @@ export default function CuratorTagsPage() {
                       borderColor: getTagColorState(formColor).chipBorder,
                     }}
                   >
-                    <span>{buildChipLabel(formName || "Thẻ mới")}</span>
-                    <span className="opacity-75">
-                      {Number(formUsageCount) >= 0 ? formUsageCount : "0"}
-                    </span>
+                    <span>{buildTagChipLabel(formName || "Thẻ mới")}</span>
+                    {isEditing ? (
+                      <span className="opacity-75">
+                        {Number(formUsageCount) >= 0 ? formUsageCount : "0"}
+                      </span>
+                    ) : null}
                   </div>
-
-                  <span className="cq-page-subtitle">
-                    {buildStatsLabel(formName || "Thẻ mới")}
-                  </span>
                 </div>
               </div>
 
@@ -640,6 +696,7 @@ export default function CuratorTagsPage() {
                   variant="outline"
                   size="lg"
                   onClick={closeEditor}
+                  disabled={isSubmitting}
                   className="rounded-full px-5 text-sm shadow-sm"
                 >
                   Hủy
@@ -648,9 +705,14 @@ export default function CuratorTagsPage() {
                   type="submit"
                   variant="secondary"
                   size="lg"
+                  disabled={isSubmitting}
                   className="rounded-full px-5 text-sm text-white shadow-sm"
                 >
-                  {isEditing ? "Lưu thay đổi" : "Tạo thẻ"}
+                  {isEditing
+                    ? "Lưu thay đổi"
+                    : isSubmitting
+                      ? "Đang tạo..."
+                      : "Tạo thẻ"}
                 </Button>
               </div>
             </form>
@@ -676,19 +738,24 @@ export default function CuratorTagsPage() {
               <X className="h-5 w-5" />
             </button>
 
-            <div className="space-y-2 pr-10">
+            <div className="flex flex-col items-center space-y-4 px-2 text-center">
+              <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-[#F3D1CD] bg-[#FFF6F5] text-[#CF3F34] shadow-sm">
+                <Trash2 className="h-6 w-6" />
+              </div>
+
               <h2 className="cq-modal-title">Xóa thẻ</h2>
               <p className="cq-page-subtitle">
-                Thẻ{" "}
+                Bạn có chắc muốn xóa thẻ{" "}
                 <span className="font-semibold text-slate-900">
                   {pendingDeleteTag.name}
-                </span>{" "}
-                sẽ bị xóa khỏi danh sách hiện tại.
+                </span>
+                ?
               </p>
             </div>
 
             <div className="mt-6 rounded-[1.5rem] border border-[#F3D1CD] bg-[#FFF6F5] p-4 text-sm text-slate-600">
-              Hành động này không thể hoàn tác. Hãy kiểm tra lại trước khi xóa.
+              Hành động này sẽ xóa thẻ khỏi danh sách hiện tại và có thể ảnh
+              hưởng đến các nội dung đang sử dụng thẻ này.
             </div>
 
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

@@ -1,7 +1,7 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
 export interface LoginCredentials {
-  email: string;
+  username: string;
   password: string;
 }
 
@@ -13,23 +13,40 @@ export interface ApiResponse<T> {
 
 export type ApiRequestOptions = Omit<RequestInit, 'body'> & {
   body?: BodyInit | object;
+  sameOrigin?: boolean;
 };
 
 export async function apiFetch<T>(path: string, options: ApiRequestOptions = {}) {
-  const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
+  const { sameOrigin = false, ...requestOptions } = options;
+  const url = path.startsWith("http") ? path : sameOrigin ? path : `${API_BASE_URL}${path}`;
+  const isAuthRequest = path.startsWith("/api/auth/");
+  const headers = new Headers(requestOptions.headers);
+  const isFormDataBody =
+    typeof FormData !== "undefined" && requestOptions.body instanceof FormData;
+
+  if (!isFormDataBody && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
   const init: RequestInit = {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-    ...options,
+    ...requestOptions,
+    headers,
     body: undefined,
   };
 
-  if (options.body && typeof options.body !== "string") {
-    init.body = JSON.stringify(options.body);
-  } else if (options.body) {
-    init.body = options.body as BodyInit;
+  if (requestOptions.body && typeof requestOptions.body !== "string") {
+    init.body = JSON.stringify(requestOptions.body);
+  } else if (requestOptions.body) {
+    init.body = requestOptions.body as BodyInit;
+  }
+
+  if (isAuthRequest) {
+    console.debug("[apiFetch] Auth request", {
+      url,
+      method: init.method ?? "GET",
+      hasBody: !!init.body,
+      headers: init.headers,
+    });
   }
 
   const response = await fetch(url, {
@@ -38,10 +55,30 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
   });
 
   const body = await response.json().catch(() => ({}));
+  const authProxyVersion = response.headers.get("x-auth-proxy-version");
 
   if (!response.ok) {
     const message = (body && (body.message || body.error)) ?? response.statusText;
-    throw new Error(typeof message === "string" ? message : "Request failed");
+    console.error("[apiFetch] Request failed", {
+      url,
+      status: response.status,
+      body,
+      authProxyVersion,
+      contentType: response.headers.get("content-type"),
+    });
+
+    const error = new Error(typeof message === "string" ? message : "Request failed") as Error & {
+      status?: number;
+      responseBody?: unknown;
+      url?: string;
+    };
+    error.status = response.status;
+    error.responseBody = body;
+    error.url = url;
+    if (authProxyVersion) {
+      (error as Error & { authProxyVersion?: string }).authProxyVersion = authProxyVersion;
+    }
+    throw error;
   }
 
   return body as T;
@@ -63,9 +100,13 @@ export async function fetchAuditHistory() {
 }
 
 export async function loginUser(credentials: LoginCredentials) {
-  return apiFetch<{ token: string; user?: Record<string, unknown> }>("/auth/login", {
+  return apiFetch<KeycloakTokenResponse>("/api/auth/login", {
     method: "POST",
-    body: JSON.stringify(credentials),
+    headers: {
+      "X-Client-Type": "web",
+    },
+    body: credentials,
+    sameOrigin: true,
   });
 }
 
@@ -79,30 +120,39 @@ export async function fetchUserProfile(token: string) {
 
 export interface KeycloakTokenResponse {
   accessToken: string;
-  refreshToken: string;
   tokenType: string;
   expiresIn: number;
-  refreshExpiresIn: number;
 }
 
 export async function loginByGoogle(code: string, redirectUri: string) {
   return apiFetch<KeycloakTokenResponse>("/api/auth/login-by-google", {
     method: "POST",
+    headers: {
+      "X-Client-Type": "web",
+    },
     body: { code, redirectUri },
+    sameOrigin: true,
   });
 }
 
 export async function loginByFacebook(code: string, redirectUri: string) {
   return apiFetch<KeycloakTokenResponse>("/api/auth/login-by-facebook", {
     method: "POST",
+    headers: {
+      "X-Client-Type": "web",
+    },
     body: { code, redirectUri },
+    sameOrigin: true,
   });
 }
 
-export async function logoutUser(refreshToken: string) {
+export async function logoutUser() {
   return apiFetch<{ message: string }>("/api/auth/logout", {
     method: "POST",
-    body: { refreshToken },
+    headers: {
+      "X-Client-Type": "web",
+    },
+    sameOrigin: true,
   });
 }
 

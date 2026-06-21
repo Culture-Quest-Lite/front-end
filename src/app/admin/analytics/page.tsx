@@ -9,7 +9,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -19,6 +18,7 @@ import {
   RadialBarChart,
   Legend,
 } from "recharts";
+import { ResponsiveContainer } from "@/components/ui/chart-responsive-container";
 
 // lucide alias
 import { Route as RIcon } from "lucide-react";

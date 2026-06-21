@@ -33,7 +33,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -41,6 +40,7 @@ import {
   LineChart,
 } from "recharts";
 import { Button } from "@/components/ui/button";
+import { ResponsiveContainer } from "@/components/ui/chart-responsive-container";
 
 export default function AdminDashboardPage() {
   const { session, loading } = useAuth();
