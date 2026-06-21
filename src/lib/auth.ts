@@ -1,6 +1,6 @@
 import { extractUserFromToken } from "@/services/api/authApi";
 
-export type Role = "admin" | "curator";
+export type Role = "admin" | "curator" | "explorer";
 
 export interface LoginCredentials {
   email: string;
@@ -36,6 +36,14 @@ const mockUsers: Array<AuthSession & { password: string }> = [
     role: "curator",
     token: "mock-curator-token",
   },
+  {
+  id: "3",
+  email: "explorer@example.com",
+  password: "Explorer123",
+  name: "Explorer User",
+  role: "explorer",
+  token: "mock-explorer-token",
+}
 ];
 
 export function mockLogin(credentials: LoginCredentials): Promise<AuthSession> {
@@ -123,10 +131,14 @@ export function clearAuthSession() {
 
 export const sampleAccounts = mockUsers.map(({ email, role }) => ({
   email,
-  password: role === "admin" ? "Admin123" : "Curator123",
+  password:
+    role === "admin"
+      ? "Admin123"
+      : role === "curator"
+      ? "Curator123"
+      : "Explorer123",
   role,
 }));
-
 export function parseJwt(token: string) {
   try {
     const base64Url = token.split(".")[1];

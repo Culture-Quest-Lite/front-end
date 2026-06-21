@@ -10,7 +10,7 @@ export interface TokenData {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "curator";
+  role: "admin" | "curator" | "explorer";
   token: string;
 }
 
