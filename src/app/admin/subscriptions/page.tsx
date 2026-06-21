@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/app/ui-bits";
 import { Button } from "@/components/ui/button";
 import {
-  subscriptions as initialPlans,
+  adminApi,
   type SubscriptionPlan,
-  type SubscriptionStatus,
-} from "@/data/demo";
+  type SubscriptionPlanStatus,
+} from "@/services/api/admin/adminApi";
 import {
   Plus,
   Pencil,
@@ -16,51 +16,86 @@ import {
   Check,
   X,
   CreditCard,
+  Loader2,
 } from "lucide-react";
 
-const statusLabels: Record<SubscriptionStatus, string> = {
-  active: "Đang hoạt động",
-  inactive: "Ngừng hoạt động",
-  draft: "Bản nháp",
+const statusLabels: Record<SubscriptionPlanStatus, string> = {
+  ACTIVE: "Đang hoạt động",
+  INACTIVE: "Ngừng hoạt động",
+  DELETED: "Đã xóa",
 };
 
-const statusClasses: Record<SubscriptionStatus, string> = {
-  active: "bg-emerald-100 text-emerald-700",
-  inactive: "bg-slate-100 text-slate-600",
-  draft: "bg-amber-100 text-amber-700",
+const statusClasses: Record<SubscriptionPlanStatus, string> = {
+  ACTIVE: "bg-emerald-100 text-emerald-700",
+  INACTIVE: "bg-slate-100 text-slate-600",
+  DELETED: "bg-red-100 text-red-700",
 };
 
-function formatPrice(price: number, currency: string) {
+function formatPrice(price: number) {
   if (price === 0) return "Miễn phí";
-  return new Intl.NumberFormat("vi-VN", { style: "currency", currency }).format(price);
+  return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
 }
 
-type FormData = Omit<SubscriptionPlan, "id" | "subscribers" | "createdAt">;
-
-const emptyForm: FormData = {
-  name: "",
-  description: "",
-  price: 0,
-  currency: "VND",
-  durationDays: 30,
-  features: [""],
-  status: "draft",
+type FormData = {
+  subscriptionPlanName: string;
+  subscriptionPlanDescription: string;
+  priceMonthly: number;
+  priceYearly: number;
+  configLimitText: string;
 };
 
+const emptyForm: FormData = {
+  subscriptionPlanName: "",
+  subscriptionPlanDescription: "",
+  priceMonthly: 0,
+  priceYearly: 0,
+  configLimitText: "",
+};
+
+function parseConfigLimit(text: string): Record<string, unknown> | undefined {
+  const trimmed = text.trim();
+  if (!trimmed) return undefined;
+  try {
+    return JSON.parse(trimmed) as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+}
+
 export default function SubscriptionsPage() {
-  const [plans, setPlans] = useState<SubscriptionPlan[]>(initialPlans);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<"create" | "edit" | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm);
   const [toast, setToast] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadPlans = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await adminApi.getSubscriptionPlans({ page: 0, size: 50, sortBy: "createdAt", sortDir: "desc" });
+      setPlans(response.content);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể tải danh sách gói dịch vụ.");
+      setPlans([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPlans();
+  }, [loadPlans]);
 
   const stats = useMemo(
     () => ({
       total: plans.length,
-      active: plans.filter((p) => p.status === "active").length,
-      subscribers: plans.reduce((sum, p) => sum + p.subscribers, 0),
+      active: plans.filter((p) => p.status === "ACTIVE").length,
     }),
-    [plans]
+    [plans],
   );
 
   function showToast(msg: string) {
@@ -76,58 +111,62 @@ export default function SubscriptionsPage() {
 
   function openEdit(plan: SubscriptionPlan) {
     setForm({
-      name: plan.name,
-      description: plan.description,
-      price: plan.price,
-      currency: plan.currency,
-      durationDays: plan.durationDays,
-      features: [...plan.features],
-      status: plan.status,
+      subscriptionPlanName: plan.subscriptionPlanName,
+      subscriptionPlanDescription: plan.subscriptionPlanDescription ?? "",
+      priceMonthly: plan.priceMonthly,
+      priceYearly: plan.priceYearly,
+      configLimitText: plan.configLimit ? JSON.stringify(plan.configLimit, null, 2) : "",
     });
-    setEditingId(plan.id);
+    setEditingId(plan.subscriptionPlanId);
     setDialog("edit");
   }
 
-  function handleSave() {
-    if (!form.name.trim()) return;
+  async function handleSave() {
+    if (!form.subscriptionPlanName.trim()) return;
 
-    if (dialog === "create") {
-      const newPlan: SubscriptionPlan = {
-        ...form,
-        id: `sub-${Date.now()}`,
-        subscribers: 0,
-        createdAt: new Date().toISOString(),
-        features: form.features.filter((f) => f.trim()),
-      };
-      setPlans((prev) => [...prev, newPlan]);
-      showToast("Đã tạo gói đăng ký mới.");
-    } else if (editingId) {
-      setPlans((prev) =>
-        prev.map((p) =>
-          p.id === editingId
-            ? { ...p, ...form, features: form.features.filter((f) => f.trim()) }
-            : p
-        )
-      );
-      showToast("Đã cập nhật gói đăng ký.");
+    const configLimit = parseConfigLimit(form.configLimitText);
+    if (form.configLimitText.trim() && !configLimit) {
+      showToast("Cấu hình giới hạn phải là JSON hợp lệ.");
+      return;
     }
-    setDialog(null);
+
+    setSubmitting(true);
+    try {
+      const payload = {
+        subscriptionPlanName: form.subscriptionPlanName.trim(),
+        subscriptionPlanDescription: form.subscriptionPlanDescription.trim() || undefined,
+        priceMonthly: form.priceMonthly,
+        priceYearly: form.priceYearly,
+        configLimit,
+      };
+
+      if (dialog === "create") {
+        await adminApi.createSubscriptionPlan(payload);
+        showToast("Đã tạo gói đăng ký mới.");
+      } else if (editingId) {
+        await adminApi.updateSubscriptionPlan(editingId, payload);
+        showToast("Đã cập nhật gói đăng ký.");
+      }
+      setDialog(null);
+      await loadPlans();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Không thể lưu gói đăng ký.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  function handleDelete(id: string) {
-    setPlans((prev) => prev.filter((p) => p.id !== id));
-    showToast("Đã xóa gói đăng ký.");
-  }
-
-  function toggleStatus(id: string) {
-    setPlans((prev) =>
-      prev.map((p) =>
-        p.id === id
-          ? { ...p, status: p.status === "active" ? "inactive" : "active" }
-          : p
-      )
-    );
-    showToast("Đã cập nhật trạng thái gói.");
+  async function handleDelete(id: number) {
+    setSubmitting(true);
+    try {
+      await adminApi.deleteSubscriptionPlan(id);
+      showToast("Đã xóa gói đăng ký.");
+      await loadPlans();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Không thể xóa gói đăng ký.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -140,7 +179,7 @@ export default function SubscriptionsPage() {
 
       <PageHeader
         title="Quản lý gói đăng ký"
-        subtitle="Tạo, chỉnh sửa và quản lý các gói subscription cho người dùng."
+        subtitle="Tạo, chỉnh sửa và quản lý các gói subscription cho đối tác."
         actions={
           <Button size="sm" className="gap-1.5" onClick={openCreate}>
             <Plus className="h-4 w-4" /> Tạo gói mới
@@ -148,79 +187,90 @@ export default function SubscriptionsPage() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {error ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <StatCard label="Tổng gói" value={String(stats.total)} icon={CreditCard} />
         <StatCard label="Đang hoạt động" value={String(stats.active)} icon={Check} />
-        <StatCard label="Người đăng ký" value={stats.subscribers.toLocaleString("vi-VN")} icon={Users} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {plans.map((plan) => (
-          <div
-            key={plan.id}
-            className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md"
-          >
-            <div className="border-b border-slate-100 p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">{plan.name}</h3>
-                  <p className="mt-1 text-sm text-slate-500">{plan.description}</p>
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
+          <Loader2 className="h-5 w-5 animate-spin" /> Đang tải gói dịch vụ...
+        </div>
+      ) : plans.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-12 text-center text-sm text-slate-500">
+          Chưa có gói dịch vụ nào.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {plans.map((plan) => (
+            <div
+              key={plan.subscriptionPlanId}
+              className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md"
+            >
+              <div className="border-b border-slate-100 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">{plan.subscriptionPlanName}</h3>
+                    <p className="mt-1 text-sm text-slate-500">{plan.subscriptionPlanDescription}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${statusClasses[plan.status]}`}>
+                    {statusLabels[plan.status]}
+                  </span>
                 </div>
-                <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${statusClasses[plan.status]}`}>
-                  {statusLabels[plan.status]}
-                </span>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs text-slate-500">Giá tháng</p>
+                    <p className="text-lg font-bold text-slate-900">{formatPrice(plan.priceMonthly)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Giá năm</p>
+                    <p className="text-lg font-bold text-slate-900">{formatPrice(plan.priceYearly)}</p>
+                  </div>
+                </div>
               </div>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-slate-900">
-                  {formatPrice(plan.price, plan.currency)}
-                </span>
-                {plan.price > 0 ? (
-                  <span className="text-sm text-slate-500">/ {plan.durationDays} ngày</span>
+
+              <div className="p-5">
+                {plan.configLimit ? (
+                  <>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Giới hạn</p>
+                    <pre className="mt-2 overflow-x-auto rounded-xl bg-slate-50 p-3 text-xs text-slate-700">
+                      {JSON.stringify(plan.configLimit, null, 2)}
+                    </pre>
+                  </>
+                ) : null}
+                {plan.createdAt ? (
+                  <p className="mt-4 text-xs text-slate-500">
+                    Tạo {new Date(plan.createdAt).toLocaleDateString("vi-VN")}
+                  </p>
                 ) : null}
               </div>
-            </div>
 
-            <div className="p-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Tính năng</p>
-              <ul className="mt-3 space-y-2">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm text-slate-700">
-                    <Check className="h-3.5 w-3.5 text-emerald-500" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-4 text-xs text-slate-500">
-                {plan.subscribers.toLocaleString("vi-VN")} người đăng ký · Tạo {new Date(plan.createdAt).toLocaleDateString("vi-VN")}
-              </p>
+              <div className="flex border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => openEdit(plan)}
+                  className="flex flex-1 items-center justify-center gap-1.5 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                >
+                  <Pencil className="h-4 w-4" /> Sửa
+                </button>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => void handleDelete(plan.subscriptionPlanId)}
+                  className="flex flex-1 items-center justify-center gap-1.5 py-3 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" /> Xóa
+                </button>
+              </div>
             </div>
-
-            <div className="flex border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => openEdit(plan)}
-                className="flex flex-1 items-center justify-center gap-1.5 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-              >
-                <Pencil className="h-4 w-4" /> Sửa
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleStatus(plan.id)}
-                className="flex flex-1 items-center justify-center gap-1.5 border-x border-slate-100 py-3 text-sm font-medium text-blue-600 transition hover:bg-blue-50"
-              >
-                {plan.status === "active" ? "Tạm ngưng" : "Kích hoạt"}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDelete(plan.id)}
-                className="flex flex-1 items-center justify-center gap-1.5 py-3 text-sm font-medium text-red-600 transition hover:bg-red-50"
-              >
-                <Trash2 className="h-4 w-4" /> Xóa
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {dialog ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
@@ -231,88 +281,54 @@ export default function SubscriptionsPage() {
             <div className="mt-5 space-y-4">
               <Field label="Tên gói">
                 <input
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  value={form.subscriptionPlanName}
+                  onChange={(e) => setForm({ ...form, subscriptionPlanName: e.target.value })}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  placeholder="Explorer Pro"
+                  placeholder="Gói Cơ Bản"
                 />
               </Field>
               <Field label="Mô tả">
                 <textarea
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  value={form.subscriptionPlanDescription}
+                  onChange={(e) => setForm({ ...form, subscriptionPlanDescription: e.target.value })}
                   rows={2}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </Field>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Giá (VND)">
+                <Field label="Giá tháng (VND)">
                   <input
                     type="number"
-                    value={form.price}
-                    onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
+                    value={form.priceMonthly}
+                    onChange={(e) => setForm({ ...form, priceMonthly: Number(e.target.value) })}
                     className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
                 </Field>
-                <Field label="Thời hạn (ngày)">
+                <Field label="Giá năm (VND)">
                   <input
                     type="number"
-                    value={form.durationDays}
-                    onChange={(e) => setForm({ ...form, durationDays: Number(e.target.value) })}
+                    value={form.priceYearly}
+                    onChange={(e) => setForm({ ...form, priceYearly: Number(e.target.value) })}
                     className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
                 </Field>
               </div>
-              <Field label="Trạng thái">
-                <select
-                  value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value as SubscriptionStatus })}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                >
-                  <option value="draft">Bản nháp</option>
-                  <option value="active">Đang hoạt động</option>
-                  <option value="inactive">Ngừng hoạt động</option>
-                </select>
-              </Field>
-              <Field label="Tính năng">
-                <div className="space-y-2">
-                  {form.features.map((f, i) => (
-                    <div key={i} className="flex gap-2">
-                      <input
-                        value={f}
-                        onChange={(e) => {
-                          const next = [...form.features];
-                          next[i] = e.target.value;
-                          setForm({ ...form, features: next });
-                        }}
-                        className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                        placeholder="Tính năng..."
-                      />
-                      {form.features.length > 1 ? (
-                        <button
-                          type="button"
-                          onClick={() => setForm({ ...form, features: form.features.filter((_, j) => j !== i) })}
-                          className="rounded-xl border border-slate-200 px-2 text-slate-400 hover:text-red-500"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      ) : null}
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, features: [...form.features, ""] })}
-                    className="text-xs font-medium text-blue-600 hover:underline"
-                  >
-                    + Thêm tính năng
-                  </button>
-                </div>
+              <Field label="Giới hạn (JSON)">
+                <textarea
+                  value={form.configLimitText}
+                  onChange={(e) => setForm({ ...form, configLimitText: e.target.value })}
+                  rows={3}
+                  placeholder='{"maxPosts": 20}'
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
               </Field>
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setDialog(null)}>Huỷ</Button>
-              <Button onClick={handleSave}>
-                {dialog === "create" ? "Tạo gói" : "Lưu thay đổi"}
+              <Button variant="outline" onClick={() => setDialog(null)} disabled={submitting}>
+                Huỷ
+              </Button>
+              <Button onClick={() => void handleSave()} disabled={submitting}>
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : dialog === "create" ? "Tạo gói" : "Lưu thay đổi"}
               </Button>
             </div>
           </div>

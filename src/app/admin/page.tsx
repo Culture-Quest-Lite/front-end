@@ -1,20 +1,18 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { PageHeader, StatCard, StatusPill } from "@/components/app/ui-bits";
 import {
-  hotspots,
-  approvals,
   audit,
   reports,
   checkinsTrend,
   userGrowth,
   routeEngagement,
-  users,
 } from "@/data/demo";
+import { adminApi, type PostItem, type UserProfile } from "@/services/api/admin/adminApi";
 import {
   MapPin,
   ShieldCheck,
@@ -45,13 +43,17 @@ import { ResponsiveContainer } from "@/components/ui/chart-responsive-container"
 export default function AdminDashboardPage() {
   const { session, loading } = useAuth();
   const router = useRouter();
+  const [recentUsers, setRecentUsers] = useState<UserProfile[]>([]);
+  const [pendingPosts, setPendingPosts] = useState<PostItem[]>([]);
+  const [userTotal, setUserTotal] = useState<number | null>(null);
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
 
   useEffect(() => {
-    console.log("Admin page - useEffect triggered", { 
-      loading, 
+    console.log("Admin page - useEffect triggered", {
+      loading,
       hasSession: !!session,
       sessionRole: session?.role,
-      sessionEmail: session?.email 
+      sessionEmail: session?.email
     });
 
     if (!loading) {
@@ -72,6 +74,26 @@ export default function AdminDashboardPage() {
       console.log("Admin page: User authorized with role:", session.role);
     }
   }, [loading, router, session]);
+
+  useEffect(() => {
+    if (!session) return;
+
+    void (async () => {
+      try {
+        const [usersRes, postsRes] = await Promise.all([
+          adminApi.getUsers({ page: 0, size: 4, sortBy: "createdAt", sortDir: "desc" }),
+          adminApi.getPosts({ status: "PENDING", page: 0, size: 5 }),
+        ]);
+        setRecentUsers(usersRes.content);
+        setUserTotal(usersRes.totalElements);
+        setPendingPosts(postsRes.content);
+        setPendingCount(postsRes.content.length);
+      } catch {
+        setRecentUsers([]);
+        setPendingPosts([]);
+      }
+    })();
+  }, [session]);
 
   if (loading) {
     return (
@@ -120,15 +142,19 @@ export default function AdminDashboardPage() {
         />
         <StatCard
           label="Người dùng"
-          value="4.280"
-          delta="+372 tháng này"
+          value={
+            typeof userTotal === "number"
+              ? userTotal.toLocaleString("vi-VN")
+              : "—"
+          }
+          delta="Từ API"
           icon={Users}
           tone="info"
         />
         <StatCard
-          label="Báo cáo mới"
-          value="3"
-          delta="Chờ xử lý"
+          label="Chờ duyệt"
+          value={pendingCount !== null ? String(pendingCount) : "—"}
+          delta="Bài đăng pending"
           icon={FileText}
           tone="warning"
         />
@@ -328,28 +354,31 @@ export default function AdminDashboardPage() {
             </Link>
           </div>
           <ul className="space-y-2.5">
-            {approvals.filter((a) => a.status === "pending").map((a) => (
-              <li key={a.id} className="flex items-center gap-3">
-                <img
-                  src={a.thumbnail}
-                  alt=""
-                  className="w-10 h-10 rounded-lg object-cover"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium truncate">{a.title}</div>
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
-                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5">
-                      {a.type}
-                    </span>
-                    <span>· {a.curator}</span>
-                    <span className="inline-flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> 2h
-                    </span>
+            {pendingPosts.length === 0 ? (
+              <li className="py-4 text-center text-xs text-slate-500">Không có bài đăng chờ duyệt.</li>
+            ) : (
+              pendingPosts.map((post) => (
+                <li key={post.postId} className="flex items-center gap-3">
+                  <div className="grid h-10 w-10 place-items-center rounded-lg bg-slate-100 text-slate-500">
+                    <FileText className="h-4 w-4" />
                   </div>
-                </div>
-                <StatusPill status="pending" />
-              </li>
-            ))}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium truncate">{post.content}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+                      <span className="rounded-md bg-slate-100 px-1.5 py-0.5">Bài đăng</span>
+                      <span>· {post.displayName || post.username}</span>
+                      {post.createdAt ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {new Date(post.createdAt).toLocaleDateString("vi-VN")}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <StatusPill status="pending" />
+                </li>
+              ))
+            )}
           </ul>
         </div>
       </div>
@@ -363,26 +392,32 @@ export default function AdminDashboardPage() {
             </Link>
           </div>
           <div className="space-y-3">
-            {users.slice(0, 4).map((user) => (
-              <div
-                key={user.id}
-                className="flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50 p-3"
-              >
-                <img
-                  src={user.avatar}
-                  alt={user.name}
-                  className="h-11 w-11 rounded-full object-cover"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate">{user.name}</p>
-                  <p className="text-xs text-slate-500">{user.email}</p>
-                </div>
-                <div className="text-xs text-slate-500 text-right">
-                  <div>{user.role}</div>
-                  <div>{user.checkins} check-ins</div>
-                </div>
-              </div>
-            ))}
+            {recentUsers.length === 0 ? (
+              <p className="py-4 text-center text-xs text-slate-500">Chưa có dữ liệu người dùng.</p>
+            ) : (
+              recentUsers.map((user) => {
+                const name = user.displayName || user.username;
+                const avatar =
+                  user.avatarUrl ||
+                  `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`;
+                return (
+                  <div
+                    key={user.userId}
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50 p-3"
+                  >
+                    <img src={avatar} alt={name} className="h-11 w-11 rounded-full object-cover" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{name}</p>
+                      <p className="text-xs text-slate-500">{user.email}</p>
+                    </div>
+                    <div className="text-xs text-slate-500 text-right">
+                      <div>{user.role}</div>
+                      <div>{user.totalPoints ?? 0} điểm</div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 
