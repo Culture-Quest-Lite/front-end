@@ -155,7 +155,7 @@ export default function TravelLogin() {
         hasRefreshToken: !!response.refreshToken 
       });
 
-      if (response.accessToken && response.refreshToken) {
+      if (response.accessToken) {
         const userInfo = extractUserFromToken(response.accessToken);
         console.log("User info extracted:", userInfo);
         

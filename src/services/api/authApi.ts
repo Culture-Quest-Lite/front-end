@@ -2,10 +2,10 @@ import { apiFetch } from "@/lib/api";
 
 export interface LoginResponse {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string;  
   tokenType: string;
   expiresIn: number;
-  refreshExpiresIn: number;
+  refreshExpiresIn?: number;
 }
 
 export interface TokenData {
@@ -162,17 +162,19 @@ export function extractUserFromToken(accessToken: string): Omit<TokenData, "toke
     return null;
   }
 
-  // Kiểm tra role từ nhiều nơi có thể có
-  let role: "admin" | "curator" = "curator"; // default role
-  
-  // Kiểm tra realm_access.roles (Keycloak format)
+  let role: "admin" | "curator" | "explorer" = "explorer"; // đổi default
+
   if (decoded.realm_access?.roles && Array.isArray(decoded.realm_access.roles)) {
-    if (decoded.realm_access.roles.includes("admin") || decoded.realm_access.roles.includes("ADMIN")) {
+    const roles = decoded.realm_access.roles.map((r: string) => r.toUpperCase());
+    if (roles.includes("ADMIN")) {
       role = "admin";
-    } else if (decoded.realm_access.roles.includes("curator") || decoded.realm_access.roles.includes("CURATOR")) {
+    } else if (roles.includes("CURATOR")) {
       role = "curator";
+    } else if (roles.includes("EXPLORER")) {
+      role = "explorer";
     }
   }
+
   
   // Kiểm tra resource_access (alternative Keycloak format)
   if (decoded.resource_access && typeof decoded.resource_access === "object") {
@@ -199,14 +201,13 @@ export function extractUserFromToken(accessToken: string): Omit<TokenData, "toke
     }
   }
 
-  const userInfo = {
+ const userInfo = {
     id: decoded.sub || decoded.id || "",
     email: decoded.email || "",
     name: decoded.preferred_username || decoded.name || "",
     role,
   };
 
-  console.debug("Extracted user from token:", { ...userInfo, token: "***" });
   return userInfo;
 }
 
