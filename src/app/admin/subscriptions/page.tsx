@@ -66,19 +66,11 @@ function formatPrice(price: number) {
   if (price === 0) return "Miễn phí";
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
 }
-
-/* ----------------------- Danh sách trường giới hạn theo loại gói ----------------------- */
-/**
- * Dùng để: (1) hiển thị form chọn trường thay cho JSON tay, và (2) làm
- * "chữ ký" nhận diện loại gói từ configLimit thật (xem detectPlanType).
- * Đổi/thêm/bớt key tuỳ theo field thật mà backend đang dùng — chỉ cần khớp
- * tên key, vì configLimit là Map<String,Object> tự do.
- */
 type LimitFieldType = "boolean" | "number";
 
 interface LimitFieldDef {
   key: string;
-  label: string;
+  label: string;  
   type: LimitFieldType;
   hint?: string;
 }
