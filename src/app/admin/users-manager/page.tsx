@@ -11,6 +11,7 @@ import {
   LockOpen,
   ChevronLeft,
   ChevronRight,
+  X,
 } from "lucide-react";
 
 const PAGE_SIZE = 10;
@@ -43,6 +44,10 @@ const statusClasses: Record<string, string> = {
   DELETED: "bg-slate-100 text-slate-700",
 };
 
+function formatNumber(value: number | null | undefined) {
+  return new Intl.NumberFormat("vi-VN").format(value ?? 0);
+}
+
 export default function UsersManagerPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -54,6 +59,7 @@ export default function UsersManagerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -149,9 +155,6 @@ export default function UsersManagerPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Danh sách người dùng</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              {displayTotal} người dùng · {PAGE_SIZE} mục/trang
-            </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative w-full min-w-[220px] md:max-w-sm">
@@ -205,6 +208,7 @@ export default function UsersManagerPage() {
                   actionLoading={actionLoadingId === user.userId}
                   onLockToggle={() => void handleLockToggle(user)}
                   onRoleUpdate={(role) => void handleRoleUpdate(user, role)}
+                  onViewDetail={() => setSelectedUser(user)}
                 />
               ))
             )}
@@ -221,6 +225,10 @@ export default function UsersManagerPage() {
           />
         </div>
       </div>
+
+      {selectedUser ? (
+        <UserDetailModal user={selectedUser} onClose={() => setSelectedUser(null)} />
+      ) : null}
     </div>
   );
 }
@@ -232,6 +240,7 @@ function UserRow({
   actionLoading,
   onLockToggle,
   onRoleUpdate,
+  onViewDetail,
 }: {
   user: UserProfile;
   openMenuId: number | null;
@@ -239,12 +248,28 @@ function UserRow({
   actionLoading: boolean;
   onLockToggle: () => void;
   onRoleUpdate: (role: UserRole) => void;
+  onViewDetail: () => void;
 }) {
   const displayName = user.displayName || user.username;
   const avatar =
     user.avatarUrl ||
     `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(displayName)}`;
   const isLocked = user.status === "INACTIVE";
+
+  // Phần avatar + tên — bấm vào để mở modal xem chi tiết người dùng
+  const userInfoButton = (
+    <button
+      type="button"
+      onClick={onViewDetail}
+      className="flex min-w-0 items-center gap-4 rounded-xl text-left transition hover:opacity-75"
+    >
+      <img src={avatar} alt={displayName} className="h-12 w-12 shrink-0 rounded-full object-cover" />
+      <div className="min-w-0">
+        <div className="truncate text-sm font-semibold text-slate-900">{displayName}</div>
+        <div className="mt-1 truncate text-sm text-slate-500">{user.email}</div>
+      </div>
+    </button>
+  );
 
   // Menu "..." — gộp chung: Khoá/Mở khoá + Đổi vai trò
   const actionMenu = (
@@ -310,13 +335,7 @@ function UserRow({
       }`}
     >
       <div className="grid gap-4 p-4 md:grid-cols-[3fr_1fr_1fr_0.7fr_1.4fr] md:items-center md:p-4">
-        <div className="flex items-center gap-4">
-          <img src={avatar} alt={displayName} className="h-12 w-12 rounded-full object-cover" />
-          <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-slate-900">{displayName}</div>
-            <div className="mt-1 truncate text-sm text-slate-500">{user.email}</div>
-          </div>
-        </div>
+        {userInfoButton}
         <div className="flex items-center">
           <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${roleClasses[user.role]}`}>
             {roleLabels[user.role]}
@@ -349,6 +368,116 @@ function UserRow({
         </div>
       </div>
     </li>
+  );
+}
+
+/**
+ * Modal xem chi tiết người dùng — hiện tất cả field trong UserProfile
+ * NGOẠI TRỪ backgroundUrl và autoPlayAudio theo yêu cầu.
+ *
+ * ⚠ Type `UserProfile` (import từ "@/services/api/admin/adminApi") cần có
+ * đủ các field: totalXp, isPremium, levelName, totalFollowers,
+ * totalFollowing, totalPosts — nếu file adminApi.ts của bạn chưa khai báo,
+ * thêm vào interface UserProfile cho khớp, ví dụ:
+ *   totalXp: number;
+ *   isPremium: boolean;
+ *   levelName: string | null;
+ *   totalFollowers: number;
+ *   totalFollowing: number;
+ *   totalPosts: number;
+ */
+function UserDetailModal({ user, onClose }: { user: UserProfile; onClose: () => void }) {
+  const displayName = user.displayName || user.username;
+  const avatar =
+    user.avatarUrl ||
+    `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(displayName)}`;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-4 border-b border-slate-100 p-6">
+          <img
+            src={avatar}
+            alt={displayName}
+            className="h-16 w-16 shrink-0 rounded-full object-cover"
+          />
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-lg font-semibold text-slate-900">{displayName}</h2>
+            <p className="truncate text-sm text-slate-500">@{user.username}</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <span
+                className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${roleClasses[user.role]}`}
+              >
+                {roleLabels[user.role]}
+              </span>
+              <span
+                className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${
+                  statusClasses[user.status] ?? statusClasses.PENDING
+                }`}
+              >
+                {statusLabels[user.status] ?? user.status}
+              </span>
+              {user.isPremium ? (
+                <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-[12px] font-semibold text-amber-700">
+                  Premium
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+            aria-label="Đóng"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 border-b border-slate-100 p-6">
+          <StatBlock label="Điểm" value={formatNumber(user.totalPoints)} />
+          <StatBlock label="XP" value={formatNumber(user.totalXp)} />
+          <StatBlock label="Bài viết" value={formatNumber(user.totalPosts)} />
+          <StatBlock label="Người theo dõi" value={formatNumber(user.totalFollowers)} />
+          <StatBlock label="Đang theo dõi" value={formatNumber(user.totalFollowing)} />
+          <StatBlock label="Cấp độ" value={user.levelName ?? "Chưa có"} />
+        </div>
+
+        <div className="space-y-2 p-6 text-sm">
+          <DetailRow label="ID người dùng" value={String(user.userId)} />
+          <DetailRow label="Email" value={user.email} />
+          <DetailRow label="Tên đăng nhập" value={user.username} />
+          <DetailRow
+            label="Ngày tạo"
+            value={new Date(user.createdAt).toLocaleString("vi-VN")}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 p-3 text-center">
+      <p className="truncate text-base font-semibold text-slate-900">{value}</p>
+      <p className="mt-0.5 text-[11px] text-slate-500">{label}</p>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-slate-100 py-2 last:border-0">
+      <span className="text-slate-500">{label}</span>
+      <span className="truncate font-medium text-slate-900">{value}</span>
+    </div>
   );
 }
 
