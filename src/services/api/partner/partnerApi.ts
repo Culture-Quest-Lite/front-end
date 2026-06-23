@@ -1,53 +1,71 @@
 import { apiFetch } from "@/lib/api";
 
 export type VoucherDiscountType = "PERCENTAGE" | "FIXED_AMOUNT";
-export type VoucherStatus = "ACTIVE" | "INACTIVE" | "EXPIRED";
+export type VoucherStatus = "ACTIVE" | "INACTIVE" | "EXPIRED" | "DELETED";
 
 export interface VoucherResponse {
   voucherId: number;
-  code: string;
-  title: string;
-  description?: string;
+  partnerId: number;
+  partnerName: string;
+  voucherCode: string;
+  voucherName: string;
+  description: string | null;
   discountType: VoucherDiscountType;
-  /** % nếu discountType = PERCENTAGE, số tiền (VNĐ) nếu FIXED_AMOUNT */
   discountValue: number;
-  /** Chỉ áp dụng khi discountType = PERCENTAGE — giới hạn số tiền giảm tối đa */
-  maxDiscountAmount?: number;
-  /** Giá trị đơn hàng tối thiểu để áp dụng voucher */
-  minOrderAmount?: number;
-  /** Tổng số lần được sử dụng, để trống = không giới hạn */
-  usageLimit?: number;
-  usedCount: number;
+  maxDiscountAmount: number | null;
+  minOrderAmount: number | null;
+  pointsRequired: number;
+  quantityTotal: number;
+  quantityRemaining: number;
+  status: VoucherStatus;
   startDate: string;
   endDate: string;
-  status: VoucherStatus;
   createdAt: string;
-  updatedAt: string;
+  updatedAt: string | null;
 }
 
 export interface VoucherRequest {
-  code: string;
-  title: string;
+  voucherCode?: string;
+  voucherName: string;
   description?: string;
   discountType: VoucherDiscountType;
   discountValue: number;
   maxDiscountAmount?: number;
   minOrderAmount?: number;
-  usageLimit?: number;
+  pointsRequired: number;
+  quantityTotal: number;
+  status: VoucherStatus;
   startDate: string;
   endDate: string;
 }
 
 export interface VoucherFilterParams {
-  page?: number;
-  size?: number;
   search?: string;
   status?: VoucherStatus;
+  partnerId?: number;
+  page?: number;
+  size?: number;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+}
+
+/** Voucher mà 1 user cụ thể đã đổi (bảng user_vouchers) — dùng cho API "use". */
+export interface UserVoucherResponse {
+  userVoucherId: number;
+  voucherId: number;
+  voucherCode: string;
+  voucherName: string;
+  description: string | null;
+  pointsRequired: number;
+  redeemedAt: string;
+  usedAt: string | null;
+  expiredAt: string | null;
+  isUsed: boolean;
 }
 
 export interface PageMeta {
-  size: number;
   number: number;
+  size: number;
   totalElements: number;
   totalPages: number;
 }
@@ -55,6 +73,28 @@ export interface PageMeta {
 export interface PageResponse<T> {
   content: T[];
   page: PageMeta;
+}
+
+interface RawPageMaybeNested<T> {
+  content?: T[];
+  page?: Partial<PageMeta>;
+  number?: number;
+  size?: number;
+  totalElements?: number;
+  totalPages?: number;
+}
+
+function normalizePage<T>(raw: RawPageMaybeNested<T>): PageResponse<T> {
+  const meta = raw.page ?? raw;
+  return {
+    content: raw.content ?? [],
+    page: {
+      number: meta.number ?? 0,
+      size: meta.size ?? 0,
+      totalElements: meta.totalElements ?? 0,
+      totalPages: meta.totalPages ?? 1,
+    },
+  };
 }
 
 function buildQuery(params?: Record<string, string | number | undefined>) {
@@ -69,30 +109,37 @@ function buildQuery(params?: Record<string, string | number | undefined>) {
 }
 
 export const partnerApi = {
-  /** GET /api/partner/vouchers — danh sách voucher của partner hiện tại (lọc + phân trang) */
+  /** 1.1 — GET /api/partner/vouchers (search, status, partnerId, page, size, sortBy, sortDir) */
   getVouchers: async (params?: VoucherFilterParams) => {
     const query = buildQuery({
-      page: params?.page,
-      size: params?.size,
       search: params?.search?.trim() || undefined,
       status: params?.status,
+      partnerId: params?.partnerId,
+      page: params?.page,
+      size: params?.size,
+      sortBy: params?.sortBy ?? "createdAt",
+      sortDir: params?.sortDir ?? "desc",
     });
 
-    return apiFetch<PageResponse<VoucherResponse>>(
+    const raw = await apiFetch<RawPageMaybeNested<VoucherResponse>>(
       `/api/partner/vouchers${query}`,
       { method: "GET", sameOrigin: true },
     );
+    return normalizePage(raw);
   },
 
-  /** POST /api/partner/vouchers — tạo voucher mới */
-  createVoucher: async (payload: VoucherRequest) =>
+  /** 1.2 — POST /api/partner/vouchers — backend tự sinh voucherCode, KHÔNG gửi field này lên */
+  createVoucher: async (payload: Omit<VoucherRequest, "voucherCode">) =>
     apiFetch<VoucherResponse>("/api/partner/vouchers", {
       method: "POST",
       body: payload,
       sameOrigin: true,
     }),
 
-  /** PUT /api/partner/vouchers/{id} — cập nhật voucher */
+  /**
+   * 1.3 — PUT /api/partner/vouchers/{id}
+   * payload.voucherCode PHẢI khớp đúng mã hiện có của voucher (lấy từ GET trước đó).
+   */
   updateVoucher: async (id: number, payload: VoucherRequest) =>
     apiFetch<VoucherResponse>(`/api/partner/vouchers/${id}`, {
       method: "PUT",
@@ -100,20 +147,22 @@ export const partnerApi = {
       sameOrigin: true,
     }),
 
-  /** PATCH /api/partner/vouchers/{id}/status — bật/tắt voucher (ACTIVE ⇄ INACTIVE) */
-  setVoucherStatus: async (id: number, status: VoucherStatus) =>
-    apiFetch<VoucherResponse>(`/api/partner/vouchers/${id}/status`, {
-      method: "PATCH",
-      body: { status },
-      sameOrigin: true,
-    }),
-
-  /** DELETE /api/partner/vouchers/{id} — xoá voucher */
+  /** 1.4 — DELETE /api/partner/vouchers/{id} — xoá mềm (status=DELETED), trả 204 No Content */
   deleteVoucher: async (id: number) =>
     apiFetch<void>(`/api/partner/vouchers/${id}`, {
       method: "DELETE",
       sameOrigin: true,
     }),
+
+  /**
+   * 1.5 — POST /api/partner/vouchers/use?voucherCode=...
+   * Dùng khi nhân viên đối tác xác nhận khách đã sử dụng voucher tại điểm bán.
+   */
+  useVoucher: async (voucherCode: string) =>
+    apiFetch<UserVoucherResponse>(
+      `/api/partner/vouchers/use${buildQuery({ voucherCode })}`,
+      { method: "POST", sameOrigin: true },
+    ),
 };
 
 export default partnerApi;
