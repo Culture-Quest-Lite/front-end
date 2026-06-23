@@ -85,7 +85,7 @@ export default function AdminDashboardPage() {
           adminApi.getPosts({ status: "PENDING", page: 0, size: 5 }),
         ]);
         setRecentUsers(usersRes.content);
-        setUserTotal(usersRes.totalElements);
+        setUserTotal(usersRes.page.totalElements);
         setPendingPosts(postsRes.content);
         setPendingCount(postsRes.content.length);
       } catch {
