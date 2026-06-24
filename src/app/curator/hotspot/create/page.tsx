@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
@@ -59,6 +59,14 @@ const defaultHotspotForm: HotspotFormState = {
 };
 
 export default function Page() {
+  return (
+    <Suspense fallback={<HotspotCreatePageFallback />}>
+      <HotspotCreatePageContent />
+    </Suspense>
+  );
+}
+
+function HotspotCreatePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editingHotspotId = parseHotspotId(searchParams.get("id"));
@@ -748,6 +756,14 @@ export default function Page() {
           ) : null}
         </div>
       </div>
+    </div>
+  );
+}
+
+function HotspotCreatePageFallback() {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
+      Đang tải trình tạo hotspot...
     </div>
   );
 }

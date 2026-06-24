@@ -14,8 +14,6 @@ export interface TokenData {
   token: string;
 }
 
-type SupportedRole = TokenData["role"];
-
 export interface RegisterRequest {
   username: string;
   email: string;
@@ -186,9 +184,48 @@ export function extractUserFromToken(accessToken: string): Omit<TokenData, "toke
     return null;
   }
 
-  const role = extractRoleFromClaims(decoded) ?? "explorer";
+  let role: "admin" | "curator" | "explorer" = "explorer"; // đổi default
 
-  const userInfo = {
+  if (decoded.realm_access?.roles && Array.isArray(decoded.realm_access.roles)) {
+    const roles = decoded.realm_access.roles.map((r: string) => r.toUpperCase());
+    if (roles.includes("ADMIN")) {
+      role = "admin";
+    } else if (roles.includes("CURATOR")) {
+      role = "curator";
+    } else if (roles.includes("EXPLORER")) {
+      role = "explorer";
+    }
+  }
+
+  
+  // Kiểm tra resource_access (alternative Keycloak format)
+  if (decoded.resource_access && typeof decoded.resource_access === "object") {
+    for (const resourceData of Object.values(decoded.resource_access)) {
+      if (resourceData && typeof resourceData === "object" && "roles" in resourceData) {
+        const resourceRoles = (resourceData as { roles?: unknown }).roles;
+        if (Array.isArray(resourceRoles)) {
+          if (resourceRoles.includes("admin") || resourceRoles.includes("ADMIN")) {
+            role = "admin";
+            break;
+          } else if (resourceRoles.includes("curator") || resourceRoles.includes("CURATOR")) {
+            role = "curator";
+          }
+        }
+      }
+    }
+  }
+  
+  // Kiểm tra role field trực tiếp
+  if (decoded.role) {
+    const decodedRole = String(decoded.role).toLowerCase();
+    if (decodedRole === "admin") {
+      role = "admin";
+    } else if (decodedRole === "curator") {
+      role = "curator";
+    }
+  }
+
+ const userInfo = {
     id: decoded.sub || decoded.id || "",
     email: decoded.email || "",
     name: decoded.preferred_username || decoded.name || "",
@@ -196,92 +233,6 @@ export function extractUserFromToken(accessToken: string): Omit<TokenData, "toke
   };
 
   return userInfo;
-}
-
-function extractRoleFromClaims(decoded: Record<string, unknown>): SupportedRole | null {
-  const claimValues: string[] = [];
-
-  pushClaimStrings(claimValues, decoded.role);
-  pushClaimStrings(claimValues, decoded.roles);
-  pushClaimStrings(claimValues, decoded.authorities);
-  pushClaimStrings(claimValues, decoded.groups);
-  pushClaimStrings(claimValues, decoded.scope);
-  pushClaimStrings(claimValues, decoded.scp);
-
-  if (isObjectRecord(decoded.realm_access)) {
-    pushClaimStrings(claimValues, decoded.realm_access.roles);
-    pushClaimStrings(claimValues, decoded.realm_access.authorities);
-  }
-
-  if (isObjectRecord(decoded.resource_access)) {
-    for (const resourceData of Object.values(decoded.resource_access)) {
-      if (!isObjectRecord(resourceData)) {
-        continue;
-      }
-
-      pushClaimStrings(claimValues, resourceData.roles);
-      pushClaimStrings(claimValues, resourceData.authorities);
-      pushClaimStrings(claimValues, resourceData.scope);
-      pushClaimStrings(claimValues, resourceData.scp);
-    }
-  }
-
-  return detectSupportedRole(claimValues);
-}
-
-function pushClaimStrings(target: string[], value: unknown) {
-  if (typeof value === "string") {
-    const trimmedValue = value.trim();
-    if (trimmedValue) {
-      target.push(trimmedValue);
-    }
-    return;
-  }
-
-  if (!Array.isArray(value)) {
-    return;
-  }
-
-  for (const item of value) {
-    if (typeof item !== "string") {
-      continue;
-    }
-
-    const trimmedItem = item.trim();
-    if (trimmedItem) {
-      target.push(trimmedItem);
-    }
-  }
-}
-
-function detectSupportedRole(values: string[]): SupportedRole | null {
-  if (values.some((value) => matchesRole(value, "admin"))) {
-    return "admin";
-  }
-
-  if (values.some((value) => matchesRole(value, "curator"))) {
-    return "curator";
-  }
-
-  if (values.some((value) => matchesRole(value, "explorer"))) {
-    return "explorer";
-  }
-
-  return null;
-}
-
-function matchesRole(value: string, role: SupportedRole) {
-  const escapedRole = role.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const boundaryPattern = new RegExp(
-    `(?:^|[\\s,;:/._-])${escapedRole}(?:$|[\\s,;:/._-])`,
-    "i"
-  );
-
-  return boundaryPattern.test(value);
-}
-
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 export default authApi;

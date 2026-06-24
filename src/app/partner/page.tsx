@@ -40,16 +40,20 @@ export default function PartnerDashboardPage() {
 
   const activeCount = vouchers.filter((v) => v.status === "ACTIVE").length;
   const expiredCount = vouchers.filter((v) => v.status === "EXPIRED").length;
-  const totalRedemptions = vouchers.reduce((sum, v) => sum + (v.usedCount ?? 0), 0);
+  // "Đã đổi" = tổng số lượng đã phát đi trên tất cả voucher (quantityTotal - quantityRemaining)
+  const totalRedeemed = vouchers.reduce(
+    (sum, v) => sum + Math.max(0, v.quantityTotal - v.quantityRemaining),
+    0,
+  );
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Tổng quan đối tác"
-        subtitle="Theo dõi nhanh tình trạng voucher giảm giá của cửa hàng bạn."
+        subtitle="Theo dõi nhanh tình trạng voucher đổi điểm của cửa hàng bạn."
         actions={
           <Link
-            href="/partner/vouchers"
+            href="/partner/voucher"
             className="inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
           >
             <Plus className="h-4 w-4" /> Tạo voucher mới
@@ -79,8 +83,8 @@ export default function PartnerDashboardPage() {
           accent="text-slate-500 bg-slate-100"
         />
         <StatCard
-          label="Tổng lượt sử dụng"
-          value={totalRedemptions}
+          label="Tổng lượt đã đổi"
+          value={totalRedeemed}
           icon={Ticket}
           loading={loading}
           accent="text-amber-600 bg-amber-50"
@@ -88,9 +92,9 @@ export default function PartnerDashboardPage() {
       </div>
 
       <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
-        Quản lý chi tiết, tạo mới và chỉnh sửa voucher tại trang{" "}
-        <Link href="/partner/vouchers" className="font-medium text-amber-700 underline">
-          Voucher giảm giá
+        Quản lý chi tiết, tạo mới, chỉnh sửa và xác nhận sử dụng voucher tại trang{" "}
+        <Link href="/partner/voucher" className="font-medium text-amber-700 underline">
+          Voucher đổi điểm
         </Link>
         .
       </div>

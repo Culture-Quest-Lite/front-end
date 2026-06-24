@@ -23,7 +23,6 @@ import {
   Clock,
   FileText,
   ShieldAlert,
-  TrendingDown,
 } from "lucide-react";
 import {
   Area,
@@ -85,7 +84,7 @@ export default function AdminDashboardPage() {
           adminApi.getPosts({ status: "PENDING", page: 0, size: 5 }),
         ]);
         setRecentUsers(usersRes.content);
-        setUserTotal(usersRes.totalElements);
+        setUserTotal(usersRes.page.totalElements);
         setPendingPosts(postsRes.content);
         setPendingCount(postsRes.content.length);
       } catch {
@@ -405,6 +404,7 @@ export default function AdminDashboardPage() {
                     key={user.userId}
                     className="flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50 p-3"
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={avatar} alt={name} className="h-11 w-11 rounded-full object-cover" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">{name}</p>

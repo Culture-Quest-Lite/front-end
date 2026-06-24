@@ -8,6 +8,7 @@ import {
   type VoucherRequest,
   type VoucherDiscountType,
   type VoucherStatus,
+  type UserVoucherResponse,
 } from "@/services/api/partner/partnerApi";
 import {
   Plus,
@@ -18,7 +19,8 @@ import {
   Power,
   PowerOff,
   Loader2,
-  Dices,
+  ScanLine,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -32,16 +34,21 @@ const STATUS_FILTERS: { value: VoucherStatus | "all"; label: string }[] = [
   { value: "EXPIRED", label: "Hết hạn" },
 ];
 
+// Record<VoucherStatus, ...> cần đủ cả 4 khoá kể cả DELETED (voucher xoá mềm
+// thường không xuất hiện trong danh sách mặc định, nhưng vẫn cần khai báo
+// đủ để khớp type).
 const statusLabels: Record<VoucherStatus, string> = {
   ACTIVE: "Đang hoạt động",
   INACTIVE: "Tạm ngưng",
   EXPIRED: "Hết hạn",
+  DELETED: "Đã xoá",
 };
 
 const statusClasses: Record<VoucherStatus, string> = {
   ACTIVE: "bg-emerald-100 text-emerald-700",
   INACTIVE: "bg-slate-100 text-slate-600",
   EXPIRED: "bg-red-100 text-red-700",
+  DELETED: "bg-slate-100 text-slate-400",
 };
 
 function formatCurrency(value: number) {
@@ -62,15 +69,6 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString("vi-VN");
 }
 
-function generateVoucherCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // bỏ ký tự dễ nhầm: 0/O, 1/I
-  let code = "";
-  for (let i = 0; i < 8; i += 1) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return code;
-}
-
 function toDateInputValue(value: string) {
   return value.slice(0, 10);
 }
@@ -81,15 +79,43 @@ function todayPlusDays(days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+/**
+ * Map 1 VoucherResponse hiện có thành VoucherRequest để gửi PUT — dùng cho
+ * hành động "Tạm ngưng/Bật lại" nhanh, vì API không có endpoint riêng đổi
+ * status, phải PUT lại toàn bộ object kèm voucherCode khớp mã hiện tại.
+ */
+function toVoucherRequest(
+  voucher: VoucherResponse,
+  overrides?: Partial<VoucherRequest>,
+): VoucherRequest {
+  return {
+    voucherCode: voucher.voucherCode,
+    voucherName: voucher.voucherName,
+    description: voucher.description ?? undefined,
+    discountType: voucher.discountType,
+    discountValue: voucher.discountValue,
+    maxDiscountAmount: voucher.maxDiscountAmount ?? undefined,
+    minOrderAmount: voucher.minOrderAmount ?? undefined,
+    pointsRequired: voucher.pointsRequired,
+    quantityTotal: voucher.quantityTotal,
+    status: voucher.status,
+    startDate: voucher.startDate,
+    endDate: voucher.endDate,
+    ...overrides,
+  };
+}
+
 type FormState = {
-  code: string;
+  code: string; // chỉ hiển thị/dùng khi sửa — KHÔNG cho phép chỉnh sửa
   title: string;
   description: string;
   discountType: VoucherDiscountType;
   discountValue: string;
   maxDiscountAmount: string;
   minOrderAmount: string;
-  usageLimit: string;
+  pointsRequired: string;
+  quantityTotal: string;
+  status: VoucherStatus;
   startDate: string;
   endDate: string;
 };
@@ -102,7 +128,9 @@ const emptyForm: FormState = {
   discountValue: "10",
   maxDiscountAmount: "",
   minOrderAmount: "",
-  usageLimit: "",
+  pointsRequired: "100",
+  quantityTotal: "100",
+  status: "ACTIVE",
   startDate: todayPlusDays(0),
   endDate: todayPlusDays(30),
 };
@@ -131,6 +159,8 @@ export default function PartnerVouchersPage() {
   const [statusLoadingId, setStatusLoadingId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  const [useDialogOpen, setUseDialogOpen] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -149,8 +179,8 @@ export default function PartnerVouchersPage() {
         if (cancelled) return;
 
         setVouchers(response.content);
-        setTotalItems(response.page?.totalElements ?? 0);
-        setTotalPages(Math.max(1, response.page?.totalPages || 1));
+        setTotalItems(response.page.totalElements);
+        setTotalPages(Math.max(1, response.page.totalPages || 1));
       } catch (error) {
         if (cancelled) return;
         setLoadError(
@@ -185,7 +215,7 @@ export default function PartnerVouchersPage() {
   }
 
   function openCreate() {
-    setForm({ ...emptyForm, code: generateVoucherCode() });
+    setForm(emptyForm);
     setEditingId(null);
     setFormError(null);
     setDialog("create");
@@ -193,14 +223,16 @@ export default function PartnerVouchersPage() {
 
   function openEdit(voucher: VoucherResponse) {
     setForm({
-      code: voucher.code,
-      title: voucher.title,
+      code: voucher.voucherCode,
+      title: voucher.voucherName,
       description: voucher.description ?? "",
       discountType: voucher.discountType,
       discountValue: String(voucher.discountValue),
       maxDiscountAmount: voucher.maxDiscountAmount ? String(voucher.maxDiscountAmount) : "",
       minOrderAmount: voucher.minOrderAmount ? String(voucher.minOrderAmount) : "",
-      usageLimit: voucher.usageLimit ? String(voucher.usageLimit) : "",
+      pointsRequired: String(voucher.pointsRequired),
+      quantityTotal: String(voucher.quantityTotal),
+      status: voucher.status,
       startDate: toDateInputValue(voucher.startDate),
       endDate: toDateInputValue(voucher.endDate),
     });
@@ -210,13 +242,7 @@ export default function PartnerVouchersPage() {
   }
 
   function buildPayload(): VoucherRequest | null {
-    const code = form.code.trim().toUpperCase();
     const title = form.title.trim();
-
-    if (!code) {
-      setFormError("Mã voucher không được để trống.");
-      return null;
-    }
     if (!title) {
       setFormError("Tên voucher không được để trống.");
       return null;
@@ -232,12 +258,24 @@ export default function PartnerVouchersPage() {
       return null;
     }
 
+    const pointsRequired = Number(form.pointsRequired);
+    if (!Number.isFinite(pointsRequired) || pointsRequired < 0) {
+      setFormError("Điểm yêu cầu để đổi phải là số >= 0.");
+      return null;
+    }
+
+    const quantityTotal = Number(form.quantityTotal);
+    if (!Number.isInteger(quantityTotal) || quantityTotal < 1) {
+      setFormError("Số lượng voucher phải là số nguyên >= 1.");
+      return null;
+    }
+
     if (!form.startDate || !form.endDate) {
       setFormError("Vui lòng chọn ngày bắt đầu và ngày kết thúc.");
       return null;
     }
     if (form.startDate > form.endDate) {
-      setFormError("Ngày kết thúc phải sau ngày bắt đầu.");
+      setFormError("Ngày bắt đầu phải trước ngày kết thúc.");
       return null;
     }
 
@@ -246,7 +284,6 @@ export default function PartnerVouchersPage() {
         ? Number(form.maxDiscountAmount)
         : undefined;
     const minOrderAmount = form.minOrderAmount.trim() ? Number(form.minOrderAmount) : undefined;
-    const usageLimit = form.usageLimit.trim() ? Number(form.usageLimit) : undefined;
 
     if (maxDiscountAmount !== undefined && (!Number.isFinite(maxDiscountAmount) || maxDiscountAmount < 0)) {
       setFormError("Giảm tối đa phải là số >= 0.");
@@ -256,20 +293,20 @@ export default function PartnerVouchersPage() {
       setFormError("Đơn hàng tối thiểu phải là số >= 0.");
       return null;
     }
-    if (usageLimit !== undefined && (!Number.isInteger(usageLimit) || usageLimit < 1)) {
-      setFormError("Số lượt sử dụng tối đa phải là số nguyên >= 1.");
-      return null;
-    }
 
     return {
-      code,
-      title,
+      // Chỉ gửi voucherCode khi đang SỬA (phải khớp đúng mã hiện có).
+      // Khi TẠO MỚI, backend tự sinh mã — không gửi field này lên.
+      voucherCode: dialog === "edit" ? form.code : undefined,
+      voucherName: title,
       description: form.description.trim() || undefined,
       discountType: form.discountType,
       discountValue,
       maxDiscountAmount,
       minOrderAmount,
-      usageLimit,
+      pointsRequired,
+      quantityTotal,
+      status: form.status,
       startDate: `${form.startDate}T00:00:00`,
       endDate: `${form.endDate}T23:59:59`,
     };
@@ -302,7 +339,9 @@ export default function PartnerVouchersPage() {
     setStatusLoadingId(voucher.voucherId);
     try {
       const nextStatus: VoucherStatus = voucher.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-      await partnerApi.setVoucherStatus(voucher.voucherId, nextStatus);
+      // Không có endpoint riêng đổi status — phải PUT lại toàn bộ voucher
+      // kèm voucherCode khớp mã hiện tại.
+      await partnerApi.updateVoucher(voucher.voucherId, toVoucherRequest(voucher, { status: nextStatus }));
       refresh();
     } catch (error) {
       setActionError(
@@ -331,15 +370,24 @@ export default function PartnerVouchersPage() {
     <div className="space-y-6">
       <PageHeader
         title="Voucher giảm giá"
-        subtitle="Tạo và quản lý voucher giảm giá áp dụng cho cửa hàng/dịch vụ của bạn."
+        subtitle="Tạo và quản lý voucher đổi bằng điểm cho khách hàng của bạn."
         actions={
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
-          >
-            <Plus className="h-4 w-4" /> Tạo voucher mới
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setUseDialogOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100"
+            >
+              <ScanLine className="h-4 w-4" /> Xác nhận sử dụng
+            </button>
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
+            >
+              <Plus className="h-4 w-4" /> Tạo voucher mới
+            </button>
+          </div>
         }
       />
 
@@ -424,7 +472,6 @@ export default function PartnerVouchersPage() {
           isSubmitting={isSubmitting}
           onCancel={() => setDialog(null)}
           onSubmit={handleSave}
-          onRegenerateCode={() => setForm((f) => ({ ...f, code: generateVoucherCode() }))}
         />
       ) : null}
 
@@ -433,8 +480,7 @@ export default function PartnerVouchersPage() {
           <div className="w-full max-w-sm overflow-hidden rounded-3xl bg-white p-6 shadow-2xl">
             <h2 className="text-lg font-semibold text-slate-900">Xoá voucher</h2>
             <p className="mt-2 text-sm text-slate-500">
-              Voucher đã xoá sẽ không thể khôi phục. Người dùng đang giữ voucher này sẽ không thể
-              sử dụng được nữa.
+              Voucher sẽ được đánh dấu là đã xoá (xoá mềm) và không còn hiển thị cho khách hàng.
             </p>
             <div className="mt-6 flex justify-end gap-3">
               <button
@@ -457,6 +503,8 @@ export default function PartnerVouchersPage() {
           </div>
         </div>
       ) : null}
+
+      {useDialogOpen ? <UseVoucherDialog onClose={() => setUseDialogOpen(false)} /> : null}
     </div>
   );
 }
@@ -474,24 +522,19 @@ function VoucherCard({
   onDelete: () => void;
   onToggleStatus: () => void;
 }) {
-  const usageText =
-    voucher.usageLimit !== undefined && voucher.usageLimit !== null
-      ? `${voucher.usedCount}/${voucher.usageLimit} lượt`
-      : `${voucher.usedCount} lượt (không giới hạn)`;
-
   return (
     <div className="flex overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
       <div className="flex w-28 shrink-0 flex-col items-center justify-center gap-2 border-r border-dashed border-amber-200 bg-amber-50 px-3 py-5 text-center">
         <Ticket className="h-5 w-5 text-amber-600" />
         <span className="break-all font-mono text-sm font-bold tracking-wide text-amber-700">
-          {voucher.code}
+          {voucher.voucherCode}
         </span>
       </div>
 
       <div className="flex-1 p-4">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h3 className="text-base font-semibold text-slate-900">{voucher.title}</h3>
+            <h3 className="text-base font-semibold text-slate-900">{voucher.voucherName}</h3>
             <p className="mt-0.5 text-sm font-medium text-amber-700">{formatDiscount(voucher)}</p>
           </div>
           <span
@@ -509,7 +552,10 @@ function VoucherCard({
           <span>
             Hiệu lực: {formatDate(voucher.startDate)} – {formatDate(voucher.endDate)}
           </span>
-          <span>Đã dùng: {usageText}</span>
+          <span>
+            Còn lại: {voucher.quantityRemaining}/{voucher.quantityTotal}
+          </span>
+          <span className="font-medium text-amber-600">{voucher.pointsRequired} điểm để đổi</span>
           {voucher.minOrderAmount ? (
             <span>Đơn tối thiểu: {formatCurrency(voucher.minOrderAmount)}</span>
           ) : null}
@@ -526,7 +572,7 @@ function VoucherCard({
           <button
             type="button"
             onClick={onToggleStatus}
-            disabled={isStatusLoading || voucher.status === "EXPIRED"}
+            disabled={isStatusLoading || voucher.status === "EXPIRED" || voucher.status === "DELETED"}
             title={voucher.status === "EXPIRED" ? "Voucher đã hết hạn" : undefined}
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -560,7 +606,6 @@ function VoucherFormDialog({
   isSubmitting,
   onCancel,
   onSubmit,
-  onRegenerateCode,
 }: {
   mode: "create" | "edit";
   form: FormState;
@@ -569,7 +614,6 @@ function VoucherFormDialog({
   isSubmitting: boolean;
   onCancel: () => void;
   onSubmit: () => void;
-  onRegenerateCode: () => void;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
@@ -579,25 +623,19 @@ function VoucherFormDialog({
         </h2>
 
         <div className="mt-5 space-y-4">
-          <Field label="Mã voucher">
-            <div className="flex gap-2">
+          {mode === "edit" ? (
+            <Field label="Mã voucher (không thể chỉnh sửa)">
               <input
                 value={form.code}
-                onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
-                placeholder="SUMMER2026"
-                maxLength={20}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-sm uppercase outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
+                disabled
+                className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-500"
               />
-              <button
-                type="button"
-                onClick={onRegenerateCode}
-                title="Tạo mã ngẫu nhiên"
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 px-3 text-xs font-medium text-slate-600 hover:bg-slate-50"
-              >
-                <Dices className="h-4 w-4" /> Ngẫu nhiên
-              </button>
-            </div>
-          </Field>
+            </Field>
+          ) : (
+            <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              Mã voucher sẽ được hệ thống tự tạo sau khi lưu.
+            </p>
+          )}
 
           <Field label="Tên voucher">
             <input
@@ -692,14 +730,43 @@ function VoucherFormDialog({
             </Field>
           ) : null}
 
-          <Field label="Số lượt sử dụng tối đa (để trống = không giới hạn)">
-            <input
-              type="number"
-              min={1}
-              value={form.usageLimit}
-              onChange={(e) => setForm({ ...form, usageLimit: e.target.value })}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Điểm yêu cầu để đổi">
+              <input
+                type="number"
+                min={0}
+                value={form.pointsRequired}
+                onChange={(e) => setForm({ ...form, pointsRequired: e.target.value })}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
+              />
+            </Field>
+            <Field label="Số lượng voucher">
+              <input
+                type="number"
+                min={1}
+                value={form.quantityTotal}
+                onChange={(e) => setForm({ ...form, quantityTotal: e.target.value })}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
+              />
+            </Field>
+          </div>
+          {mode === "edit" ? (
+            <p className="text-xs text-slate-400">
+              Lưu ý: thay đổi &quot;Số lượng voucher&quot; sẽ tự động cộng/trừ vào số lượng còn lại theo
+              chênh lệch so với giá trị cũ.
+            </p>
+          ) : null}
+
+          <Field label="Trạng thái">
+            <select
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value as VoucherStatus })}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
+            >
+              <option value="ACTIVE">Đang hoạt động</option>
+              <option value="INACTIVE">Tạm ngưng</option>
+              <option value="EXPIRED">Hết hạn</option>
+            </select>
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
@@ -747,6 +814,96 @@ function VoucherFormDialog({
   );
 }
 
+/**
+ * Modal "Xác nhận sử dụng voucher" — tương ứng mục 1.5 tài liệu:
+ * POST /api/partner/vouchers/use?voucherCode=... — dùng khi nhân viên đối
+ * tác xác nhận khách đã sử dụng voucher tại điểm bán.
+ */
+function UseVoucherDialog({ onClose }: { onClose: () => void }) {
+  const [code, setCode] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<UserVoucherResponse | null>(null);
+
+  async function handleConfirm() {
+    const trimmed = code.trim();
+    if (!trimmed) {
+      setError("Vui lòng nhập mã voucher khách hàng cung cấp.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const response = await partnerApi.useVoucher(trimmed);
+      setResult(response);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể xác nhận sử dụng voucher.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
+      <div className="w-full max-w-sm overflow-hidden rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="flex items-center gap-2">
+          <ScanLine className="h-5 w-5 text-amber-600" />
+          <h2 className="text-lg font-semibold text-slate-900">Xác nhận sử dụng voucher</h2>
+        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          Nhập mã voucher mà khách hàng cung cấp tại điểm bán để xác nhận đã sử dụng.
+        </p>
+
+        <div className="mt-4">
+          <input
+            value={code}
+            onChange={(e) => {
+              setCode(e.target.value.toUpperCase());
+              setResult(null);
+              setError(null);
+            }}
+            placeholder="Nhập mã voucher của khách"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-sm uppercase outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
+          />
+        </div>
+
+        {result ? (
+          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+            <div className="flex items-center gap-1.5 font-semibold">
+              <CheckCircle2 className="h-4 w-4" /> Xác nhận thành công
+            </div>
+            <p className="mt-1">{result.voucherName}</p>
+            {result.usedAt ? <p className="mt-0.5 text-xs">Đã dùng lúc: {formatDate(result.usedAt)}</p> : null}
+          </div>
+        ) : null}
+
+        {error ? <p className="mt-3 text-sm font-medium text-red-600">{error}</p> : null}
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            Đóng
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={isSubmitting}
+            className="rounded-full bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+          >
+            {isSubmitting ? "Đang xác nhận..." : "Xác nhận"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -757,8 +914,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 /**
- * Thanh phân trang tự viết — cùng cách làm như ở users-manager/page.tsx,
- * luôn ép totalItems/totalPages về số hợp lệ để không bao giờ ra "NaN".
+ * Thanh phân trang tự viết — luôn ép totalItems/totalPages về số hợp lệ để
+ * không bao giờ ra "NaN" (đã từng gặp ở users-manager).
  */
 function PaginationBar({
   page,

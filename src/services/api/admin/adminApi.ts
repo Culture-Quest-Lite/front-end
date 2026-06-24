@@ -7,10 +7,12 @@ export type SubscriptionPlanStatus = "ACTIVE" | "INACTIVE" | "DELETED";
 
 export interface PageResponse<T> {
   content: T[];
-  totalElements: number;
-  totalPages: number;
-  number: number;
-  size: number;
+ page: {
+    totalElements: number;
+    totalPages: number;
+    number: number;
+    size: number;
+  };
 }
 
 export interface SliceResponse<T> {
@@ -35,7 +37,10 @@ export interface UserProfile {
   status: UserStatus;
   levelName?: string;
   role: UserRole;
-  createdAt?: string;
+  createdAt: string;
+  totalFollowers: number;
+  totalFollowing: number;
+  totalPosts: number;
 }
 
 export interface PostItem {
