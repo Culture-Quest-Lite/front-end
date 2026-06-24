@@ -73,25 +73,54 @@ export default function ModerationPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [detailPost, setDetailPost] = useState<PostDetail | null>(null);
 
+  const requestPosts = useCallback(async () => {
+    const response = await adminApi.getPosts({
+      status: statusFilter === "ALL" ? undefined : statusFilter,
+      page: 0,
+      size: 20,
+    });
+    return response.content;
+  }, [statusFilter]);
+
   const loadPosts = useCallback(async () => {
     setLoadingPosts(true);
     try {
-      const response = await adminApi.getPosts({
-        status: statusFilter === "ALL" ? undefined : statusFilter,
-        page: 0,
-        size: 20,
-      });
-      setPosts(response.content);
+      const nextPosts = await requestPosts();
+      setPosts(nextPosts);
     } catch {
       setPosts([]);
     } finally {
       setLoadingPosts(false);
     }
-  }, [statusFilter]);
+  }, [requestPosts]);
 
   useEffect(() => {
-    void loadPosts();
-  }, [loadPosts]);
+    let cancelled = false;
+
+    async function syncPosts() {
+      try {
+        const nextPosts = await requestPosts();
+        if (cancelled) return;
+        setPosts(nextPosts);
+      } catch {
+        if (cancelled) return;
+        setPosts([]);
+      } finally {
+        if (!cancelled) setLoadingPosts(false);
+      }
+    }
+
+    void syncPosts();
+    return () => {
+      cancelled = true;
+    };
+  }, [requestPosts]);
+
+  function handleStatusFilterChange(nextStatus: PostStatusFilter) {
+    if (nextStatus === statusFilter) return;
+    setLoadingPosts(true);
+    setStatusFilter(nextStatus);
+  }
 
   function showToast(msg: string) {
     setToast(msg);
@@ -184,7 +213,7 @@ export default function ModerationPage() {
             <button
               key={item.value}
               type="button"
-              onClick={() => setStatusFilter(item.value)}
+              onClick={() => handleStatusFilterChange(item.value)}
               className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
                 statusFilter === item.value
                   ? "bg-blue-600 text-white"
@@ -422,6 +451,7 @@ function PostDetailModal({
         </div>
 
         {post.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={post.imageUrl} alt="Ảnh bài đăng" className="max-h-72 w-full object-cover" />
         ) : null}
 

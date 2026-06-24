@@ -61,24 +61,34 @@ export default function UsersManagerPage() {
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
 
+  const requestUsers = useCallback(async () => {
+    const response = await adminApi.getUsers({
+      page: page - 1,
+      size: PAGE_SIZE,
+      search: query.trim() || undefined,
+      sortBy: "createdAt",
+      sortDir: "desc",
+    });
+    const filtered =
+      roleFilter === "all"
+        ? response.content
+        : response.content.filter((user) => user.role === roleFilter);
+
+    return {
+      users: filtered,
+      totalItems: response.page?.totalElements ?? 0,
+      totalPages: Math.max(1, response.page?.totalPages || 1),
+    };
+  }, [page, query, roleFilter]);
+
   const loadUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await adminApi.getUsers({
-        page: page - 1,
-        size: PAGE_SIZE,
-        search: query.trim() || undefined,
-        sortBy: "createdAt",
-        sortDir: "desc",
-      });
-      const filtered =
-        roleFilter === "all"
-          ? response.content
-          : response.content.filter((user) => user.role === roleFilter);
-      setUsers(filtered);
-      setTotalItems(response.page?.totalElements ?? 0);
-      setTotalPages(Math.max(1, response.page?.totalPages || 1));
+      const nextUsers = await requestUsers();
+      setUsers(nextUsers.users);
+      setTotalItems(nextUsers.totalItems);
+      setTotalPages(nextUsers.totalPages);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải danh sách người dùng.");
       setUsers([]);
@@ -87,11 +97,34 @@ export default function UsersManagerPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, query, roleFilter]);
+  }, [requestUsers]);
 
   useEffect(() => {
-    void loadUsers();
-  }, [loadUsers]);
+    let cancelled = false;
+
+    async function syncUsers() {
+      try {
+        const nextUsers = await requestUsers();
+        if (cancelled) return;
+        setUsers(nextUsers.users);
+        setTotalItems(nextUsers.totalItems);
+        setTotalPages(nextUsers.totalPages);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Không thể tải danh sách người dùng.");
+        setUsers([]);
+        setTotalItems(0);
+        setTotalPages(1);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void syncUsers();
+    return () => {
+      cancelled = true;
+    };
+  }, [requestUsers]);
 
   const displayTotal = useMemo(() => {
     if (roleFilter === "all") return totalItems;
@@ -99,13 +132,27 @@ export default function UsersManagerPage() {
   }, [roleFilter, totalItems, users.length]);
 
   function handleSearchChange(value: string) {
+    if (value === query && page === 1) return;
+    setLoading(true);
+    setError(null);
     setQuery(value);
     setPage(1);
   }
 
   function handleRoleChange(value: string) {
-    setRoleFilter(value as UserRole | "all");
+    const nextRole = value as UserRole | "all";
+    if (nextRole === roleFilter && page === 1) return;
+    setLoading(true);
+    setError(null);
+    setRoleFilter(nextRole);
     setPage(1);
+  }
+
+  function handlePageChange(nextPage: number) {
+    if (nextPage === page) return;
+    setLoading(true);
+    setError(null);
+    setPage(nextPage);
   }
 
   async function handleLockToggle(user: UserProfile) {
@@ -221,7 +268,7 @@ export default function UsersManagerPage() {
             totalPages={totalPages}
             totalItems={displayTotal}
             pageSize={PAGE_SIZE}
-            onPageChange={setPage}
+            onPageChange={handlePageChange}
           />
         </div>
       </div>
@@ -263,6 +310,7 @@ function UserRow({
       onClick={onViewDetail}
       className="flex min-w-0 items-center gap-4 rounded-xl text-left transition hover:opacity-75"
     >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={avatar} alt={displayName} className="h-12 w-12 shrink-0 rounded-full object-cover" />
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold text-slate-900">{displayName}</div>
@@ -402,6 +450,7 @@ function UserDetailModal({ user, onClose }: { user: UserProfile; onClose: () => 
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-4 border-b border-slate-100 p-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={avatar}
             alt={displayName}

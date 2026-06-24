@@ -99,10 +99,13 @@ export default function TravelLogin() {
           saveAccessToken(accessToken, response.expiresIn);
           const session = createSessionFromToken(accessToken);
           if (session) {
-            if (session.role === "admin") {
-              window.location.href = "/admin";
+            const redirectPath = getRedirectPathForRole(session.role);
+            if (redirectPath) {
+              window.location.href = redirectPath;
             } else {
-              window.location.href = "/curator";
+              clearAuthSession();
+              alert("Tài khoản này không có quyền truy cập khu vực quản trị.");
+              setLoading(false);
             }
           } else {
             alert("Bạn không có quyền truy cập trang quản trị này!");
@@ -180,12 +183,23 @@ export default function TravelLogin() {
 
         loginRequestInFlight.current = false;
 
-        if (session.role === "admin") {
+        const redirectPath = getRedirectPathForRole(session.role);
+        if (!redirectPath) {
+          clearAuthSession();
+          setError("Tài khoản này không có quyền truy cập khu vực quản trị.");
+          setLoading(false);
+          return;
+        }
+
+        console.log("Redirecting after login...", {
+          role: session.role,
+          redirectPath,
+        });
+        router.push(redirectPath);
+        if (redirectPath === "/admin") {
           console.log("Redirecting to admin dashboard...");
-          router.push("/admin");
         } else {
           console.log("Redirecting to curator dashboard...");
-          router.push("/curator");
         }
       } else {
         setError("Phản hồi từ máy chủ không hợp lệ. Vui lòng thử lại.");
@@ -514,6 +528,18 @@ function FacebookIcon() {
       <path d="M13.5 21v-7.05h2.37l.35-2.75H13.5V9.44c0-.8.22-1.34 1.37-1.34h1.46V5.64c-.25-.04-1.13-.11-2.15-.11-2.13 0-3.58 1.3-3.58 3.68v2.01H8.2v2.75h2.4V21h2.9Z" />
     </svg>
   );
+}
+
+function getRedirectPathForRole(role: "admin" | "curator" | "explorer") {
+  if (role === "admin") {
+    return "/admin";
+  }
+
+  if (role === "curator") {
+    return "/curator";
+  }
+
+  return null;
 }
 
 function hasOAuthCallbackCode() {

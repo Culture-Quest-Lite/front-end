@@ -752,7 +752,7 @@ function VoucherFormDialog({
           </div>
           {mode === "edit" ? (
             <p className="text-xs text-slate-400">
-              Lưu ý: thay đổi "Số lượng voucher" sẽ tự động cộng/trừ vào số lượng còn lại theo
+              Lưu ý: thay đổi &quot;Số lượng voucher&quot; sẽ tự động cộng/trừ vào số lượng còn lại theo
               chênh lệch so với giá trị cũ.
             </p>
           ) : null}

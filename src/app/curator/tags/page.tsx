@@ -337,7 +337,7 @@ export default function CuratorTagsPage() {
                 setSearchQuery(event.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="Tìm thẻ phù hợp"
+              placeholder="Tìm thẻ phù hợp với địa điểm "
               className="h-11 rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
             />
           </div>
@@ -446,8 +446,8 @@ export default function CuratorTagsPage() {
 
                 <span className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-xs font-medium text-slate-600 shadow-sm sm:text-sm">
                   {totalElements} kết quả
-                  </span>
-                </div>
+                </span>
+              </div>
 
               <div className="mt-4">
                 {isLoadingTags ? (
@@ -728,54 +728,43 @@ export default function CuratorTagsPage() {
             aria-hidden="true"
           />
 
-          <div className="relative z-10 w-full max-w-md rounded-[2rem] border border-slate-200 bg-white p-5 shadow-2xl sm:p-6">
-            <button
-              type="button"
-              onClick={() => setPendingDeleteId(null)}
-              className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-              aria-label="Đóng xác nhận xóa"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            <div className="flex flex-col items-center space-y-4 px-2 text-center">
-              <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-[#F3D1CD] bg-[#FFF6F5] text-[#CF3F34] shadow-sm">
-                <Trash2 className="h-6 w-6" />
+          <div className="relative z-10 w-full max-w-[22rem] rounded-[1.75rem] border border-slate-200 bg-white px-5 py-7 text-center shadow-[0_24px_60px_rgba(15,23,42,0.18)] sm:px-6 sm:py-8">
+            <div className="space-y-3">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#FFF1F0] text-[#CF3F34]">
+                <Trash2 className="h-10 w-10" />
               </div>
-
-              <h2 className="cq-modal-title">Xóa thẻ</h2>
-              <p className="cq-page-subtitle">
-                Bạn có chắc muốn xóa thẻ{" "}
+              <h2 className="text-[1.125rem] font-semibold leading-tight tracking-[-0.02em] text-slate-900 sm:text-[1.25rem]">
+                Bạn có chắc muốn xóa?
+              </h2>
+              <p className="mx-auto max-w-[16.5rem] text-[0.8125rem] leading-5 text-slate-500 sm:text-[0.875rem]">
+                Hành động này không thể hoàn tác. Thẻ{" "}
                 <span className="font-semibold text-slate-900">
                   {pendingDeleteTag.name}
-                </span>
-                ?
+                </span>{" "}
+                sẽ bị xóa khỏi danh sách hiện tại.
               </p>
             </div>
 
-            <div className="mt-6 rounded-[1.5rem] border border-[#F3D1CD] bg-[#FFF6F5] p-4 text-sm text-slate-600">
-              Hành động này sẽ xóa thẻ khỏi danh sách hiện tại và có thể ảnh
-              hưởng đến các nội dung đang sử dụng thẻ này.
-            </div>
-
-            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <div className="mt-7 grid grid-cols-2 gap-3">
               <Button
                 type="button"
                 variant="outline"
                 size="lg"
                 onClick={() => setPendingDeleteId(null)}
-                className="rounded-full px-5 text-sm shadow-sm"
+                disabled={isSubmitting}
+                className="h-11 rounded-2xl border-slate-200 bg-slate-100 text-[0.8125rem] font-semibold text-slate-600 shadow-none hover:bg-slate-200 hover:text-slate-700 sm:text-sm"
               >
                 Hủy
               </Button>
               <Button
                 type="button"
-                variant="secondary"
+                variant="outline"
                 size="lg"
                 onClick={handleConfirmDelete}
-                className="rounded-full px-5 text-sm text-white shadow-sm"
+                disabled={isSubmitting}
+                className="h-11 rounded-2xl border-[#F3D7D4] bg-white text-[0.8125rem] font-semibold text-[#CF3F34] shadow-none hover:border-[#E9B5AF] hover:bg-[#FFF1F0] hover:text-[#B9342A] sm:text-sm"
               >
-                Xóa thẻ
+                {isSubmitting ? "Đang xóa..." : "Xóa thẻ"}
               </Button>
             </div>
           </div>

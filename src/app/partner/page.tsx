@@ -53,7 +53,7 @@ export default function PartnerDashboardPage() {
         subtitle="Theo dõi nhanh tình trạng voucher đổi điểm của cửa hàng bạn."
         actions={
           <Link
-            href="/partner/vouchers"
+            href="/partner/voucher"
             className="inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
           >
             <Plus className="h-4 w-4" /> Tạo voucher mới
@@ -93,8 +93,8 @@ export default function PartnerDashboardPage() {
 
       <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
         Quản lý chi tiết, tạo mới, chỉnh sửa và xác nhận sử dụng voucher tại trang{" "}
-        <Link href="/partner/vouchers" className="font-medium text-amber-700 underline">
-          Voucher giảm giá
+        <Link href="/partner/voucher" className="font-medium text-amber-700 underline">
+          Voucher đổi điểm
         </Link>
         .
       </div>

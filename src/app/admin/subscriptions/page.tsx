@@ -179,16 +179,20 @@ export default function SubscriptionsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [typeFilter, setTypeFilter] = useState<SubscriptionPlanType | "all">("all");
 
+  const requestPlans = useCallback(async () => {
+    return adminApi.getSubscriptionPlans({
+      page: 0,
+      size: 50,
+      sortBy: "createdAt",
+      sortDir: "desc",
+    });
+  }, []);
+
   const loadPlans = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await adminApi.getSubscriptionPlans({
-        page: 0,
-        size: 50,
-        sortBy: "createdAt",
-        sortDir: "desc",
-      });
+      const response = await requestPlans();
       setPlans(response.content);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải danh sách gói dịch vụ.");
@@ -196,11 +200,30 @@ export default function SubscriptionsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [requestPlans]);
 
   useEffect(() => {
-    void loadPlans();
-  }, [loadPlans]);
+    let cancelled = false;
+
+    async function syncPlans() {
+      try {
+        const response = await requestPlans();
+        if (cancelled) return;
+        setPlans(response.content);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Không thể tải danh sách gói dịch vụ.");
+        setPlans([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void syncPlans();
+    return () => {
+      cancelled = true;
+    };
+  }, [requestPlans]);
 
   const filteredPlans = useMemo(() => {
     if (typeFilter === "all") return plans;
