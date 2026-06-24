@@ -10,7 +10,7 @@ export interface TokenData {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "curator" | "explorer";
+  role: "admin" | "curator" | "explorer" | "partner";
   token: string;
 }
 
@@ -184,7 +184,7 @@ export function extractUserFromToken(accessToken: string): Omit<TokenData, "toke
     return null;
   }
 
-  let role: "admin" | "curator" | "explorer" = "explorer"; // đổi default
+  let role: "admin" | "curator" | "partner" | "explorer" = "explorer"; // đổi default
 
   if (decoded.realm_access?.roles && Array.isArray(decoded.realm_access.roles)) {
     const roles = decoded.realm_access.roles.map((r: string) => r.toUpperCase());
@@ -194,6 +194,8 @@ export function extractUserFromToken(accessToken: string): Omit<TokenData, "toke
       role = "curator";
     } else if (roles.includes("EXPLORER")) {
       role = "explorer";
+    } else if (roles.includes("PARTNER")) {
+      role = "partner";
     }
   }
 
@@ -209,6 +211,8 @@ export function extractUserFromToken(accessToken: string): Omit<TokenData, "toke
             break;
           } else if (resourceRoles.includes("curator") || resourceRoles.includes("CURATOR")) {
             role = "curator";
+          } else if (resourceRoles.includes("partner") || resourceRoles.includes("PARTNER")) {
+            role = "partner";
           }
         }
       }
@@ -222,6 +226,8 @@ export function extractUserFromToken(accessToken: string): Omit<TokenData, "toke
       role = "admin";
     } else if (decodedRole === "curator") {
       role = "curator";
+    } else if (decodedRole === "partner") {
+      role = "partner";
     }
   }
 

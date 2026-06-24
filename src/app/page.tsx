@@ -530,13 +530,17 @@ function FacebookIcon() {
   );
 }
 
-function getRedirectPathForRole(role: "admin" | "curator" | "explorer") {
+function getRedirectPathForRole(role: "admin" | "curator" | "explorer" | "partner" ) {
   if (role === "admin") {
     return "/admin";
   }
 
   if (role === "curator") {
     return "/curator";
+  }
+
+  if (role === "partner") {
+    return "/partner";
   }
 
   return null;
