@@ -6,6 +6,7 @@ import {
   partnerApi,
   type VoucherResponse,
   type VoucherRequest,
+  type VoucherMedia,
   type VoucherDiscountType,
   type VoucherStatus,
   type UserVoucherResponse,
@@ -23,21 +24,26 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Upload,
+  X,
+  ImageOff,
 } from "lucide-react";
 
 const PAGE_SIZE = 8;
 
 const STATUS_FILTERS: { value: VoucherStatus | "all"; label: string }[] = [
   { value: "all", label: "Tất cả" },
+  { value: "PENDING", label: "Chờ duyệt" },
   { value: "ACTIVE", label: "Đang hoạt động" },
   { value: "INACTIVE", label: "Tạm ngưng" },
   { value: "EXPIRED", label: "Hết hạn" },
 ];
 
-// Record<VoucherStatus, ...> cần đủ cả 4 khoá kể cả DELETED (voucher xoá mềm
-// thường không xuất hiện trong danh sách mặc định, nhưng vẫn cần khai báo
-// đủ để khớp type).
+// Record<VoucherStatus, ...> cần đủ cả 5 khoá kể cả DELETED (voucher xoá
+// mềm thường không xuất hiện trong danh sách mặc định, nhưng vẫn cần khai
+// báo đủ để khớp type).
 const statusLabels: Record<VoucherStatus, string> = {
+  PENDING: "Chờ duyệt",
   ACTIVE: "Đang hoạt động",
   INACTIVE: "Tạm ngưng",
   EXPIRED: "Hết hạn",
@@ -45,6 +51,7 @@ const statusLabels: Record<VoucherStatus, string> = {
 };
 
 const statusClasses: Record<VoucherStatus, string> = {
+  PENDING: "bg-amber-100 text-amber-700",
   ACTIVE: "bg-emerald-100 text-emerald-700",
   INACTIVE: "bg-slate-100 text-slate-600",
   EXPIRED: "bg-red-100 text-red-700",
@@ -83,6 +90,7 @@ function todayPlusDays(days: number) {
  * Map 1 VoucherResponse hiện có thành VoucherRequest để gửi PUT — dùng cho
  * hành động "Tạm ngưng/Bật lại" nhanh, vì API không có endpoint riêng đổi
  * status, phải PUT lại toàn bộ object kèm voucherCode khớp mã hiện tại.
+ * (PUT vẫn là JSON thường, không phải multipart, nên không cần kèm files.)
  */
 function toVoucherRequest(
   voucher: VoucherResponse,
@@ -130,7 +138,10 @@ const emptyForm: FormState = {
   minOrderAmount: "",
   pointsRequired: "100",
   quantityTotal: "100",
-  status: "ACTIVE",
+  // Tạo mới: backend LUÔN ép status = PENDING bất kể gửi gì lên, để mặc
+  // định PENDING cho đồng bộ với thực tế (ô chọn trạng thái sẽ bị ẩn khi
+  // tạo mới — xem VoucherFormDialog).
+  status: "PENDING",
   startDate: todayPlusDays(0),
   endDate: todayPlusDays(30),
 };
@@ -153,6 +164,12 @@ export default function PartnerVouchersPage() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Ảnh chọn để upload khi TẠO MỚI (chỉ áp dụng cho create, vì updateVoucher
+  // hiện vẫn là JSON thường, chưa hỗ trợ đổi ảnh).
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  // Ảnh đã có của voucher đang sửa — chỉ để xem, không sửa được qua API hiện tại.
+  const [existingMedias, setExistingMedias] = useState<VoucherMedia[]>([]);
 
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -216,6 +233,8 @@ export default function PartnerVouchersPage() {
 
   function openCreate() {
     setForm(emptyForm);
+    setSelectedFiles([]);
+    setExistingMedias([]);
     setEditingId(null);
     setFormError(null);
     setDialog("create");
@@ -236,6 +255,8 @@ export default function PartnerVouchersPage() {
       startDate: toDateInputValue(voucher.startDate),
       endDate: toDateInputValue(voucher.endDate),
     });
+    setSelectedFiles([]);
+    setExistingMedias(voucher.medias ?? []);
     setEditingId(voucher.voucherId);
     setFormError(null);
     setDialog("edit");
@@ -293,10 +314,12 @@ export default function PartnerVouchersPage() {
       setFormError("Đơn hàng tối thiểu phải là số >= 0.");
       return null;
     }
+    if (dialog === "create" && selectedFiles.length === 0) {
+      setFormError("Vui lòng chọn ít nhất một ảnh voucher.");
+      return null;
+    }
 
     return {
-      // Chỉ gửi voucherCode khi đang SỬA (phải khớp đúng mã hiện có).
-      // Khi TẠO MỚI, backend tự sinh mã — không gửi field này lên.
       voucherCode: dialog === "edit" ? form.code : undefined,
       voucherName: title,
       description: form.description.trim() || undefined,
@@ -321,7 +344,8 @@ export default function PartnerVouchersPage() {
 
     try {
       if (dialog === "create") {
-        await partnerApi.createVoucher(payload);
+        // createVoucher gửi multipart/form-data, kèm ảnh đã chọn (nếu có).
+        await partnerApi.createVoucher({ ...payload, files: selectedFiles });
       } else if (editingId) {
         await partnerApi.updateVoucher(editingId, payload);
       }
@@ -408,11 +432,10 @@ export default function PartnerVouchersPage() {
               key={item.value}
               type="button"
               onClick={() => handleStatusFilterChange(item.value)}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
-                statusFilter === item.value
-                  ? "bg-amber-600 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
+              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${statusFilter === item.value
+                ? "bg-amber-600 text-white"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
             >
               {item.label}
             </button>
@@ -470,6 +493,9 @@ export default function PartnerVouchersPage() {
           setForm={setForm}
           formError={formError}
           isSubmitting={isSubmitting}
+          selectedFiles={selectedFiles}
+          setSelectedFiles={setSelectedFiles}
+          existingMedias={existingMedias}
           onCancel={() => setDialog(null)}
           onSubmit={handleSave}
         />
@@ -522,13 +548,27 @@ function VoucherCard({
   onDelete: () => void;
   onToggleStatus: () => void;
 }) {
+  const coverMedia = voucher.medias?.[0];
+
   return (
     <div className="flex overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
-      <div className="flex w-28 shrink-0 flex-col items-center justify-center gap-2 border-r border-dashed border-amber-200 bg-amber-50 px-3 py-5 text-center">
-        <Ticket className="h-5 w-5 text-amber-600" />
-        <span className="break-all font-mono text-sm font-bold tracking-wide text-amber-700">
-          {voucher.voucherCode}
-        </span>
+      <div className="relative flex w-28 shrink-0 flex-col items-center justify-center gap-2 overflow-hidden border-r border-dashed border-amber-200 bg-amber-50 px-3 py-5 text-center">
+        {coverMedia ? (
+          <img
+            src={coverMedia.fileUrl}
+            alt={voucher.voucherName}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : null}
+        <div
+          className={`relative z-10 flex flex-col items-center gap-1.5 rounded-lg px-2 py-1.5 ${coverMedia ? "bg-white/85 backdrop-blur-sm" : ""
+            }`}
+        >
+          <Ticket className="h-4 w-4 text-amber-600" />
+          <span className="break-all font-mono text-[11px] font-bold tracking-wide text-amber-700">
+            {voucher.voucherCode}
+          </span>
+        </div>
       </div>
 
       <div className="flex-1 p-4">
@@ -604,6 +644,9 @@ function VoucherFormDialog({
   setForm,
   formError,
   isSubmitting,
+  selectedFiles,
+  setSelectedFiles,
+  existingMedias,
   onCancel,
   onSubmit,
 }: {
@@ -612,9 +655,34 @@ function VoucherFormDialog({
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
   formError: string | null;
   isSubmitting: boolean;
+  selectedFiles: File[];
+  setSelectedFiles: React.Dispatch<React.SetStateAction<File[]>>;
+  existingMedias: VoucherMedia[];
   onCancel: () => void;
   onSubmit: () => void;
 }) {
+  function handleFilesSelected(fileList: FileList | null) {
+    if (!fileList) return;
+    console.log("files =", Array.from(fileList));
+    const incoming = Array.from(fileList);
+
+    setSelectedFiles((prev) => [
+      ...prev,
+      ...incoming.filter(
+        (file) =>
+          !prev.some(
+            (p) =>
+              p.name === file.name &&
+              p.size === file.size
+          )
+      ),
+    ]);
+  }
+
+  function removeSelectedFile(index: number) {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
@@ -633,7 +701,8 @@ function VoucherFormDialog({
             </Field>
           ) : (
             <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              Mã voucher sẽ được hệ thống tự tạo sau khi lưu.
+              Mã voucher sẽ được hệ thống tự tạo sau khi lưu. Voucher mới sẽ ở trạng thái{" "}
+              <strong>Chờ duyệt</strong> — admin xét duyệt trước khi kích hoạt cho khách hàng.
             </p>
           )}
 
@@ -662,22 +731,20 @@ function VoucherFormDialog({
               <button
                 type="button"
                 onClick={() => setForm({ ...form, discountType: "PERCENTAGE" })}
-                className={`flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition ${
-                  form.discountType === "PERCENTAGE"
-                    ? "border-amber-500 bg-amber-50 text-amber-700"
-                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                }`}
+                className={`flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition ${form.discountType === "PERCENTAGE"
+                  ? "border-amber-500 bg-amber-50 text-amber-700"
+                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
               >
                 Theo % (VD: 10%)
               </button>
               <button
                 type="button"
                 onClick={() => setForm({ ...form, discountType: "FIXED_AMOUNT" })}
-                className={`flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition ${
-                  form.discountType === "FIXED_AMOUNT"
-                    ? "border-amber-500 bg-amber-50 text-amber-700"
-                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                }`}
+                className={`flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition ${form.discountType === "FIXED_AMOUNT"
+                  ? "border-amber-500 bg-amber-50 text-amber-700"
+                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
               >
                 Số tiền cố định (VNĐ)
               </button>
@@ -757,17 +824,87 @@ function VoucherFormDialog({
             </p>
           ) : null}
 
-          <Field label="Trạng thái">
-            <select
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value as VoucherStatus })}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
-            >
-              <option value="ACTIVE">Đang hoạt động</option>
-              <option value="INACTIVE">Tạm ngưng</option>
-              <option value="EXPIRED">Hết hạn</option>
-            </select>
-          </Field>
+          {/* Tạo mới: backend luôn ép status = PENDING, ô chọn trạng thái không
+              có ý nghĩa nên ẩn đi. Sửa: cho chọn lại trạng thái thật. */}
+          {mode === "edit" ? (
+            <Field label="Trạng thái">
+              <select
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value as VoucherStatus })}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
+              >
+                <option value="PENDING">Chờ duyệt</option>
+                <option value="ACTIVE">Đang hoạt động</option>
+                <option value="INACTIVE">Tạm ngưng</option>
+                <option value="EXPIRED">Hết hạn</option>
+              </select>
+            </Field>
+          ) : null}
+
+          {mode === "create" ? (
+            <Field label="Hình ảnh voucher (tuỳ chọn)">
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500 transition hover:border-amber-400 hover:bg-amber-50/50 hover:text-amber-700">
+                <Upload className="h-4 w-4" />
+                Chọn ảnh để tải lên
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    handleFilesSelected(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              {selectedFiles.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {selectedFiles.map((file, index) => (
+                    <div
+                      key={`${file.name}-${index}`}
+                      className="relative"
+                    >
+                      <img
+                        src={URL.createObjectURL(file)}
+                        alt={file.name}
+                        className="h-20 w-20 rounded-lg border border-slate-200 object-cover"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => removeSelectedFile(index)}
+                        className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </Field>
+          ) : (
+            <Field label="Hình ảnh hiện có">
+              {existingMedias.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {existingMedias.map((media) => (
+                    <img
+                      key={media.mediaId}
+                      src={media.fileUrl}
+                      alt=""
+                      className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 rounded-xl border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-400">
+                  <ImageOff className="h-4 w-4" /> Voucher này chưa có ảnh.
+                </div>
+              )}
+              <p className="mt-1.5 text-xs text-slate-400">
+                Chưa hỗ trợ thêm/đổi ảnh khi sửa voucher qua API hiện tại — chỉ áp dụng lúc tạo mới.
+              </p>
+            </Field>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Ngày bắt đầu">
@@ -975,9 +1112,8 @@ function PaginationBar({
               type="button"
               onClick={() => onPageChange(p)}
               aria-current={p === safePage}
-              className={`inline-flex h-9 min-w-9 items-center justify-center rounded-xl px-2 text-sm font-semibold transition ${
-                p === safePage ? "bg-amber-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"
-              }`}
+              className={`inline-flex h-9 min-w-9 items-center justify-center rounded-xl px-2 text-sm font-semibold transition ${p === safePage ? "bg-amber-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"
+                }`}
             >
               {p}
             </button>
