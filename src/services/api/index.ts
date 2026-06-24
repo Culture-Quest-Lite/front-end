@@ -6,6 +6,12 @@ export type {
   BackendHotspotTag,
   CreateHotspotPayload,
 } from "./hotspotApi";
+export { goongApi } from "./goongApi";
+export type {
+  GoongAutocompleteResult,
+  GoongPlaceDetail,
+  GoongPlaceSuggestion,
+} from "./goongApi";
 export { userApi } from "./userApi";
 export type { BackendUser } from "./userApi";
 export { adminApi } from "./admin/adminApi";
