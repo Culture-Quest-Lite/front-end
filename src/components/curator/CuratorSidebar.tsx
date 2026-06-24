@@ -71,6 +71,13 @@ export function CuratorSidebar() {
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
     if (href === "/curator") return pathname === "/curator";
+    if (href === "/curator/hotspot") {
+      return (
+        pathname === href ||
+        pathname.startsWith("/curator/hotspot/") ||
+        pathname.startsWith("/curator/hotspots/")
+      );
+    }
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 

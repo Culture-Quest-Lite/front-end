@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import {
   ArrowLeft,
+  BookOpen,
   CalendarDays,
   Clock3,
   Compass,
@@ -14,7 +15,6 @@ import {
 
 import {
   buildGoogleMapsUrl,
-  buildMapEmbedUrl,
   getHotspotBySlug,
   getHotspotProfile,
   hotspotItems,
@@ -22,7 +22,7 @@ import {
   type HotspotProfile,
 } from "@/data/hotspots";
 import { buildTagToken } from "@/lib/tags";
-import type { BackendHotspot } from "@/services/api";
+import type { BackendHotspot, BackendUser } from "@/services/api";
 import { HotspotMediaPanel } from "./HotspotMediaPanel";
 
 const BACKEND_API_BASE_URL =
@@ -135,19 +135,26 @@ export async function renderHotspotDetailPage({
   const backendHotspot = hotspotId
     ? await getHotspotFromBackend(hotspotId)
     : null;
+  const creatorDisplayName =
+    typeof backendHotspot?.createByUserId === "number"
+      ? await getCreatorDisplayName(backendHotspot.createByUserId)
+      : "";
   const fallbackHotspot = resolveFallbackHotspot(slug, backendHotspot);
 
   if (!fallbackHotspot && !backendHotspot) {
     notFound();
   }
 
-  const hotspot = buildDetailHotspot(fallbackHotspot, backendHotspot);
+  const hotspot = buildDetailHotspot(
+    fallbackHotspot,
+    backendHotspot,
+    creatorDisplayName,
+  );
   const profile = buildDetailProfile(
     fallbackHotspot ? getHotspotProfile(fallbackHotspot.slug) : null,
     fallbackHotspot,
     backendHotspot,
   );
-  const mapEmbedUrl = buildMapEmbedUrl(hotspot.address);
   const googleMapsUrl = buildGoogleMapsUrl(hotspot.address);
   const effectiveHotspotId = hotspotId ?? backendHotspot?.hotspotId ?? null;
   const isBackendDetail = Boolean(backendHotspot);
@@ -159,9 +166,6 @@ export async function renderHotspotDetailPage({
         { value: profile.stats.saves, label: "Đã lưu" },
         { value: profile.stats.routes, label: "Tuyến chứa điểm" },
       ].filter((item) => item.value);
-  const locationMeta = [profile.coordinates, profile.district]
-    .filter(Boolean)
-    .join(" · ");
   const showEditorialInfo = Boolean(
     hotspot.author ||
     hotspot.date ||
@@ -212,13 +216,28 @@ export async function renderHotspotDetailPage({
           </div>
 
           <div className="flex flex-col gap-3 xl:items-end">
-            {hotspot.badge ? (
-              <span
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm ${hotspot.statusStyle}`}
-              >
-                <ShieldCheck className="h-4 w-4" />
-                {hotspot.badge}
-              </span>
+            {hotspot.badge || googleMapsUrl ? (
+              <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                {hotspot.badge ? (
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm ${hotspot.statusStyle}`}
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    {hotspot.badge}
+                  </span>
+                ) : null}
+                {googleMapsUrl ? (
+                  <a
+                    href={googleMapsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-full bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Xem bản đồ
+                  </a>
+                ) : null}
+              </div>
             ) : null}
             {hotspot.tags.length > 0 ? (
               <div className="flex flex-wrap gap-2 xl:justify-end">
@@ -248,22 +267,31 @@ export async function renderHotspotDetailPage({
         ) : null}
 
         <div className="mt-6 grid gap-4">
-          {hotspot.address || locationMeta ? (
+          {hotspot.address ? (
             <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
               <div className="flex items-start gap-3">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
                 <div>
-                  <p className="cq-label">Địa chỉ</p>
+                  <p className="cq-label">Vị trí</p>
                   {hotspot.address ? (
                     <p className="mt-1 text-sm font-normal leading-6 text-slate-900">
                       {hotspot.address}
                     </p>
                   ) : null}
-                  {locationMeta ? (
-                    <p className="cq-page-subtitle mt-1">{locationMeta}</p>
-                  ) : null}
                 </div>
               </div>
+            </div>
+          ) : null}
+
+          {historyInformation ? (
+            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-amber-700" />
+                <p className="cq-label">Thông tin lịch sử</p>
+              </div>
+              <p className="mt-2 text-sm font-normal leading-6 text-slate-900">
+                {historyInformation}
+              </p>
             </div>
           ) : null}
 
@@ -276,7 +304,7 @@ export async function renderHotspotDetailPage({
                     <div>
                       <p className="cq-label">
                         {isBackendDetail
-                          ? "Thời gian mở cửa"
+                          ? "Thời gian mở/đóng cửa"
                           : "Thời lượng tham quan"}
                       </p>
                       <p className="cq-card-title mt-1 font-normal">
@@ -360,78 +388,9 @@ export async function renderHotspotDetailPage({
                   ) : null}
                 </div>
               ) : null}
-
-              {hotspot.status || hotspot.gps ? (
-                <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3">
-                  <p className="cq-label">Trạng thái hiện tại</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    {hotspot.status ? (
-                      <span
-                        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-normal ${hotspot.statusStyle}`}
-                      >
-                        {hotspot.status}
-                      </span>
-                    ) : null}
-                    {hotspot.gps ? (
-                      <span className="rounded-full bg-white px-3 py-1 text-xs font-normal text-slate-600 ring-1 ring-slate-200">
-                        {hotspot.gps}
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
             </div>
           </SectionCard>
         ) : null}
-
-        <SectionCard
-          title="Bản đồ & vị trí"
-          description="Kiểm tra nhanh định vị và mở hotspot ngoài Google Maps."
-        >
-          <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-slate-100">
-              {mapEmbedUrl ? (
-                <iframe
-                  title={`Bản đồ ${hotspot.title}`}
-                  src={mapEmbedUrl}
-                  loading="lazy"
-                  className="h-[320px] w-full border-0"
-                  referrerPolicy="no-referrer-when-downgrade"
-                />
-              ) : (
-                <div className="flex h-[320px] items-center justify-center text-sm text-slate-500">
-                  Chưa có dữ liệu vị trí.
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
-                <p className="cq-label">Toạ độ</p>
-                <p className="mt-2 text-lg font-normal text-slate-950">
-                  {profile.coordinates}
-                </p>
-              </div>
-
-              <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
-                <p className="cq-label">Khu vực</p>
-                <p className="mt-2 text-sm font-normal text-slate-900">
-                  {profile.district}
-                </p>
-              </div>
-
-              <a
-                href={googleMapsUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-              >
-                <ExternalLink className="h-4 w-4" />
-                Mở định vị ngoài Google Maps
-              </a>
-            </div>
-          </div>
-        </SectionCard>
       </section>
     </div>
   );
@@ -523,9 +482,35 @@ async function getHotspotFromBackend(hotspotId: number) {
   return (await response.json()) as BackendHotspot;
 }
 
+async function getCreatorDisplayName(userId: number) {
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get(ACCESS_TOKEN_COOKIE_KEY)?.value;
+  const headers = new Headers({
+    accept: "application/json",
+  });
+
+  if (accessToken) {
+    headers.set("authorization", `Bearer ${accessToken}`);
+  }
+
+  const response = await fetch(`${BACKEND_API_BASE_URL}/api/users/${userId}`, {
+    method: "GET",
+    headers,
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    return "";
+  }
+
+  const user = (await response.json()) as BackendUser;
+  return user.displayName?.trim() || "";
+}
+
 function buildDetailHotspot(
   fallbackHotspot: HotspotItem | null,
   backendHotspot: BackendHotspot | null,
+  creatorDisplayName: string,
 ): HotspotItem {
   const hasBackendSource = Boolean(backendHotspot);
   const title =
@@ -553,6 +538,7 @@ function buildDetailHotspot(
       hasBackendSource ? undefined : fallbackHotspot?.subtitle,
     ),
     author:
+      creatorDisplayName ||
       (typeof backendHotspot?.createByUserId === "number"
         ? `Curator #${backendHotspot.createByUserId}`
         : "") ||

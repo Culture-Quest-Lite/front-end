@@ -8,16 +8,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { buildTagToken, type TagRecord } from "@/lib/tags";
 import {
+  goongApi,
   hotspotApi,
   tagApi,
   type BackendHotspot,
   type CreateHotspotPayload,
+  type GoongPlaceSuggestion,
 } from "@/services/api";
 import {
   ArrowLeft,
   CheckCircle2,
   ImagePlus,
+  LoaderCircle,
+  MapPin,
   Save,
+  Search,
   Send,
   Video,
 } from "lucide-react";
@@ -85,6 +90,19 @@ function HotspotCreatePageContent() {
   const [createdHotspot, setCreatedHotspot] = useState<BackendHotspot | null>(
     null,
   );
+  const [lastSubmittedPayload, setLastSubmittedPayload] =
+    useState<CreateHotspotPayload | null>(null);
+  const [goongSuggestions, setGoongSuggestions] = useState<
+    GoongPlaceSuggestion[]
+  >([]);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+  const [isResolvingPlace, setIsResolvingPlace] = useState(false);
+  const [addressSearchError, setAddressSearchError] = useState<string | null>(
+    null,
+  );
+  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
+  const [shouldSearchAddress, setShouldSearchAddress] = useState(false);
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
 
   useEffect(() => {
     let isCancelled = false;
@@ -178,6 +196,55 @@ function HotspotCreatePageContent() {
     };
   }, [editingHotspotId, isEditMode]);
 
+  useEffect(() => {
+    if (!shouldSearchAddress) {
+      return;
+    }
+
+    const trimmedAddress = formState.address.trim();
+    let isCancelled = false;
+
+    const timeoutId = window.setTimeout(() => {
+      if (isCancelled) {
+        return;
+      }
+
+      void goongApi
+        .searchPlaces(trimmedAddress)
+        .then((response) => {
+          if (isCancelled) {
+            return;
+          }
+
+          setGoongSuggestions(response.predictions);
+          setShowAddressSuggestions(true);
+        })
+        .catch((error) => {
+          if (isCancelled) {
+            return;
+          }
+
+          setGoongSuggestions([]);
+          setAddressSearchError(
+            error instanceof Error
+              ? error.message
+              : "Không thể tìm địa điểm từ Goong.",
+          );
+          setShowAddressSuggestions(true);
+        })
+        .finally(() => {
+          if (!isCancelled) {
+            setIsSearchingAddress(false);
+          }
+        });
+    }, 350);
+
+    return () => {
+      isCancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [formState.address, shouldSearchAddress]);
+
   const selectedTags = availableTags.filter((tag) =>
     selectedTagIds.includes(tag.tagId),
   );
@@ -214,12 +281,107 @@ function HotspotCreatePageContent() {
     setTagSelectValue("");
   }
 
+  function handleAddressInputChange(value: string) {
+    const shouldSearch = value.trim().length >= 3;
+
+    setAddressSearchError(null);
+    setSelectedPlaceId(null);
+    setShouldSearchAddress(shouldSearch);
+    setShowAddressSuggestions(shouldSearch);
+    setIsSearchingAddress(shouldSearch);
+
+    if (!shouldSearch) {
+      setGoongSuggestions([]);
+    }
+
+    setFormState((current) => {
+      const hasAddressChanged = current.address !== value;
+
+      return {
+        ...current,
+        address: value,
+        latitude: hasAddressChanged ? "" : current.latitude,
+        longitude: hasAddressChanged ? "" : current.longitude,
+      };
+    });
+  }
+
+  async function applyGoongSuggestion(suggestion: GoongPlaceSuggestion) {
+    const placeDetail = await goongApi.getPlaceDetail(suggestion.placeId);
+
+    setFormState((current) => ({
+      ...current,
+      address: placeDetail.address,
+      latitude: String(placeDetail.latitude),
+      longitude: String(placeDetail.longitude),
+    }));
+    setSelectedPlaceId(placeDetail.placeId);
+    setShouldSearchAddress(false);
+    setGoongSuggestions([]);
+    setShowAddressSuggestions(false);
+  }
+
+  async function handleSelectGoongSuggestion(
+    suggestion: GoongPlaceSuggestion,
+  ) {
+    setIsResolvingPlace(true);
+    setIsSearchingAddress(false);
+    setAddressSearchError(null);
+
+    try {
+      await applyGoongSuggestion(suggestion);
+    } catch (error) {
+      setAddressSearchError(
+        error instanceof Error
+          ? error.message
+          : "Không thể lấy tọa độ địa điểm từ Goong.",
+      );
+    } finally {
+      setIsResolvingPlace(false);
+    }
+  }
+
+  async function handleResolveAddressFromGoong() {
+    const trimmedAddress = formState.address.trim();
+
+    if (trimmedAddress.length < 3) {
+      setAddressSearchError("Vui lòng nhập ít nhất 3 ký tự để tìm bằng Goong.");
+      setShowAddressSuggestions(false);
+      return;
+    }
+
+    setIsResolvingPlace(true);
+    setIsSearchingAddress(false);
+    setAddressSearchError(null);
+
+    try {
+      const response = await goongApi.searchPlaces(trimmedAddress);
+      const firstSuggestion = response.predictions[0];
+
+      if (!firstSuggestion) {
+        throw new Error("Goong không tìm thấy địa điểm phù hợp với địa chỉ này.");
+      }
+
+      await applyGoongSuggestion(firstSuggestion);
+    } catch (error) {
+      setAddressSearchError(
+        error instanceof Error
+          ? error.message
+          : "Không thể lấy tọa độ địa điểm từ Goong.",
+      );
+    } finally {
+      setIsResolvingPlace(false);
+    }
+  }
+
   async function handleSubmitHotspot(intent: "draft" | "review") {
     setSubmitError(null);
     setSubmitMessage(null);
 
     try {
       const payload = buildCreatePayload(formState, selectedTagIds);
+      setLastSubmittedPayload(payload);
+      await validateHotspotPayload(payload, editingHotspotId);
 
       setIsSubmitting(true);
       const response =
@@ -267,10 +429,10 @@ function HotspotCreatePageContent() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
-            <h1 className="cq-page-title">
+            <h1 className="text-lg font-semibold tracking-[-0.03em] text-foreground sm:text-xl">
               {isEditMode ? "Chỉnh sửa Hotspot" : "Tạo Hotspot mới"}
             </h1>
-            <p className="cq-page-subtitle">
+            <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground sm:text-xs">
               {isEditMode
                 ? "Cập nhật thông tin chi tiết của hotspot."
                 : "Nhập thông tin chi tiết và phương tiện."}
@@ -285,7 +447,12 @@ function HotspotCreatePageContent() {
             size="sm"
             className="rounded-full px-4"
             onClick={() => void handleSubmitHotspot("draft")}
-            disabled={isSubmitting || isLoadingHotspot || !!loadHotspotError}
+            disabled={
+              isSubmitting ||
+              isLoadingHotspot ||
+              isResolvingPlace ||
+              !!loadHotspotError
+            }
           >
             <Save className="mr-2 h-4 w-4" />
             {isSubmitting
@@ -302,7 +469,12 @@ function HotspotCreatePageContent() {
             size="sm"
             className="rounded-full text-white"
             onClick={() => void handleSubmitHotspot("review")}
-            disabled={isSubmitting || isLoadingHotspot || !!loadHotspotError}
+            disabled={
+              isSubmitting ||
+              isLoadingHotspot ||
+              isResolvingPlace ||
+              !!loadHotspotError
+            }
           >
             <Send className="mr-2 h-4 w-4" />
             {isSubmitting
@@ -329,8 +501,23 @@ function HotspotCreatePageContent() {
       ) : null}
 
       {submitError ? (
-        <div className="rounded-3xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700">
-          {submitError}
+        <div className="space-y-3 rounded-3xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700">
+          <p>{submitError}</p>
+          {lastSubmittedPayload ? (
+            <div className="rounded-2xl border border-rose-100 bg-white/80 p-4 text-slate-800">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Request preview
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {isEditMode && editingHotspotId !== null
+                  ? `PUT http://13.158.40.56:8080/api/v1/hotspots/${editingHotspotId}`
+                  : "POST http://13.158.40.56:8080/api/v1/hotspots"}
+              </p>
+              <pre className="mt-3 overflow-x-auto rounded-2xl bg-slate-950/95 p-4 text-xs leading-6 text-slate-100">
+                {JSON.stringify(lastSubmittedPayload, null, 2)}
+              </pre>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -363,17 +550,118 @@ function HotspotCreatePageContent() {
                 </div>
                 <div>
                   <label className="cq-label mb-2 block">Địa chỉ</label>
-                  <Input
-                    value={formState.address}
-                    onChange={(event) =>
-                      updateField("address", event.target.value)
-                    }
-                    placeholder="Hãy nhập địa chỉ"
-                    className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
-                  />
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      value={formState.address}
+                      onChange={(event) =>
+                        handleAddressInputChange(event.target.value)
+                      }
+                      onFocus={() => {
+                        if (
+                          formState.address.trim().length >= 3 &&
+                          (goongSuggestions.length > 0 ||
+                            isSearchingAddress ||
+                            !!addressSearchError)
+                        ) {
+                          setShowAddressSuggestions(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        window.setTimeout(() => {
+                          setShowAddressSuggestions(false);
+                        }, 150);
+                      }}
+                      placeholder="Tìm địa chỉ bằng Goong"
+                      className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 pr-11 pl-11 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    />
+                    {isSearchingAddress || isResolvingPlace ? (
+                      <LoaderCircle className="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
+                    ) : null}
+                    {showAddressSuggestions ? (
+                      <div className="absolute inset-x-0 z-20 mt-2 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+                        {isSearchingAddress ? (
+                          <div className="px-4 py-3 text-sm text-slate-500">
+                            Đang tìm địa điểm từ Goong...
+                          </div>
+                        ) : addressSearchError ? (
+                          <div className="px-4 py-3 text-sm text-rose-700">
+                            {addressSearchError}
+                          </div>
+                        ) : goongSuggestions.length > 0 ? (
+                          <div className="max-h-72 overflow-y-auto py-2">
+                            {goongSuggestions.map((suggestion) => (
+                              <button
+                                key={suggestion.placeId}
+                                type="button"
+                                onMouseDown={(event) => event.preventDefault()}
+                                onClick={() =>
+                                  void handleSelectGoongSuggestion(suggestion)
+                                }
+                                className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-slate-50"
+                              >
+                                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                                <div>
+                                  <p className="text-sm font-semibold text-slate-900">
+                                    {suggestion.mainText}
+                                  </p>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    {suggestion.secondaryText ||
+                                      suggestion.description}
+                                  </p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="px-4 py-3 text-sm text-slate-500">
+                            Không tìm thấy địa điểm phù hợp trên Goong.
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handleResolveAddressFromGoong()}
+                      disabled={
+                        formState.address.trim().length < 3 ||
+                        isSearchingAddress ||
+                        isResolvingPlace
+                      }
+                      className="rounded-full px-4"
+                    >
+                      {isResolvingPlace ? (
+                        <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <MapPin className="mr-2 h-4 w-4" />
+                      )}
+                      Lấy tọa độ từ Goong
+                    </Button>
+                    <span className="text-xs text-slate-500">
+                      Nhập địa chỉ rồi bấm nút này để tự lấy kết quả phù hợp đầu
+                      tiên từ Goong.
+                    </span>
+                  </div>
                   <p className="mt-2 text-xs text-slate-500">
-                    Địa chỉ này sẽ dùng để định vị hotspot trên bản đồ.
+                    Bạn vẫn có thể chọn thủ công từ danh sách gợi ý Goong bên
+                    dưới ô địa chỉ. Nếu Goong không ra đúng kết quả, bạn vẫn có
+                    thể nhập tay latitude và longitude bên dưới.
                   </p>
+                  {selectedPlaceId && formState.latitude && formState.longitude ? (
+                    <p className="mt-2 inline-flex items-center gap-2 text-xs font-medium text-emerald-700">
+                      <MapPin className="h-3.5 w-3.5" />
+                      Đã đồng bộ latitude/longitude từ Goong.
+                    </p>
+                  ) : null}
+                  {addressSearchError && !showAddressSuggestions ? (
+                    <p className="mt-2 text-xs font-medium text-rose-700">
+                      {addressSearchError}
+                    </p>
+                  ) : null}
                 </div>
                 <div>
                   <label className="cq-label mb-2 block">Mô tả</label>
@@ -521,7 +809,7 @@ function HotspotCreatePageContent() {
                       onChange={(event) =>
                         updateField("latitude", event.target.value)
                       }
-                      placeholder="Hãy nhập vĩ độ"
+                      placeholder="Chọn địa chỉ từ Goong để lấy vĩ độ"
                       className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -534,7 +822,7 @@ function HotspotCreatePageContent() {
                       onChange={(event) =>
                         updateField("longitude", event.target.value)
                       }
-                      placeholder="Hãy nhập kinh độ"
+                      placeholder="Chọn địa chỉ từ Goong để lấy kinh độ"
                       className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -545,7 +833,7 @@ function HotspotCreatePageContent() {
                     <Input
                       type="number"
                       min="0"
-                      step="1"
+                      step="any"
                       value={formState.checkInRadius}
                       onChange={(event) =>
                         updateField("checkInRadius", event.target.value)
@@ -831,7 +1119,7 @@ function buildCreatePayload(
     historyInformation,
     latitude: parseDecimalField("latitude", formState.latitude),
     longitude: parseDecimalField("longitude", formState.longitude),
-    checkInRadius: parseIntegerField(
+    checkInRadius: parseDecimalField(
       "bán kính check-in",
       formState.checkInRadius,
     ),
@@ -874,6 +1162,47 @@ function parseIntegerField(label: string, value: string) {
   }
 
   return parsedValue;
+}
+
+async function validateHotspotPayload(
+  payload: CreateHotspotPayload,
+  editingHotspotId: number | null,
+) {
+  validateCoordinateRange(payload.latitude, payload.longitude);
+  validateTimeWindow(
+    "khung giờ trải nghiệm",
+    payload.startTime,
+    payload.endTime,
+  );
+  validateTimeWindow("giờ mở cửa", payload.openingTime, payload.closingTime);
+
+  const existingHotspots = await hotspotApi.getHotspots();
+  const normalizedName = normalizeText(payload.hotspotName);
+  const normalizedAddress = normalizeText(payload.address);
+
+  const duplicateHotspot = existingHotspots.find((hotspot) => {
+    if (editingHotspotId !== null && hotspot.hotspotId === editingHotspotId) {
+      return false;
+    }
+
+    const hasSameName =
+      normalizedName &&
+      normalizeText(hotspot.hotspotName ?? "") === normalizedName;
+    const hasSameAddress =
+      normalizedAddress &&
+      normalizeText(hotspot.address ?? "") === normalizedAddress;
+    const hasSameCoordinates =
+      isSameCoordinate(hotspot.latitude, payload.latitude) &&
+      isSameCoordinate(hotspot.longitude, payload.longitude);
+
+    return hasSameName || hasSameAddress || hasSameCoordinates;
+  });
+
+  if (duplicateHotspot) {
+    throw new Error(
+      `Hotspot có vẻ đã tồn tại trên hệ thống: ${duplicateHotspot.hotspotName ?? `#${duplicateHotspot.hotspotId}`}. Vui lòng kiểm tra lại tên, địa chỉ hoặc tọa độ trước khi tạo mới.`,
+    );
+  }
 }
 
 function normalizeTimeForApi(label: string, value: string) {
@@ -1035,4 +1364,44 @@ function parseHotspotId(value: string | null) {
   }
 
   return hotspotId;
+}
+
+function stripVietnameseAccents(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D");
+}
+
+function normalizeText(value: string) {
+  return stripVietnameseAccents(value).toLowerCase().trim();
+}
+
+function isSameCoordinate(
+  source: number | null | undefined,
+  target: number,
+  tolerance = 0.000001,
+) {
+  return (
+    typeof source === "number" &&
+    Number.isFinite(source) &&
+    Math.abs(source - target) <= tolerance
+  );
+}
+
+function validateCoordinateRange(latitude: number, longitude: number) {
+  if (latitude < -90 || latitude > 90) {
+    throw new Error("Latitude phải nằm trong khoảng từ -90 đến 90.");
+  }
+
+  if (longitude < -180 || longitude > 180) {
+    throw new Error("Longitude phải nằm trong khoảng từ -180 đến 180.");
+  }
+}
+
+function validateTimeWindow(label: string, startTime: string, endTime: string) {
+  if (startTime >= endTime) {
+    throw new Error(`${label} không hợp lệ: thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.`);
+  }
 }
