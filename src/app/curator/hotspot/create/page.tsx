@@ -34,7 +34,6 @@ type HotspotFormState = {
   historyInformation: string;
   latitude: string;
   longitude: string;
-  checkInRadius: string;
   xp: string;
   point: string;
   estimatedDurationMin: string;
@@ -52,7 +51,6 @@ const defaultHotspotForm: HotspotFormState = {
   historyInformation: "",
   latitude: "",
   longitude: "",
-  checkInRadius: "",
   xp: "",
   point: "",
   estimatedDurationMin: "",
@@ -90,6 +88,8 @@ function HotspotCreatePageContent() {
   const [createdHotspot, setCreatedHotspot] = useState<BackendHotspot | null>(
     null,
   );
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [lastSubmittedPayload, setLastSubmittedPayload] =
     useState<CreateHotspotPayload | null>(null);
   const [goongSuggestions, setGoongSuggestions] = useState<
@@ -102,7 +102,6 @@ function HotspotCreatePageContent() {
   );
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
   const [shouldSearchAddress, setShouldSearchAddress] = useState(false);
-  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
 
   useEffect(() => {
     let isCancelled = false;
@@ -285,7 +284,7 @@ function HotspotCreatePageContent() {
     const shouldSearch = value.trim().length >= 3;
 
     setAddressSearchError(null);
-    setSelectedPlaceId(null);
+
     setShouldSearchAddress(shouldSearch);
     setShowAddressSuggestions(shouldSearch);
     setIsSearchingAddress(shouldSearch);
@@ -315,15 +314,13 @@ function HotspotCreatePageContent() {
       latitude: String(placeDetail.latitude),
       longitude: String(placeDetail.longitude),
     }));
-    setSelectedPlaceId(placeDetail.placeId);
+
     setShouldSearchAddress(false);
     setGoongSuggestions([]);
     setShowAddressSuggestions(false);
   }
 
-  async function handleSelectGoongSuggestion(
-    suggestion: GoongPlaceSuggestion,
-  ) {
+  async function handleSelectGoongSuggestion(suggestion: GoongPlaceSuggestion) {
     setIsResolvingPlace(true);
     setIsSearchingAddress(false);
     setAddressSearchError(null);
@@ -359,7 +356,9 @@ function HotspotCreatePageContent() {
       const firstSuggestion = response.predictions[0];
 
       if (!firstSuggestion) {
-        throw new Error("Goong không tìm thấy địa điểm phù hợp với địa chỉ này.");
+        throw new Error(
+          "Goong không tìm thấy địa điểm phù hợp với địa chỉ này.",
+        );
       }
 
       await applyGoongSuggestion(firstSuggestion);
@@ -384,10 +383,63 @@ function HotspotCreatePageContent() {
       await validateHotspotPayload(payload, editingHotspotId);
 
       setIsSubmitting(true);
-      const response =
-        isEditMode && editingHotspotId !== null
-          ? await hotspotApi.updateHotspot(editingHotspotId, payload)
-          : await hotspotApi.createHotspot(payload);
+
+      let response: BackendHotspot;
+      const hasFiles = imageFiles.length > 0 || videoFile !== null;
+
+      if (hasFiles) {
+        const formData = new FormData();
+        // append payload fields
+        Object.entries(payload).forEach(([key, value]) => {
+          if (Array.isArray(value)) {
+            // append arrays as repeated fields (tagIds=1&tagIds=2)
+            value.forEach((item) => formData.append(key, String(item)));
+            return;
+          }
+
+          // append scalar values (including 0)
+          if (value !== undefined && value !== null) {
+            formData.append(key, String(value));
+          }
+        });
+
+        // debug: list form keys (helpful when inspecting outgoing request in devtools)
+        try {
+          console.debug("FormData keys:", Array.from(formData.keys()));
+        } catch {
+          // ignore in environments that disallow FormData introspection
+        }
+
+        // append files under 'files' (backend expects files[])
+        imageFiles.forEach((f) => formData.append("files", f));
+        if (videoFile) formData.append("files", videoFile);
+
+        const url =
+          isEditMode && editingHotspotId !== null
+            ? `/api/hotspots/${editingHotspotId}`
+            : `/api/hotspots`;
+
+        const fetchResp = await fetch(url, {
+          method: isEditMode ? "PUT" : "POST",
+          body: formData,
+          credentials: "include",
+        });
+
+        const text = await fetchResp.text();
+        if (!fetchResp.ok) {
+          const msg = text || `Request failed with status ${fetchResp.status}`;
+          throw new Error(msg);
+        }
+
+        response = text
+          ? JSON.parse(text)
+          : (null as unknown as BackendHotspot);
+      } else {
+        response =
+          isEditMode && editingHotspotId !== null
+            ? await hotspotApi.updateHotspot(editingHotspotId, payload)
+            : await hotspotApi.createHotspot(payload);
+      }
 
       setCreatedHotspot(response);
       setSelectedTagIds(
@@ -396,12 +448,11 @@ function HotspotCreatePageContent() {
       setFormState((current) => syncFormStateWithResponse(current, response));
 
       const normalizedStatus = response.status?.trim().toUpperCase();
-      const successMessage =
-        isEditMode
-          ? "Hotspot đã được cập nhật thành công."
-          : intent === "review" && normalizedStatus === "DRAFT"
-            ? "Hotspot đã được tạo thành công. Vui lòng chờ admin duyệt!"
-            : "Hotspot đã được tạo thành công.";
+      const successMessage = isEditMode
+        ? "Hotspot đã được cập nhật thành công."
+        : intent === "review" && normalizedStatus === "DRAFT"
+          ? "Hotspot đã được tạo thành công. Vui lòng chờ admin duyệt!"
+          : "Hotspot đã được tạo thành công.";
 
       toast.success(successMessage);
       router.push("/curator/hotspot");
@@ -651,10 +702,10 @@ function HotspotCreatePageContent() {
                     dưới ô địa chỉ. Nếu Goong không ra đúng kết quả, bạn vẫn có
                     thể nhập tay latitude và longitude bên dưới.
                   </p>
-                  {selectedPlaceId && formState.latitude && formState.longitude ? (
+                  {formState.latitude && formState.longitude ? (
                     <p className="mt-2 inline-flex items-center gap-2 text-xs font-medium text-emerald-700">
                       <MapPin className="h-3.5 w-3.5" />
-                      Đã đồng bộ latitude/longitude từ Goong.
+                      Đã đồng bộ latitude/longitude.
                     </p>
                   ) : null}
                   {addressSearchError && !showAddressSuggestions ? (
@@ -799,7 +850,7 @@ function HotspotCreatePageContent() {
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="cq-section-title">Thông số trải nghiệm</h2>
               <div className="mt-5 grid gap-4">
-                <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="cq-label mb-2 block">Latitude</label>
                     <Input
@@ -823,22 +874,6 @@ function HotspotCreatePageContent() {
                         updateField("longitude", event.target.value)
                       }
                       placeholder="Chọn địa chỉ từ Goong để lấy kinh độ"
-                      className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                  <div>
-                    <label className="cq-label mb-2 block">
-                      Bán kính check-in
-                    </label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={formState.checkInRadius}
-                      onChange={(event) =>
-                        updateField("checkInRadius", event.target.value)
-                      }
-                      placeholder="Hãy nhập bán kính check-in"
                       className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -945,15 +980,54 @@ function HotspotCreatePageContent() {
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-slate-500">
                   <ImagePlus className="mx-auto mb-3 h-6 w-6" />
-                  <p className="text-sm font-medium">Ảnh bìa</p>
+                  <p className="text-sm font-medium">Ảnh (có thể chọn nhiều)</p>
                   <p className="text-xs text-slate-400">
-                    JPG, PNG · tối đa 5 MB
+                    JPG, PNG · tối đa 5 MB mỗi ảnh
                   </p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (!files) return;
+                      setImageFiles(Array.from(files));
+                    }}
+                    className="mt-3 w-full text-sm text-slate-700"
+                  />
+                  {imageFiles.length > 0 ? (
+                    <div className="mt-3 text-left text-xs text-slate-600">
+                      {imageFiles.map((f, i) => (
+                        <div key={i} className="truncate">
+                          {f.name}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
+
                 <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-slate-500">
                   <Video className="mx-auto mb-3 h-6 w-6" />
                   <p className="text-sm font-medium">Video giới thiệu</p>
                   <p className="text-xs text-slate-400">MP4 · tối đa 50 MB</p>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (!files || files.length === 0) {
+                        setVideoFile(null);
+                        return;
+                      }
+                      setVideoFile(files[0]);
+                    }}
+                    className="mt-3 w-full text-sm text-slate-700"
+                  />
+                  {videoFile ? (
+                    <div className="mt-3 text-left text-xs text-slate-600 truncate">
+                      {videoFile.name}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -1119,10 +1193,6 @@ function buildCreatePayload(
     historyInformation,
     latitude: parseDecimalField("latitude", formState.latitude),
     longitude: parseDecimalField("longitude", formState.longitude),
-    checkInRadius: parseDecimalField(
-      "bán kính check-in",
-      formState.checkInRadius,
-    ),
     xp: parseIntegerField("XP thưởng", formState.xp),
     point: parseIntegerField("point thưởng", formState.point),
     estimatedDurationMin,
@@ -1236,10 +1306,6 @@ function syncFormStateWithResponse(
       response.historyInformation?.trim() || current.historyInformation,
     latitude: formatNumberInputValue(response.latitude, current.latitude),
     longitude: formatNumberInputValue(response.longitude, current.longitude),
-    checkInRadius: formatNumberInputValue(
-      response.checkInRadius,
-      current.checkInRadius,
-    ),
     xp: formatNumberInputValue(response.xp, current.xp),
     point: formatNumberInputValue(response.point, current.point),
     estimatedDurationMin: formatNumberInputValue(
@@ -1402,6 +1468,8 @@ function validateCoordinateRange(latitude: number, longitude: number) {
 
 function validateTimeWindow(label: string, startTime: string, endTime: string) {
   if (startTime >= endTime) {
-    throw new Error(`${label} không hợp lệ: thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.`);
+    throw new Error(
+      `${label} không hợp lệ: thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.`,
+    );
   }
 }

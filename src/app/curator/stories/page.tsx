@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { toast } from "react-toastify";
 import {
   ChevronDown,
   Eye,
+  Filter,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -16,6 +18,13 @@ import { Button } from "@/components/ui/button";
 import { CuratorPagination } from "@/components/curator/CuratorPagination";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import {
+  storyApi,
+  tagApi,
+  hotspotApi,
+  type BackendHotspot,
+  type BackendStory,
+} from "@/services/api";
 
 type StoryStatus = "Đã xuất bản" | "Chờ duyệt" | "Bản nháp" | "Bị từ chối";
 
@@ -24,40 +33,38 @@ type StoryItem = {
   title: string;
   hotspot: string;
   status: StoryStatus;
+  tagName: string;
   updatedAt: string;
   reviewNote?: string;
 };
 
-const initialStories: StoryItem[] = [
-  {
-    id: "chua-cau-hoi-an",
-    title: "Chuyện chiếc cầu Nhật Bản giữa lòng Hội An",
-    hotspot: "Chùa Cầu Hội An",
-    status: "Đã xuất bản",
-    updatedAt: "04/06/2026",
-  },
-  {
-    id: "co-do-hoa-lu",
-    title: "Hoa Lư - kinh đô đầu tiên của Đại Cồ Việt",
-    hotspot: "Cố đô Hoa Lư",
-    status: "Chờ duyệt",
-    updatedAt: "05/06/2026",
-  },
-  {
-    id: "hoang-thanh-thang-long",
-    title: "Bí mật dưới lòng Hoàng thành",
-    hotspot: "Hoàng thành Thăng Long",
-    status: "Bản nháp",
-    updatedAt: "06/06/2026",
-  },
-  {
-    id: "pho-co-ha-noi",
-    title: "Áo dài và phố cổ",
-    hotspot: "Phố cổ Hà Nội",
-    status: "Bị từ chối",
-    updatedAt: "02/06/2026",
-  },
-];
+function getSingleTagName(tagName?: string) {
+  if (!tagName) {
+    return "Không có tag";
+  }
+
+  const normalizedTags = tagName
+    .split(/[,;|]+/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return normalizedTags[0] ?? tagName.trim();
+}
+
+function getStoryStatusLabel(status?: string): StoryStatus {
+  switch (status) {
+    case "DRAFT":
+      return "Bản nháp";
+    case "PUBLISHED":
+      return "Đã xuất bản";
+    case "REJECTED":
+      return "Bị từ chối";
+    default:
+      return "Chờ duyệt";
+  }
+}
+
+const initialStories: StoryItem[] = [];
 
 const statusOptions: Array<{ label: string; value: StoryStatus | "all" }> = [
   { label: "Tất cả trạng thái", value: "all" },
@@ -66,7 +73,7 @@ const statusOptions: Array<{ label: string; value: StoryStatus | "all" }> = [
   { label: "Bản nháp", value: "Bản nháp" },
   { label: "Bị từ chối", value: "Bị từ chối" },
 ];
-const STORIES_PER_PAGE = 8;
+const STORIES_PER_PAGE = 10;
 
 const statusBadgeClasses: Record<StoryStatus, string> = {
   "Đã xuất bản": "bg-emerald-100 text-emerald-700",
@@ -74,24 +81,6 @@ const statusBadgeClasses: Record<StoryStatus, string> = {
   "Bản nháp": "bg-slate-100 text-slate-600",
   "Bị từ chối": "bg-rose-100 text-rose-700",
 };
-
-function normalizeText(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function buildStoryId(value: string) {
-  return normalizeText(value)
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function getTodayLabel() {
-  return new Intl.DateTimeFormat("vi-VN").format(new Date());
-}
 
 function StatusBadge({ status }: { status: StoryStatus }) {
   return (
@@ -113,38 +102,113 @@ export default function CuratorStoriesPage() {
   const [selectedStatus, setSelectedStatus] = useState<StoryStatus | "all">(
     "all",
   );
+  const [selectedTagId, setSelectedTagId] = useState<number | "all">("all");
+  const [selectedHotspotId, setSelectedHotspotId] = useState<number | "all">(
+    "all",
+  );
+  const [availableTags, setAvailableTags] = useState<
+    { tagId: number; tagName: string }[] | []
+  >([]);
+  const [availableHotspots, setAvailableHotspots] = useState<BackendHotspot[]>(
+    [],
+  );
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [openMenuStoryId, setOpenMenuStoryId] = useState<string | null>(null);
-  const [draftTitle, setDraftTitle] = useState("");
-  const [draftHotspot, setDraftHotspot] = useState("");
-  const [draftStatus, setDraftStatus] = useState<StoryStatus>("Bản nháp");
-  const [draftReviewNote, setDraftReviewNote] = useState("");
+  const [, setDraftTitle] = useState("");
+  const [, setDraftHotspot] = useState("");
+  const [, setDraftStatus] = useState<StoryStatus>("Bản nháp");
+  const [, setDraftReviewNote] = useState("");
   const [editingStoryId, setEditingStoryId] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [, setFormError] = useState<string | null>(null);
+  const [isLoadingStories, setIsLoadingStories] = useState(false);
+  const [loadStoriesError, setLoadStoriesError] = useState<string | null>(null);
+  const [totalPages, setTotalPages] = useState(1);
   const draftInputRef = useRef<HTMLInputElement>(null);
   const createSectionRef = useRef<HTMLDivElement>(null);
   const deferredSearch = useDeferredValue(searchQuery);
 
-  const normalizedQuery = normalizeText(deferredSearch);
-  const filteredStories = stories.filter((story) => {
-    const matchesQuery =
-      !normalizedQuery ||
-      normalizeText(story.title).includes(normalizedQuery) ||
-      normalizeText(story.hotspot).includes(normalizedQuery);
-    const matchesStatus =
-      selectedStatus === "all" || story.status === selectedStatus;
+  const backendStatusValue =
+    selectedStatus === "Đã xuất bản"
+      ? "PUBLISHED"
+      : selectedStatus === "Bị từ chối"
+        ? "REJECTED"
+        : selectedStatus === "Bản nháp"
+          ? "DRAFT"
+          : undefined;
 
-    return matchesQuery && matchesStatus;
-  });
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredStories.length / STORIES_PER_PAGE),
-  );
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadStories() {
+      setIsLoadingStories(true);
+      setLoadStoriesError(null);
+
+      try {
+        const response = await storyApi.getStories({
+          page: currentPage - 1,
+          size: 10,
+          sortBy: "createdAt",
+          sortDir: "DESC",
+          keyword: deferredSearch,
+          status: backendStatusValue,
+          tagId: selectedTagId === "all" ? undefined : selectedTagId,
+          hotspotId:
+            selectedHotspotId === "all" ? undefined : selectedHotspotId,
+        });
+
+        const storiesWithHotspot = await Promise.all(
+          response.content.map(async (story: BackendStory) => {
+            const hotspot = await hotspotApi.getHotspotById(story.hotspotId);
+            return {
+              id: String(story.storyId),
+              title: story.title,
+              hotspot: hotspot.hotspotName ?? `#${story.hotspotId}`,
+              status: getStoryStatusLabel(story.status),
+              tagName: getSingleTagName(story.tag?.tagName),
+              updatedAt: story.updatedAt
+                ? new Intl.DateTimeFormat("vi-VN").format(
+                    new Date(story.updatedAt),
+                  )
+                : "",
+              reviewNote: undefined,
+            };
+          }),
+        );
+
+        if (!cancelled) {
+          setStories(storiesWithHotspot);
+          setTotalPages(response.page.totalPages);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLoadStoriesError(
+            error instanceof Error
+              ? error.message
+              : "Không thể tải danh sách story.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingStories(false);
+        }
+      }
+    }
+
+    void loadStories();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentPage,
+    deferredSearch,
+    selectedStatus,
+    selectedTagId,
+    selectedHotspotId,
+    backendStatusValue,
+  ]);
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const paginatedStories = filteredStories.slice(
-    (safeCurrentPage - 1) * STORIES_PER_PAGE,
-    safeCurrentPage * STORIES_PER_PAGE,
-  );
-  const isEditing = editingStoryId !== null;
+  const paginatedStories = stories;
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
@@ -152,6 +216,13 @@ export default function CuratorStoriesPage() {
 
       if (!event.target.closest("[data-story-actions]")) {
         setOpenMenuStoryId(null);
+      }
+
+      if (
+        !event.target.closest("[data-story-filter-panel]") &&
+        !event.target.closest("[data-story-filter-toggle]")
+      ) {
+        setIsFilterOpen(false);
       }
     };
 
@@ -187,85 +258,6 @@ export default function CuratorStoriesPage() {
     setFormError(null);
   }
 
-  function handleSubmitStory() {
-    const trimmedTitle = draftTitle.trim();
-    const trimmedHotspot = draftHotspot.trim();
-    const trimmedReviewNote = draftReviewNote.trim();
-
-    if (!trimmedTitle) {
-      setFormError("Tiêu đề story không được để trống.");
-      return;
-    }
-
-    if (!trimmedHotspot) {
-      setFormError("Hotspot gắn với story không được để trống.");
-      return;
-    }
-
-    if (draftStatus === "Bị từ chối" && !trimmedReviewNote) {
-      setFormError("Story bị từ chối cần có ghi chú phản hồi.");
-      return;
-    }
-
-    const duplicate = stories.some(
-      (story) =>
-        story.id !== editingStoryId &&
-        normalizeText(story.title) === normalizeText(trimmedTitle) &&
-        normalizeText(story.hotspot) === normalizeText(trimmedHotspot),
-    );
-
-    if (duplicate) {
-      setFormError("Story này đã tồn tại trong danh sách.");
-      return;
-    }
-
-    setFormError(null);
-
-    if (editingStoryId) {
-      setStories((current) =>
-        current.map((story) =>
-          story.id === editingStoryId
-            ? {
-                ...story,
-                title: trimmedTitle,
-                hotspot: trimmedHotspot,
-                status: draftStatus,
-                updatedAt: getTodayLabel(),
-                reviewNote:
-                  draftStatus === "Bị từ chối" ? trimmedReviewNote : undefined,
-              }
-            : story,
-        ),
-      );
-      resetForm();
-      return;
-    }
-
-    const nextIdBase =
-      buildStoryId(trimmedTitle) || `story-${stories.length + 1}`;
-    let nextId = nextIdBase;
-    let suffix = 2;
-
-    while (stories.some((story) => story.id === nextId)) {
-      nextId = `${nextIdBase}-${suffix}`;
-      suffix += 1;
-    }
-
-    setStories((current) => [
-      ...current,
-      {
-        id: nextId,
-        title: trimmedTitle,
-        hotspot: trimmedHotspot,
-        status: draftStatus,
-        updatedAt: getTodayLabel(),
-        reviewNote:
-          draftStatus === "Bị từ chối" ? trimmedReviewNote : undefined,
-      },
-    ]);
-    resetForm();
-  }
-
   function handleEditStory(story: StoryItem) {
     setEditingStoryId(story.id);
     setDraftTitle(story.title);
@@ -276,12 +268,22 @@ export default function CuratorStoriesPage() {
     handleCreateFocus();
   }
 
-  function handleDeleteStory(storyId: string) {
-    setStories((current) => current.filter((story) => story.id !== storyId));
+  async function handleDeleteStory(storyId: string) {
     setOpenMenuStoryId(null);
 
-    if (editingStoryId === storyId) {
-      resetForm();
+    try {
+      await storyApi.deleteStory(Number(storyId));
+      setStories((current) => current.filter((story) => story.id !== storyId));
+      if (editingStoryId === storyId) {
+        resetForm();
+      }
+      toast.success("Xóa story thành công.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Không thể xóa story. Vui lòng thử lại.",
+      );
     }
   }
 
@@ -295,10 +297,45 @@ export default function CuratorStoriesPage() {
     setCurrentPage(1);
   }
 
+  function handleTagFilterChange(value: number | "all") {
+    setSelectedTagId(value);
+    setCurrentPage(1);
+  }
+
+  function handleHotspotFilterChange(value: number | "all") {
+    setSelectedHotspotId(value);
+    setCurrentPage(1);
+  }
+
   function handlePageChange(page: number) {
     setOpenMenuStoryId(null);
     setCurrentPage(page);
   }
+
+  useEffect(() => {
+    async function loadFilterData() {
+      try {
+        const tagResponse = await tagApi.getTags({
+          page: 0,
+          size: 100,
+          sortBy: "createdAt",
+          sortDir: "DESC",
+        });
+        setAvailableTags(tagResponse.content);
+      } catch {
+        setAvailableTags([]);
+      }
+
+      try {
+        const hotspotResponse = await hotspotApi.getHotspots();
+        setAvailableHotspots(hotspotResponse);
+      } catch {
+        setAvailableHotspots([]);
+      }
+    }
+
+    void loadFilterData();
+  }, []);
 
   return (
     <div className="flex min-h-full flex-col gap-6">
@@ -324,40 +361,132 @@ export default function CuratorStoriesPage() {
           </Button>
         </div>
 
-        <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-center">
-          <div className="relative w-full lg:max-w-[320px]">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              value={searchQuery}
-              onChange={(event) => handleSearchChange(event.target.value)}
-              placeholder="Tìm story phù hợp"
-              className="h-11 rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
-            />
-          </div>
+        <div className="relative flex w-full flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="relative flex w-full items-center gap-3">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={searchQuery}
+                onChange={(event) => handleSearchChange(event.target.value)}
+                placeholder="Tìm story phù hợp"
+                className="h-11 w-full rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
+              />
+            </div>
 
-          <div className="relative w-full lg:max-w-[220px]">
-            <select
-              value={selectedStatus}
-              onChange={(event) =>
-                handleStatusFilterChange(event.target.value as StoryStatus | "all")
-              }
-              className="h-11 w-full appearance-none rounded-full border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-            >
-              {statusOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <div className="relative">
+              <Button
+                type="button"
+                variant="secondary"
+                size="lg"
+                onClick={() => setIsFilterOpen((current) => !current)}
+                data-story-filter-toggle
+                className="inline-flex items-center gap-2 rounded-full px-4 py-3 text-slate-700 shadow-sm transition hover:bg-slate-100"
+              >
+                <Filter className="h-4 w-4" />
+                Bộ lọc nâng cao
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+
+              {isFilterOpen ? (
+                <div
+                  data-story-filter-panel
+                  className="absolute right-0 top-full z-20 mt-3 w-[min(28rem,calc(100vw-2rem))] rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-[0_20px_40px_-16px_rgba(15,23,42,0.15)]"
+                >
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="relative">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        Trạng thái
+                      </label>
+                      <select
+                        value={selectedStatus}
+                        onChange={(event) =>
+                          handleStatusFilterChange(
+                            event.target.value as StoryStatus | "all",
+                          )
+                        }
+                        className="h-11 w-full appearance-none rounded-full border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      >
+                        {statusOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-4 top-[54%] h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    </div>
+
+                    <div className="relative">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        Thẻ
+                      </label>
+                      <select
+                        value={selectedTagId}
+                        onChange={(event) =>
+                          handleTagFilterChange(
+                            event.target.value === "all"
+                              ? "all"
+                              : Number(event.target.value),
+                          )
+                        }
+                        className="h-11 w-full appearance-none rounded-full border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="all">Tất cả thẻ</option>
+                        {availableTags.map((tag) => (
+                          <option key={tag.tagId} value={tag.tagId}>
+                            {tag.tagName}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-4 top-[54%] h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    </div>
+
+                    <div className="relative">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        Địa điểm
+                      </label>
+                      <select
+                        value={selectedHotspotId}
+                        onChange={(event) =>
+                          handleHotspotFilterChange(
+                            event.target.value === "all"
+                              ? "all"
+                              : Number(event.target.value),
+                          )
+                        }
+                        className="h-11 w-full appearance-none rounded-full border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="all">Tất cả địa điểm</option>
+                        {availableHotspots.map((hotspot) => (
+                          <option
+                            key={hotspot.hotspotId}
+                            value={hotspot.hotspotId}
+                          >
+                            {hotspot.hotspotName ?? `#${hotspot.hotspotId}`}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-4 top-[54%] h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
         <section className="flex flex-1 flex-col gap-5">
           <div>
-            {filteredStories.length > 0 ? (
-              <div className="overflow-x-auto rounded-[1.5rem] border border-slate-200 bg-white">
-                <table className="min-w-[760px] w-full border-collapse">
+            {loadStoriesError ? (
+              <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 px-5 py-8 text-center text-sm text-rose-700">
+                Không thể tải story: {loadStoriesError}
+              </div>
+            ) : isLoadingStories ? (
+              <div className="rounded-[1.5rem] border border-slate-200 bg-white px-5 py-8 text-center text-sm text-slate-600">
+                Đang tải dữ liệu story...
+              </div>
+            ) : stories.length > 0 ? (
+              <div className="rounded-[1.5rem] border border-slate-200 bg-white overflow-visible">
+                <table className="min-w-190 w-full border-collapse">
                   <thead>
                     <tr className="bg-slate-50/90 text-left">
                       <th className="w-14 px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
@@ -367,16 +496,16 @@ export default function CuratorStoriesPage() {
                         Tiêu đề
                       </th>
                       <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                        Hotspot
+                        Địa điểm
                       </th>
                       <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                        Cập nhật
+                        Thẻ
                       </th>
                       <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                         Trạng thái
                       </th>
-                      <th className="w-20 px-4 py-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                        Actions
+                      <th className="w-20 px-4 py-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 whitespace-nowrap">
+                        Thao tác
                       </th>
                     </tr>
                   </thead>
@@ -391,15 +520,14 @@ export default function CuratorStoriesPage() {
                           )}
                         >
                           <td className="px-4 py-4 text-sm font-semibold text-slate-500">
-                            {(safeCurrentPage - 1) * STORIES_PER_PAGE + index + 1}
+                            {(safeCurrentPage - 1) * STORIES_PER_PAGE +
+                              index +
+                              1}
                           </td>
                           <td className="px-4 py-4">
                             <div className="min-w-0">
                               <p className="text-sm font-semibold leading-6 text-slate-950">
                                 {story.title}
-                              </p>
-                              <p className="text-xs text-slate-500">
-                                Story ID: {story.id}
                               </p>
                             </div>
                           </td>
@@ -409,21 +537,16 @@ export default function CuratorStoriesPage() {
                             </span>
                           </td>
                           <td className="px-4 py-4">
-                            <div className="space-y-1">
-                              <p className="text-sm font-medium text-slate-900">
-                                {story.updatedAt}
-                              </p>
-                              <p className="text-xs text-slate-500">
-                                Cập nhật gần nhất
-                              </p>
-                            </div>
+                            <span className="inline-flex rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
+                              {story.tagName}
+                            </span>
                           </td>
                           <td className="px-4 py-4">
                             <StatusBadge status={story.status} />
                           </td>
                           <td className="px-4 py-4">
                             <div
-                              className="relative flex justify-end"
+                              className="relative flex justify-end overflow-visible"
                               data-story-actions
                             >
                               <button
@@ -452,15 +575,15 @@ export default function CuratorStoriesPage() {
                                   role="menu"
                                   className="absolute right-0 top-[calc(100%+0.6rem)] w-40 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
                                 >
-                                  <button
-                                    type="button"
+                                  <Link
+                                    href={`/curator/stories/${story.id}`}
                                     role="menuitem"
-                                    onClick={() => setOpenMenuStoryId(null)}
                                     className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                                    onClick={() => setOpenMenuStoryId(null)}
                                   >
                                     <Eye className="h-4 w-4" />
                                     <span>Xem chi tiết</span>
-                                  </button>
+                                  </Link>
 
                                   <button
                                     type="button"
@@ -496,19 +619,19 @@ export default function CuratorStoriesPage() {
               </div>
             ) : null}
 
-            {filteredStories.length === 0 ? (
+            {stories.length === 0 && !isLoadingStories && !loadStoriesError ? (
               <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-card px-5 py-10 text-center">
                 <p className="cq-card-title sm:text-base">
-                  Không tìm thấy story
+                  Không tìm thấy câu chuyện
                 </p>
                 <p className="cq-page-subtitle mt-2">
-                  Thử đổi từ khóa, bộ lọc hoặc tạo một story mới.
+                  Thử đổi từ khóa, bộ lọc hoặc tạo một câu chuyện mới.
                 </p>
               </div>
             ) : null}
           </div>
 
-          {filteredStories.length > 0 ? (
+          {stories.length > 0 ? (
             <div className="mt-auto flex justify-end pt-6">
               <CuratorPagination
                 currentPage={safeCurrentPage}

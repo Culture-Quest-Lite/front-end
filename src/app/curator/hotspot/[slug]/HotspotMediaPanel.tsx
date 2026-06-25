@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Image as ImageIcon, Video } from "lucide-react";
+import {
+  Image as ImageIcon,
+  Video,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -10,15 +15,24 @@ type MediaView = "image" | "video";
 export function HotspotMediaPanel({
   title,
   imageUrl,
+  imageUrls,
   videoUrl,
 }: {
   title: string;
   imageUrl: string;
+  imageUrls?: string[];
   videoUrl?: string;
 }) {
   const [activeView, setActiveView] = useState<MediaView>(
     videoUrl ? "video" : "image",
   );
+  const images =
+    (imageUrls && imageUrls.filter(Boolean)) || (imageUrl ? [imageUrl] : []);
+  const [activeIndex, setActiveIndex] = useState<number>(0);
+
+  const prev = () =>
+    setActiveIndex((i) => (i - 1 + images.length) % images.length);
+  const next = () => setActiveIndex((i) => (i + 1) % images.length);
 
   return (
     <div className="space-y-4">
@@ -37,14 +51,50 @@ export function HotspotMediaPanel({
         />
       </div>
 
-      <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-slate-950">
+      <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-slate-950 relative">
         {activeView === "image" ? (
-          <div className="bg-slate-100">
-            <img
-              src={imageUrl}
-              alt={title}
-              className="h-[320px] w-full object-cover lg:h-[520px]"
-            />
+          <div className="bg-slate-100 relative">
+            {images.length > 0 ? (
+              <img
+                src={images[activeIndex]}
+                alt={`${title} ${activeIndex + 1}`}
+                className="h-[320px] w-full object-cover lg:h-[520px]"
+              />
+            ) : (
+              <div className="h-[320px] w-full lg:h-[520px] bg-slate-100" />
+            )}
+
+            {images.length > 1 ? (
+              <>
+                <button
+                  type="button"
+                  onClick={prev}
+                  aria-label="Previous image"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 inline-flex h-12 w-12 items-center justify-center rounded-full bg-transparent text-white/95 hover:opacity-90"
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </button>
+                <button
+                  type="button"
+                  onClick={next}
+                  aria-label="Next image"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex h-12 w-12 items-center justify-center rounded-full bg-transparent text-white/95 hover:opacity-90"
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </button>
+                <div className="absolute left-1/2 bottom-3 -translate-x-1/2 flex items-center gap-2">
+                  {images.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setActiveIndex(idx)}
+                      className={`h-2 w-8 rounded-full ${idx === activeIndex ? "bg-white" : "bg-white/40"}`}
+                      aria-label={`Select image ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : null}
           </div>
         ) : videoUrl ? (
           <video

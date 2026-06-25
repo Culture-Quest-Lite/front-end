@@ -54,7 +54,6 @@ export interface CreateHotspotPayload {
   historyInformation: string;
   latitude: number;
   longitude: number;
-  checkInRadius: number;
   xp: number;
   point: number;
   estimatedDurationMin: number;
