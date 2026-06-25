@@ -1,6 +1,6 @@
 import { extractUserFromToken } from "@/services/api/authApi";
 
-export type Role = "admin" | "curator" | "explorer";
+export type Role = "admin" | "curator" | "explorer" | "partner";
 
 export interface LoginCredentials {
   email: string;

@@ -22,23 +22,36 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
   const isAuthRequest = path.startsWith("/api/auth/");
   const headers = new Headers(requestOptions.headers);
   const isFormDataBody =
-    typeof FormData !== "undefined" && requestOptions.body instanceof FormData;
+  typeof FormData !== "undefined" &&
+  requestOptions.body instanceof FormData;
 
-  if (!isFormDataBody && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
+if (!isFormDataBody && !headers.has("Content-Type")) {
+  headers.set("Content-Type", "application/json");
+}
 
-  const init: RequestInit = {
-    ...requestOptions,
-    headers,
-    body: undefined,
-  };
+const init: RequestInit = {
+  method: requestOptions.method,
+  headers,
+  cache: requestOptions.cache,
+  credentials: requestOptions.credentials,
+  integrity: requestOptions.integrity,
+  keepalive: requestOptions.keepalive,
+  mode: requestOptions.mode,
+  redirect: requestOptions.redirect,
+  referrer: requestOptions.referrer,
+  referrerPolicy: requestOptions.referrerPolicy,
+  signal: requestOptions.signal,
+};
 
-  if (requestOptions.body && typeof requestOptions.body !== "string") {
+if (requestOptions.body !== undefined) {
+  if (isFormDataBody) {
+    init.body = requestOptions.body as FormData;
+  } else if (typeof requestOptions.body === "string") {
+    init.body = requestOptions.body;
+  } else {
     init.body = JSON.stringify(requestOptions.body);
-  } else if (requestOptions.body) {
-    init.body = requestOptions.body as BodyInit;
   }
+}
 
   if (isAuthRequest) {
     console.debug("[apiFetch] Auth request", {
