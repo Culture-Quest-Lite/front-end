@@ -8,9 +8,23 @@ export interface BackendHotspotTag {
   updatedAt?: string;
 }
 
+export interface BackendHotspotMedia {
+  mediaId: number;
+  mediaType?: string;
+  mimeType?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: number | null;
+  duration?: number | null;
+  displayOrder?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface BackendHotspot {
   hotspotId: number;
   tags?: BackendHotspotTag[];
+  medias?: BackendHotspotMedia[];
   createByUserId?: number;
   hotspotName?: string;
   address?: string;
@@ -51,6 +65,43 @@ export interface CreateHotspotPayload {
   closingTime: string;
 }
 
+export type HotspotSearchOperator =
+  | "EQUALS"
+  | "NOT_EQUALS"
+  | "LIKE"
+  | "GREATER_THAN"
+  | "LESS_THAN"
+  | "GREATER_THAN_OR_EQUAL"
+  | "LESS_THAN_OR_EQUAL"
+  | "IN";
+
+type HotspotSearchPrimitive = string | number | boolean | null;
+
+export interface HotspotSearchFilter {
+  field: string;
+  operator: HotspotSearchOperator;
+  value?: HotspotSearchPrimitive;
+  values?: HotspotSearchPrimitive[];
+}
+
+export interface HotspotSearchRequest {
+  filters: HotspotSearchFilter[];
+  page: number;
+  size: number;
+  sortBy?: string;
+  sortDirection?: "ASC" | "DESC";
+}
+
+export interface HotspotSearchResponse {
+  content: BackendHotspot[];
+  page: {
+    size: number;
+    number: number;
+    totalElements: number;
+    totalPages: number;
+  };
+}
+
 export const hotspotApi = {
   getHotspots: async () => {
     return apiFetch<BackendHotspot[]>("/api/hotspots", {
@@ -68,6 +119,14 @@ export const hotspotApi = {
 
   createHotspot: async (payload: CreateHotspotPayload) => {
     return apiFetch<BackendHotspot>("/api/hotspots", {
+      method: "POST",
+      body: payload,
+      sameOrigin: true,
+    });
+  },
+
+  searchHotspots: async (payload: HotspotSearchRequest) => {
+    return apiFetch<HotspotSearchResponse>("/api/hotspots/search", {
       method: "POST",
       body: payload,
       sameOrigin: true,

@@ -15,6 +15,10 @@ export async function GET(request: NextRequest, context: HotspotRouteContext) {
   return forwardHotspotRequest(request, "GET", await resolveHotspotPath(context));
 }
 
+export async function POST(request: NextRequest, context: HotspotRouteContext) {
+  return forwardHotspotRequest(request, "POST", await resolveHotspotPath(context));
+}
+
 export async function PUT(request: NextRequest, context: HotspotRouteContext) {
   return forwardHotspotRequest(request, "PUT", await resolveHotspotPath(context));
 }
