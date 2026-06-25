@@ -1,501 +1,307 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { notFound } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { toast } from "react-toastify";
 import {
   ArrowLeft,
-  CalendarDays,
   Clock3,
-  Compass,
-  MapPinned,
+  MapPin,
   PencilLine,
+  Plus,
   Route,
   ShieldCheck,
   Sparkles,
   Tag,
-  TrendingDown,
-  TrendingUp,
-  type LucideIcon,
+  Trash2,
 } from "lucide-react";
 
-import {
-  getCuratorRouteBySlug,
-  getResolvedRouteStops,
-  routeStatusClasses,
-} from "@/data/routes";
+import { Button } from "@/components/ui/button";
+import { hotspotApi, type BackendHotspot } from "@/services/api";
+import { routeApi, type RouteResponse } from "@/services/api/routeApi";
 
-function InfoBadge({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/14 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md">
-      <Icon className="h-3.5 w-3.5" />
-      {label}
-    </span>
-  );
+const difficultyLabels: Record<string, string> = {
+  EASY: "Dễ",
+  MEDIUM: "Vừa",
+  HARD: "Khó",
+};
+
+const statusLabels: Record<string, string> = {
+  DRAFT: "Bản nháp",
+  PENDING: "Chờ duyệt",
+  APPROVED: "Đã duyệt",
+  REJECTED: "Từ chối",
+  DELETED: "Đã xoá",
+};
+
+function parseRouteId(value: string | string[] | undefined) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-function SectionCard({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <div className="flex flex-col gap-1">
-        <h2 className="cq-section-title">{title}</h2>
-        <p className="cq-page-subtitle">{description}</p>
-      </div>
-      <div className="mt-5">{children}</div>
-    </section>
-  );
+function formatStatus(status?: string) {
+  const normalized = status?.trim().toUpperCase() || "DRAFT";
+  return statusLabels[normalized] ?? normalized;
 }
 
 function MetricTile({ value, label }: { value: string; label: string }) {
   return (
     <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3">
       <p className="text-xl font-semibold text-slate-950">{value}</p>
-      <p className="cq-label mt-1">
-        {label}
-      </p>
+      <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
     </div>
   );
 }
 
-function DetailRow({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-}) {
+function DetailRow({ icon: Icon, label, value }: { icon: typeof MapPin; label: string; value: string }) {
   return (
     <div className="rounded-[1.35rem] border border-slate-200 bg-slate-50 px-4 py-3">
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4 text-[#cf3d37]" />
-        <p className="cq-label">
-          {label}
-        </p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
       </div>
-      <p className="mt-2 text-sm font-semibold leading-6 text-slate-900">
-        {value}
-      </p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-slate-900">{value}</p>
     </div>
   );
 }
 
-export default async function CuratorRouteDetailPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
-  const route = getCuratorRouteBySlug(slug);
+export default function CuratorRouteDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const routeId = parseRouteId(params.slug);
 
-  if (!route) {
-    notFound();
+  const [route, setRoute] = useState<RouteResponse | null>(null);
+  const [hotspots, setHotspots] = useState<BackendHotspot[]>([]);
+  const [hotspotToAdd, setHotspotToAdd] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isActionLoading, setIsActionLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRoute() {
+      if (!routeId) {
+        setError("Route ID không hợp lệ.");
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const [routeResponse, hotspotResponse] = await Promise.all([
+          routeApi.getRouteById(routeId),
+          hotspotApi.getHotspots(),
+        ]);
+
+        if (cancelled) return;
+        setRoute(routeResponse);
+        setHotspots(hotspotResponse);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Không thể tải chi tiết tuyến.");
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    void loadRoute();
+    return () => {
+      cancelled = true;
+    };
+  }, [routeId]);
+
+  const sortedStops = useMemo(() => {
+    return [...(route?.hotspots ?? [])].sort((a, b) => a.index - b.index);
+  }, [route]);
+
+  const addableHotspots = useMemo(() => {
+    const currentIds = new Set(sortedStops.map((stop) => stop.hotspotId));
+    return hotspots.filter((hotspot) => !currentIds.has(hotspot.hotspotId));
+  }, [hotspots, sortedStops]);
+
+  async function reloadRoute() {
+    if (!routeId) return;
+    const response = await routeApi.getRouteById(routeId);
+    setRoute(response);
   }
 
-  const stops = getResolvedRouteStops(route);
-  const coverImage = route.coverImage || route.images[0] || stops[0]?.hotspot.image;
+  async function handleAddHotspot() {
+    if (!routeId) return;
+    const hotspotId = Number(hotspotToAdd);
+    if (!Number.isInteger(hotspotId) || hotspotId <= 0) {
+      toast.error("Vui lòng chọn hotspot cần thêm.");
+      return;
+    }
 
-  if (!coverImage) {
-    notFound();
+    setIsActionLoading(true);
+    try {
+      const response = await routeApi.addHotspotToRoute(routeId, hotspotId);
+      setRoute(response);
+      setHotspotToAdd("");
+      toast.success("Đã thêm hotspot vào cuối tuyến.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không thể thêm hotspot.");
+    } finally {
+      setIsActionLoading(false);
+    }
   }
 
-  const previewPositions = [
-    { x: 16, y: 72 },
-    { x: 39, y: 42 },
-    { x: 69, y: 58 },
-    { x: 84, y: 29 },
-    { x: 55, y: 22 },
-    { x: 26, y: 26 },
-  ];
+  async function handleRemoveHotspot(hotspotId: number) {
+    if (!routeId) return;
+    const ok = window.confirm("Bạn có chắc muốn xoá hotspot này khỏi tuyến không?");
+    if (!ok) return;
 
-  const previewStops = stops.map((stop, index) => ({
-    ...stop,
-    position: previewPositions[index % previewPositions.length],
-  }));
+    setIsActionLoading(true);
+    try {
+      const response = await routeApi.removeHotspotFromRoute(routeId, hotspotId);
+      setRoute(response);
+      toast.success("Đã xoá hotspot khỏi tuyến.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không thể xoá hotspot khỏi tuyến.");
+    } finally {
+      setIsActionLoading(false);
+    }
+  }
 
-  const previewPolylinePoints = previewStops
-    .map(({ position }) => `${position.x},${position.y}`)
-    .join(" ");
+  async function handleDeleteRoute() {
+    if (!routeId) return;
+    const ok = window.confirm("Bạn có chắc muốn xoá tuyến này không?");
+    if (!ok) return;
+
+    setIsActionLoading(true);
+    try {
+      await routeApi.deleteRoute(routeId);
+      toast.success("Đã xoá tuyến.");
+      router.push("/curator/routes");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không thể xoá tuyến.");
+    } finally {
+      setIsActionLoading(false);
+    }
+  }
+
+  if (isLoading) {
+    return <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">Đang tải chi tiết tuyến...</div>;
+  }
+
+  if (error || !route) {
+    return (
+      <div className="space-y-4">
+        <Link href="/curator/routes" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900">
+          <ArrowLeft className="h-4 w-4" /> Quay lại
+        </Link>
+        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error || "Không tìm thấy tuyến."}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
-      <section className="-mx-6 -mt-6 overflow-hidden bg-slate-950 shadow-sm">
-        <div className="relative isolate">
-          <img
-            src={coverImage}
-            alt={route.title}
-            className="h-[44vh] min-h-[320px] w-full object-cover sm:h-[52vh] lg:h-[60vh]"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/92 via-slate-950/42 to-slate-950/18" />
-
-          <div className="absolute inset-x-0 top-0 p-4 sm:p-6">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-center gap-3 text-white">
-                <Link
-                  href="/curator/routes"
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur transition hover:bg-white/20"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </Link>
-                <span className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white/80 backdrop-blur">
-                  Chi tiết tuyến
-                </span>
-              </div>
-
-              <Link
-                href="/curator/routes/create"
-                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20"
-              >
-                <PencilLine className="h-4 w-4" />
-                Chỉnh sửa
-              </Link>
-            </div>
-          </div>
-
-          <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6">
-            <div className="flex flex-wrap gap-2">
-              <InfoBadge icon={Tag} label={route.theme} />
-              <InfoBadge icon={Sparkles} label={route.difficulty} />
-              <InfoBadge icon={MapPinned} label={route.districtSpan} />
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
           <div className="max-w-4xl">
-            <p className="cq-kicker">
-              Tổng quan tuyến
-            </p>
-            <h1
-              className="cq-detail-title mt-3"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            >
-              {route.title}
+            <div className="mb-4 flex items-center gap-3">
+              <Link href="/curator/routes" className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50">
+                <ArrowLeft className="h-5 w-5" />
+              </Link>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                Chi tiết tuyến
+              </span>
+            </div>
+
+            <p className="cq-kicker">Tổng quan tuyến</p>
+            <h1 className="cq-detail-title mt-3" style={{ fontFamily: "'Playfair Display', serif" }}>
+              {route.routeName}
             </h1>
-            <p className="mt-2 text-sm font-medium text-slate-500">
-              {route.subtitle}
-            </p>
-            <p className="cq-body-copy mt-5 max-w-3xl">
-              {route.overview}
-            </p>
+            <p className="mt-5 max-w-3xl text-sm leading-6 text-slate-600">{route.description || "Chưa có mô tả."}</p>
           </div>
 
           <div className="flex flex-col gap-3 xl:items-end">
-            <span
-              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold shadow-sm ${routeStatusClasses[route.status]}`}
-            >
+            <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 shadow-sm">
               <ShieldCheck className="h-4 w-4" />
-              {route.statusLabel}
+              {formatStatus(route.status)}
             </span>
             <div className="flex flex-wrap gap-2 xl:justify-end">
-              {route.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700"
-                >
-                  {tag}
+              {route.tags?.map((tag) => (
+                <span key={tag.tagId} className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                  <Tag className="mr-1 inline h-3 w-3" />
+                  {tag.tagName}
                 </span>
               ))}
+            </div>
+            <div className="flex flex-wrap gap-2 xl:justify-end">
+              <Button asChild variant="outline" className="rounded-full">
+                <Link href={`/curator/routes/create?id=${route.routeId}`}>
+                  <PencilLine className="mr-2 h-4 w-4" />
+                  Chỉnh sửa
+                </Link>
+              </Button>
+              <Button type="button" variant="outline" className="rounded-full border-red-200 text-red-600 hover:bg-red-50" onClick={() => void handleDeleteRoute()} disabled={isActionLoading}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Xoá tuyến
+              </Button>
             </div>
           </div>
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <MetricTile value={`${route.hotspotCount} điểm`} label="Hotspot" />
-          <MetricTile value={`${route.distanceKm} km`} label="Khoảng cách" />
-          <MetricTile
-            value={`${route.durationMinutes} phút`}
-            label="Thời lượng"
-          />
-          <MetricTile value={`${route.completion}%`} label="Hoàn thành" />
-          <MetricTile value={`${route.dropoff}%`} label="Bỏ giữa chừng" />
-        </div>
-
-        <div className="mt-6 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-          <div className="rounded-[1.5rem] border border-slate-200 bg-[linear-gradient(180deg,#fffaf0_0%,#ffffff_100%)] p-5">
-            <div className="flex items-center gap-2">
-              <Route className="h-4 w-4 text-[#cf3d37]" />
-              <p className="cq-card-title">
-                Mạch kể chuyện
-              </p>
-            </div>
-            <p className="mt-3 text-sm leading-7 text-slate-700">
-              {route.storyline}
-            </p>
-
-            <div className="mt-5 space-y-3">
-              {route.highlights.map((highlight) => (
-                <div
-                  key={highlight}
-                  className="rounded-[1.35rem] border border-slate-200 bg-white px-4 py-3"
-                >
-                  <div className="flex items-start gap-3">
-                    <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                    <p className="text-sm leading-6 text-slate-700">
-                      {highlight}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <DetailRow
-              icon={Compass}
-              label="Đối tượng"
-              value={route.audience}
-            />
-            <DetailRow
-              icon={Clock3}
-              label="Khung giờ đẹp"
-              value={route.bestTime}
-            />
-            <DetailRow
-              icon={MapPinned}
-              label="Điểm bắt đầu"
-              value={route.startPoint}
-            />
-            <DetailRow
-              icon={MapPinned}
-              label="Điểm kết thúc"
-              value={route.endPoint}
-            />
-            <DetailRow
-              icon={Sparkles}
-              label="Nhịp trải nghiệm"
-              value={route.pace}
-            />
-            <DetailRow
-              icon={CalendarDays}
-              label="Cập nhật"
-              value={route.updatedAt}
-            />
-          </div>
+          <MetricTile value={`${sortedStops.length} điểm`} label="Hotspot" />
+          <MetricTile value={`${route.totalDistance ?? 0} km`} label="Khoảng cách" />
+          <MetricTile value={`${route.estimateTime ?? 0} phút`} label="Thời lượng" />
+          <MetricTile value={difficultyLabels[route.difficulty] ?? route.difficulty} label="Độ khó" />
+          <MetricTile value={`${route.xp ?? 0} XP`} label="Phần thưởng" />
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
-        <SectionCard
-          title="Preview hành trình"
-          description="Mô phỏng thứ tự checkpoint và nhịp di chuyển của route."
-        >
-          <div className="overflow-hidden rounded-[1.75rem] border border-[#d8d2ca] bg-[#f9f8f3] shadow-sm">
-            <div className="relative h-[19rem] bg-[radial-gradient(circle_at_top_left,#ffffff_0%,#faf8f1_42%,#f5f2ea_100%)] sm:h-[22rem]">
-              <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(255,255,255,0.16),rgba(255,255,255,0.16)),linear-gradient(90deg,transparent_24%,rgba(230,225,215,0.35)_24%,rgba(230,225,215,0.35)_25%,transparent_25%),linear-gradient(transparent_24%,rgba(230,225,215,0.35)_24%,rgba(230,225,215,0.35)_25%,transparent_25%)] bg-[length:100%_100%,72px_72px,72px_72px]" />
-
-              {previewStops.length > 1 ? (
-                <svg
-                  viewBox="0 0 100 100"
-                  preserveAspectRatio="none"
-                  className="absolute inset-0 h-full w-full"
-                  aria-hidden="true"
-                >
-                  <polyline
-                    points={previewPolylinePoints}
-                    fill="none"
-                    stroke="#cf3d37"
-                    strokeWidth="0.9"
-                    strokeDasharray="2.4 1.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              ) : null}
-
-              {previewStops.map((stop) => (
-                <div
-                  key={stop.hotspot.slug}
-                  className="absolute -translate-x-1/2 -translate-y-1/2"
-                  style={{
-                    left: `${stop.position.x}%`,
-                    top: `${stop.position.y}%`,
-                  }}
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#cf3d37] text-base font-semibold text-white shadow-[0_10px_24px_rgba(207,61,55,0.22)]">
-                    {stop.index}
-                  </div>
-                </div>
+      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 className="cq-section-title">Điểm dừng trong tuyến</h2>
+            <p className="cq-page-subtitle">Backend yêu cầu tuyến luôn có ít nhất 4 hotspot.</p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <select value={hotspotToAdd} onChange={(event) => setHotspotToAdd(event.target.value)} className="h-10 min-w-72 rounded-full border border-slate-200 bg-white px-4 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
+              <option value="">Chọn hotspot để thêm</option>
+              {addableHotspots.map((hotspot) => (
+                <option key={hotspot.hotspotId} value={hotspot.hotspotId}>{hotspot.hotspotName}</option>
               ))}
-            </div>
+            </select>
+            <Button type="button" variant="secondary" className="rounded-full text-white" onClick={() => void handleAddHotspot()} disabled={isActionLoading}>
+              <Plus className="mr-2 h-4 w-4" />
+              Thêm cuối tuyến
+            </Button>
+          </div>
+        </div>
 
-            <div className="border-t border-[#e9e3da] bg-white/80 px-5 py-4">
-              <div className="space-y-3">
-                {stops.map((stop) => (
-                  <div
-                    key={stop.hotspot.slug}
-                    className="flex items-center gap-3 text-sm"
-                  >
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#fff2ef] text-xs font-semibold text-[#cf3d37]">
-                      {stop.index}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-slate-900">
-                        {stop.hotspot.title}
-                      </p>
-                      <p className="truncate text-xs text-slate-500">
-                        {stop.checkpoint} · {stop.dwellTime}
-                      </p>
+        <div className="mt-6 space-y-3">
+          {sortedStops.map((stop, index) => (
+            <div key={stop.routeHotspotId ?? `${stop.hotspotId}-${index}`} className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex gap-3">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#cf3d37] text-sm font-semibold text-white">{index + 1}</span>
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900">{stop.hotspotName}</h3>
+                    <p className="mt-1 text-xs text-slate-500">{stop.address}</p>
+                    <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
+                      <span className="inline-flex items-center gap-1"><Route className="h-3.5 w-3.5" /> Index API: {stop.index}</span>
+                      <span className="inline-flex items-center gap-1"><Sparkles className="h-3.5 w-3.5" /> XP: {stop.xp ?? 0}</span>
+                      {typeof stop.distanceToNext === "number" ? <span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" /> Tới điểm sau: {stop.distanceToNext.toFixed(2)} km</span> : null}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </SectionCard>
-
-        <SectionCard
-          title="Danh sách điểm dừng"
-          description="Từng hotspot trong route, theo đúng thứ tự trải nghiệm."
-        >
-          <div className="space-y-4">
-            {stops.map((stop) => (
-              <article
-                key={stop.hotspot.slug}
-                className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-3.5"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#cf3d37] text-sm font-semibold text-white">
-                    {stop.index}
-                  </div>
-
-                  <img
-                    src={stop.hotspot.image}
-                    alt={stop.hotspot.title}
-                    className="h-20 w-20 shrink-0 rounded-[1rem] object-cover"
-                  />
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <p className="cq-label">
-                          {stop.checkpoint}
-                        </p>
-                        <h3 className="cq-card-title mt-1">
-                          <Link
-                            href={`/curator/hotspot/${stop.hotspot.slug}`}
-                            className="transition hover:text-[#cf3d37]"
-                          >
-                            {stop.hotspot.title}
-                          </Link>
-                        </h3>
-                        <p className="mt-1 text-xs leading-5 text-slate-500">
-                          {stop.hotspot.address}
-                        </p>
-                      </div>
-
-                      <span className="inline-flex w-fit rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
-                        {stop.dwellTime}
-                      </span>
-                    </div>
-
-                    <p className="mt-3 text-sm leading-6 text-slate-700">
-                      {stop.note}
-                    </p>
-                  </div>
                 </div>
-              </article>
-            ))}
-          </div>
-        </SectionCard>
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-2">
-        <SectionCard
-          title="Hiệu suất tuyến"
-          description="Theo dõi nhanh mức độ bắt đầu, hoàn thành và lưu route."
-        >
-          <div className="grid gap-3 sm:grid-cols-3">
-            <MetricTile value={route.starts} label="Bắt đầu" />
-            <MetricTile value={route.finishes} label="Hoàn thành" />
-            <MetricTile value={route.saves} label="Đã lưu" />
-          </div>
-
-          <div className="mt-5 space-y-4">
-            <div>
-              <div className="flex items-center justify-between gap-3 text-sm">
-                <div className="flex items-center gap-2 text-slate-600">
-                  <TrendingUp className="h-4 w-4 text-emerald-600" />
-                  <span>Tỷ lệ hoàn thành</span>
-                </div>
-                <span className="font-semibold text-slate-900">
-                  {route.completion}%
-                </span>
-              </div>
-              <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-[linear-gradient(90deg,#cd4542_0%,#e3742e_52%,#f3a80a_100%)]"
-                  style={{ width: `${route.completion}%` }}
-                />
+                <button type="button" onClick={() => void handleRemoveHotspot(stop.hotspotId)} disabled={isActionLoading || sortedStops.length <= 4} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40">
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Xoá khỏi tuyến
+                </button>
               </div>
             </div>
-
-            <div>
-              <div className="flex items-center justify-between gap-3 text-sm">
-                <div className="flex items-center gap-2 text-slate-600">
-                  <TrendingDown className="h-4 w-4 text-amber-700" />
-                  <span>Bỏ giữa chừng</span>
-                </div>
-                <span className="font-semibold text-slate-900">
-                  {route.dropoff}%
-                </span>
-              </div>
-              <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-[linear-gradient(90deg,#f1d4a4_0%,#eca45a_100%)]"
-                  style={{ width: `${route.dropoff}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        </SectionCard>
-
-        <SectionCard
-          title="Ghi chú biên tập"
-          description="Thông tin quản trị giúp curator xem nhanh chất lượng route."
-        >
-          <div className="space-y-3">
-            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4">
-              <p className="cq-label">
-                Nhận định hiện tại
-              </p>
-              <p className="cq-card-copy mt-2 leading-7 text-slate-700">
-                {route.editorialNote}
-              </p>
-            </div>
-
-            <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50/60 px-4 py-4">
-              <p className="cq-kicker">
-                Cần theo dõi
-              </p>
-              <p className="cq-card-copy mt-2 leading-7 text-slate-700">
-                {route.moderationNote}
-              </p>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <DetailRow
-                icon={CalendarDays}
-                label="Tạo ngày"
-                value={route.date}
-              />
-              <DetailRow
-                icon={PencilLine}
-                label="Người phụ trách"
-                value={route.author}
-              />
-            </div>
-          </div>
-        </SectionCard>
+          ))}
+        </div>
       </section>
     </div>
   );
