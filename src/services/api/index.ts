@@ -3,8 +3,13 @@ export { tagApi } from "./tagApi";
 export { hotspotApi } from "./hotspotApi";
 export type {
   BackendHotspot,
+  BackendHotspotMedia,
   BackendHotspotTag,
   CreateHotspotPayload,
+  HotspotSearchFilter,
+  HotspotSearchOperator,
+  HotspotSearchRequest,
+  HotspotSearchResponse,
 } from "./hotspotApi";
 export { goongApi } from "./goongApi";
 export type {

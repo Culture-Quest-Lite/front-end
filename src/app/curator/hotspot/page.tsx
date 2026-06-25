@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,13 @@ import {
   Trash2,
 } from "lucide-react";
 import { hotspotItems, type HotspotItem } from "@/data/hotspots";
-import { hotspotApi, type BackendHotspot, userApi } from "@/services/api";
+import {
+  hotspotApi,
+  type BackendHotspot,
+  type HotspotSearchFilter,
+  type HotspotSearchOperator,
+  userApi,
+} from "@/services/api";
 
 const tagColorClasses = [
   "border-red-200 bg-red-50 text-red-700",
@@ -37,14 +43,249 @@ const hotspotActions = [
 ];
 
 const HOTSPOTS_PER_PAGE = 8;
-const ALL_STATUS_OPTION = "Mọi trạng thái";
-const ALL_CATEGORY_OPTION = "Mọi danh mục";
-const CURATOR_VISIBLE_HOTSPOT_STATUSES = new Set(["ACTIVE", "DRAFT"]);
-const CURATOR_VISIBLE_FALLBACK_STATUSES = new Set(["Đã xuất bản", "Bản nháp"]);
 
 type HotspotViewItem = HotspotItem & {
   hotspotId?: number;
+  creatorUsername?: string;
+  rawStatus?: string;
+  rawXp?: number | null;
+  rawPoint?: number | null;
+  rawCheckInRadius?: number | null;
+  rawCreatedAt?: string;
+  rawHistoryInformation?: string;
+  rawTagNames: string[];
 };
+
+type CreatorProfile = {
+  displayName: string;
+  username: string;
+};
+
+type SearchField =
+  | "hotspotName"
+  | "status"
+  | "tags.tagName"
+  | "xp"
+  | "address"
+  | "description"
+  | "historyInformation"
+  | "point"
+  | "checkInRadius"
+  | "createdAt"
+  | "createdBy.username";
+
+type SearchFieldKind = "text" | "status" | "number" | "numberList" | "datetime";
+type SortField =
+  | "createdAt"
+  | "hotspotName"
+  | "xp"
+  | "point"
+  | "checkInRadius";
+type SortDirection = "ASC" | "DESC";
+
+type SearchFieldOption = {
+  value: SearchField;
+  label: string;
+  kind: SearchFieldKind;
+  operators: HotspotSearchOperator[];
+  defaultOperator: HotspotSearchOperator;
+  placeholder: string;
+  description: string;
+  warning?: string;
+};
+
+type QuickSearchState = {
+  field: SearchField;
+  operator: HotspotSearchOperator;
+  value: string;
+};
+
+type FilterConditionState = {
+  id: string;
+  field: SearchField;
+  operator: HotspotSearchOperator;
+  value: string;
+};
+
+type AdvancedFilterState = {
+  rows: FilterConditionState[];
+  sortBy: SortField;
+  sortDirection: SortDirection;
+};
+
+const hotspotStatusValueOptions: Array<{
+  value: string;
+  label: string;
+}> = [
+  { value: "DRAFT", label: "Bản nháp" },
+  { value: "PUBLISHED", label: "Đã xuất bản" },
+  { value: "DELETED", label: "Đã lưu trữ" },
+  { value: "PENDING", label: "Chờ duyệt" },
+  { value: "REJECTED", label: "Bị từ chối" },
+];
+
+const searchFieldOptions: SearchFieldOption[] = [
+  {
+    value: "hotspotName",
+    label: "Tên hotspot",
+    kind: "text",
+    operators: ["LIKE", "EQUALS", "NOT_EQUALS"],
+    defaultOperator: "LIKE",
+    placeholder: "Tìm theo tên hotspot...",
+    description: "Tìm theo tên hotspot.",
+  },
+  {
+    value: "status",
+    label: "Trạng thái",
+    kind: "status",
+    operators: ["EQUALS", "NOT_EQUALS"],
+    defaultOperator: "EQUALS",
+    placeholder: "",
+    description: "Lọc theo trạng thái DRAFT, PUBLISHED, DELETED...",
+  },
+  {
+    value: "tags.tagName",
+    label: "Nhãn/Thẻ",
+    kind: "text",
+    operators: ["LIKE", "EQUALS"],
+    defaultOperator: "LIKE",
+    placeholder: "Ví dụ: Lịch sử",
+    description: "Tìm theo tên tag liên kết với hotspot.",
+  },
+  {
+    value: "xp",
+    label: "XP",
+    kind: "number",
+    operators: [
+      "GREATER_THAN_OR_EQUAL",
+      "GREATER_THAN",
+      "EQUALS",
+      "LESS_THAN",
+      "LESS_THAN_OR_EQUAL",
+    ],
+    defaultOperator: "GREATER_THAN_OR_EQUAL",
+    placeholder: "Ví dụ: 100",
+    description: "Lọc theo điểm XP thưởng.",
+  },
+  {
+    value: "address",
+    label: "Địa chỉ",
+    kind: "text",
+    operators: ["LIKE", "EQUALS"],
+    defaultOperator: "LIKE",
+    placeholder: "Ví dụ: Hà Nội",
+    description: "Tìm theo địa chỉ của hotspot.",
+  },
+  {
+    value: "description",
+    label: "Mô tả",
+    kind: "text",
+    operators: ["LIKE", "EQUALS"],
+    defaultOperator: "LIKE",
+    placeholder: "Ví dụ: Cổ kính",
+    description: "Tìm theo nội dung mô tả.",
+  },
+  {
+    value: "historyInformation",
+    label: "Thông tin lịch sử",
+    kind: "text",
+    operators: ["LIKE", "EQUALS"],
+    defaultOperator: "LIKE",
+    placeholder: "Ví dụ: thời Pháp thuộc",
+    description: "Tìm theo nội dung thông tin lịch sử của hotspot.",
+  },
+  {
+    value: "point",
+    label: "Point",
+    kind: "number",
+    operators: [
+      "GREATER_THAN_OR_EQUAL",
+      "GREATER_THAN",
+      "EQUALS",
+      "LESS_THAN",
+      "LESS_THAN_OR_EQUAL",
+    ],
+    defaultOperator: "GREATER_THAN",
+    placeholder: "Ví dụ: 50",
+    description: "Lọc theo số point thưởng.",
+  },
+  {
+    value: "checkInRadius",
+    label: "Bán kính check-in",
+    kind: "number",
+    operators: [
+      "GREATER_THAN_OR_EQUAL",
+      "GREATER_THAN",
+      "EQUALS",
+      "LESS_THAN",
+      "LESS_THAN_OR_EQUAL",
+    ],
+    defaultOperator: "LESS_THAN_OR_EQUAL",
+    placeholder: "Ví dụ: 50",
+    description: "Lọc theo bán kính check-in.",
+    warning:
+      "Backend live ngày 24/06/2026 hiện có thể trả lỗi 500 với field này. Payload vẫn sẽ được gửi đúng format.",
+  },
+  {
+    value: "createdAt",
+    label: "Ngày tạo",
+    kind: "datetime",
+    operators: [
+      "GREATER_THAN",
+      "GREATER_THAN_OR_EQUAL",
+      "EQUALS",
+      "LESS_THAN",
+      "LESS_THAN_OR_EQUAL",
+    ],
+    defaultOperator: "GREATER_THAN",
+    placeholder: "",
+    description: "Lọc theo thời điểm tạo hotspot.",
+    warning:
+      "Backend live ngày 24/06/2026 hiện có thể trả lỗi 500 với field này. Payload vẫn sẽ được gửi đúng format.",
+  },
+  {
+    value: "createdBy.username",
+    label: "Người tạo (username)",
+    kind: "text",
+    operators: ["LIKE", "EQUALS"],
+    defaultOperator: "LIKE",
+    placeholder: "Ví dụ: admin",
+    description: "Tìm hotspot theo username của người tạo.",
+  },
+];
+
+const operatorLabelMap: Record<HotspotSearchOperator, string> = {
+  EQUALS: "Trùng khớp",
+  NOT_EQUALS: "Khác giá trị",
+  LIKE: "Có chứa",
+  GREATER_THAN: "Lớn hơn",
+  LESS_THAN: "Nhỏ hơn",
+  GREATER_THAN_OR_EQUAL: "Từ giá trị này trở lên",
+  LESS_THAN_OR_EQUAL: "Tối đa giá trị này",
+  IN: "Nằm trong danh sách",
+};
+
+const sortFieldOptions: Array<{ value: SortField; label: string }> = [
+  { value: "createdAt", label: "Ngày tạo" },
+  { value: "hotspotName", label: "Tên hotspot" },
+  { value: "xp", label: "XP" },
+  { value: "point", label: "Point" },
+  { value: "checkInRadius", label: "Bán kính check-in" },
+];
+
+const sortDirectionOptions: Array<{ value: SortDirection; label: string }> = [
+  { value: "ASC", label: "Tăng dần" },
+  { value: "DESC", label: "Giảm dần" },
+];
+
+const AUTO_SYNC_ADVANCED_FILTER_FIELDS: SearchField[] = [
+  "status",
+  "tags.tagName",
+  "address",
+  "description",
+  "historyInformation",
+  "createdBy.username",
+];
 
 const HOTSPOT_STATUS_META: Record<string, { label: string; style: string }> = {
   ACTIVE: {
@@ -150,7 +391,9 @@ function extractLocationLabel(address?: string) {
   ];
 
   for (const matcher of prioritizedMatchers) {
-    const matchedSegment = reversedSegments.find((segment) => matcher.test(segment));
+    const matchedSegment = reversedSegments.find((segment) =>
+      matcher.test(segment),
+    );
 
     if (matchedSegment) {
       return matchedSegment;
@@ -160,9 +403,15 @@ function extractLocationLabel(address?: string) {
   return segments.at(-2) ?? segments.at(-1) ?? "";
 }
 
-function buildSubtitle(category: string, address?: string, fallbackSubtitle?: string) {
-  const parts = [category.trim(), extractLocationLabel(address)].filter(Boolean);
-  return parts.length > 0 ? parts.join(" · ") : fallbackSubtitle ?? "";
+function buildSubtitle(
+  category: string,
+  address?: string,
+  fallbackSubtitle?: string,
+) {
+  const parts = [category.trim(), extractLocationLabel(address)].filter(
+    Boolean,
+  );
+  return parts.length > 0 ? parts.join(" · ") : (fallbackSubtitle ?? "");
 }
 
 function buildStatusMeta(status?: string, fallback?: HotspotItem) {
@@ -190,7 +439,8 @@ function findFallbackHotspot(hotspot: BackendHotspot) {
   const slug = slugify(hotspot.hotspotName ?? "");
 
   return hotspotItems.find(
-    (item) => item.slug === slug || normalizeText(item.title) === normalizedName,
+    (item) =>
+      item.slug === slug || normalizeText(item.title) === normalizedName,
   );
 }
 
@@ -201,29 +451,549 @@ function buildTagLabels(tags?: BackendHotspot["tags"], fallback?: HotspotItem) {
       .filter((tagName): tagName is string => Boolean(tagName))
       .map((tagName) => `#${tagName}`) ?? [];
 
-  return mappedTags.length > 0 ? mappedTags : fallback?.tags ?? [];
+  return mappedTags.length > 0 ? mappedTags : (fallback?.tags ?? []);
 }
 
-function isCuratorVisibleHotspot(hotspot: BackendHotspot) {
-  const normalizedStatus = hotspot.status?.trim().toUpperCase();
-  return normalizedStatus ? CURATOR_VISIBLE_HOTSPOT_STATUSES.has(normalizedStatus) : false;
+function getSearchFieldOption(field: SearchField) {
+  return (
+    searchFieldOptions.find((option) => option.value === field) ??
+    searchFieldOptions[0]
+  );
 }
 
-function isCuratorVisibleFallbackHotspot(hotspot: HotspotItem) {
-  return CURATOR_VISIBLE_FALLBACK_STATUSES.has(hotspot.status);
+function createQuickSearchState(
+  field: SearchField = "hotspotName",
+): QuickSearchState {
+  const fieldOption = getSearchFieldOption(field);
+
+  return {
+    field,
+    operator: fieldOption.defaultOperator,
+    value: "",
+  };
+}
+
+function createFilterConditionState(
+  field: SearchField = "status",
+): FilterConditionState {
+  const fieldOption = getSearchFieldOption(field);
+
+  return {
+    id: `${field}-${Math.random().toString(36).slice(2, 10)}`,
+    field,
+    operator: fieldOption.defaultOperator,
+    value: "",
+  };
+}
+
+function cloneAdvancedFilters(
+  filters: AdvancedFilterState,
+): AdvancedFilterState {
+  return {
+    ...filters,
+    rows: filters.rows.map((row) => ({ ...row })),
+  };
+}
+
+function createDefaultAdvancedFilters(): AdvancedFilterState {
+  return {
+    rows: [],
+    sortBy: "createdAt",
+    sortDirection: "DESC",
+  };
+}
+
+function isAutoSyncAdvancedFilterField(field: SearchField) {
+  return AUTO_SYNC_ADVANCED_FILTER_FIELDS.includes(field);
+}
+
+function canAutoApplyAdvancedFilters(
+  draftFilters: AdvancedFilterState,
+  appliedFilters: AdvancedFilterState,
+) {
+  if (
+    draftFilters.sortBy !== appliedFilters.sortBy ||
+    draftFilters.sortDirection !== appliedFilters.sortDirection
+  ) {
+    return false;
+  }
+
+  const draftRowsById = new Map(draftFilters.rows.map((row) => [row.id, row]));
+  const appliedRowsById = new Map(appliedFilters.rows.map((row) => [row.id, row]));
+  const changedDraftRows = draftFilters.rows.filter((row) => {
+    const appliedRow = appliedRowsById.get(row.id);
+
+    return (
+      !appliedRow ||
+      appliedRow.field !== row.field ||
+      appliedRow.operator !== row.operator ||
+      appliedRow.value !== row.value
+    );
+  });
+  const removedRows = appliedFilters.rows.filter((row) => !draftRowsById.has(row.id));
+
+  if (changedDraftRows.length === 0 && removedRows.length === 0) {
+    return false;
+  }
+
+  return [...changedDraftRows, ...removedRows].every((row) =>
+    isAutoSyncAdvancedFilterField(row.field),
+  );
+}
+
+function countActiveAdvancedFilters(filters: AdvancedFilterState) {
+  return filters.rows.reduce((count, row) => {
+    return buildFilterFromState(row) ? count + 1 : count;
+  }, 0);
+}
+
+function parseNumericValue(value: string) {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  const parsedValue = Number(trimmedValue);
+  return Number.isFinite(parsedValue) ? parsedValue : null;
+}
+
+function parseListValue(value: string) {
+  return value
+    .split(/[,\n]/)
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .map((segment) => Number(segment))
+    .filter((segment) => Number.isFinite(segment));
+}
+
+function normalizeDateTimeValue(value: string) {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(trimmedValue)) {
+    return `${trimmedValue}:00`;
+  }
+
+  return trimmedValue;
+}
+
+function buildFilterFromState(
+  filterState: Pick<FilterConditionState, "field" | "operator" | "value">,
+): HotspotSearchFilter | null {
+  const fieldOption = getSearchFieldOption(filterState.field);
+  const trimmedValue = filterState.value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  switch (fieldOption.kind) {
+    case "number": {
+      const parsedValue = parseNumericValue(trimmedValue);
+      if (parsedValue === null) {
+        return null;
+      }
+
+      return {
+        field: filterState.field,
+        operator: filterState.operator,
+        value: parsedValue,
+      };
+    }
+    case "numberList": {
+      if (filterState.operator === "IN") {
+        const parsedValues = parseListValue(trimmedValue);
+        if (parsedValues.length === 0) {
+          return null;
+        }
+
+        return {
+          field: filterState.field,
+          operator: filterState.operator,
+          values: parsedValues,
+        };
+      }
+
+      const parsedValue = parseNumericValue(trimmedValue);
+      if (parsedValue === null) {
+        return null;
+      }
+
+      return {
+        field: filterState.field,
+        operator: filterState.operator,
+        value: parsedValue,
+      };
+    }
+    case "datetime": {
+      const normalizedDateTimeValue = normalizeDateTimeValue(trimmedValue);
+      if (!normalizedDateTimeValue) {
+        return null;
+      }
+
+      return {
+        field: filterState.field,
+        operator: filterState.operator,
+        value: normalizedDateTimeValue,
+      };
+    }
+    case "status":
+    case "text":
+    default:
+      return {
+        field: filterState.field,
+        operator: filterState.operator,
+        value: trimmedValue,
+      };
+  }
+}
+
+function buildHotspotSearchFilters(
+  quickSearch: QuickSearchState,
+  filters: AdvancedFilterState,
+) {
+  const builtFilters: HotspotSearchFilter[] = [];
+  const quickFilter = buildFilterFromState(quickSearch);
+
+  if (quickFilter) {
+    builtFilters.push(quickFilter);
+  }
+
+  for (const row of filters.rows) {
+    const mappedFilter = buildFilterFromState(row);
+
+    if (mappedFilter) {
+      builtFilters.push(mappedFilter);
+    }
+  }
+
+  return builtFilters;
+}
+
+function formatFilterValue(field: SearchField, value: string) {
+  if (field === "status") {
+    return (
+      hotspotStatusValueOptions.find((option) => option.value === value)
+        ?.label ?? value
+    );
+  }
+
+  return value;
+}
+
+function formatFilterSummary(
+  filterState: Pick<FilterConditionState, "field" | "operator" | "value">,
+) {
+  const filter = buildFilterFromState(filterState);
+
+  if (!filter) {
+    return null;
+  }
+
+  const fieldLabel = getSearchFieldOption(filterState.field).label;
+  const operatorLabel = operatorLabelMap[filter.operator];
+
+  if (filter.operator === "IN") {
+    return `${fieldLabel}: ${operatorLabel.toLowerCase()} [${filter.values?.join(", ")}]`;
+  }
+
+  return `${fieldLabel}: ${operatorLabel.toLowerCase()} "${formatFilterValue(filterState.field, filterState.value.trim())}"`;
+}
+
+function formatQuickSearchSummary(quickSearch: QuickSearchState) {
+  const quickFilter = buildFilterFromState(quickSearch);
+
+  if (!quickFilter) {
+    return null;
+  }
+
+  return `${getSearchFieldOption(quickSearch.field).label}: "${formatFilterValue(
+    quickSearch.field,
+    quickSearch.value.trim(),
+  )}"`;
+}
+
+function buildAppliedFilterSummary(
+  quickSearch: QuickSearchState,
+  filters: AdvancedFilterState,
+) {
+  const summary: string[] = [];
+  const quickSearchSummary = formatQuickSearchSummary(quickSearch);
+
+  if (quickSearchSummary) {
+    summary.push(quickSearchSummary);
+  }
+
+  for (const row of filters.rows) {
+    const rowSummary = formatFilterSummary(row);
+
+    if (rowSummary) {
+      summary.push(rowSummary);
+    }
+  }
+
+  if (
+    summary.length > 0 ||
+    filters.sortBy !== "createdAt" ||
+    filters.sortDirection !== "DESC"
+  ) {
+    summary.push(
+      `Sắp xếp: ${
+        sortFieldOptions.find((option) => option.value === filters.sortBy)
+          ?.label ?? filters.sortBy
+      } ${filters.sortDirection === "ASC" ? "tăng dần" : "giảm dần"}`,
+    );
+  }
+
+  return summary;
+}
+
+function resolveHotspotImageUrl(medias?: BackendHotspot["medias"]) {
+  const sortedImageMedias =
+    medias
+      ?.filter((media) => {
+        const mediaType = media.mediaType?.trim().toUpperCase();
+        const mimeType = media.mimeType?.trim().toLowerCase();
+
+        return Boolean(media.fileUrl?.trim()) &&
+          (mediaType === "IMAGE" || mimeType?.startsWith("image/"));
+      })
+      .sort((leftMedia, rightMedia) => {
+        return (
+          (leftMedia.displayOrder ?? Number.MAX_SAFE_INTEGER) -
+          (rightMedia.displayOrder ?? Number.MAX_SAFE_INTEGER)
+        );
+      }) ?? [];
+
+  return sortedImageMedias[0]?.fileUrl?.trim() || "";
+}
+
+function compareNormalizedText(
+  leftValue: string | undefined,
+  rightValue: string | undefined,
+) {
+  return normalizeText(leftValue ?? "").localeCompare(normalizeText(rightValue ?? ""));
+}
+
+function compareNumericValues(
+  leftValue: number | null | undefined,
+  rightValue: number | null | undefined,
+) {
+  return (leftValue ?? Number.NEGATIVE_INFINITY) - (rightValue ?? Number.NEGATIVE_INFINITY);
+}
+
+function parseDateTimestamp(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function matchesTextOperator(
+  actualValue: string | undefined,
+  operator: HotspotSearchOperator,
+  expectedValue: string,
+) {
+  const normalizedActualValue = normalizeText(actualValue ?? "");
+  const normalizedExpectedValue = normalizeText(expectedValue);
+
+  switch (operator) {
+    case "EQUALS":
+      return normalizedActualValue === normalizedExpectedValue;
+    case "NOT_EQUALS":
+      return normalizedActualValue !== normalizedExpectedValue;
+    case "LIKE":
+    default:
+      return normalizedActualValue.includes(normalizedExpectedValue);
+  }
+}
+
+function matchesNumericOperator(
+  actualValue: number | null | undefined,
+  operator: HotspotSearchOperator,
+  expectedValue: number,
+) {
+  if (typeof actualValue !== "number") {
+    return false;
+  }
+
+  switch (operator) {
+    case "EQUALS":
+      return actualValue === expectedValue;
+    case "NOT_EQUALS":
+      return actualValue !== expectedValue;
+    case "GREATER_THAN":
+      return actualValue > expectedValue;
+    case "GREATER_THAN_OR_EQUAL":
+      return actualValue >= expectedValue;
+    case "LESS_THAN":
+      return actualValue < expectedValue;
+    case "LESS_THAN_OR_EQUAL":
+      return actualValue <= expectedValue;
+    default:
+      return false;
+  }
+}
+
+function matchesDateOperator(
+  actualValue: string | undefined,
+  operator: HotspotSearchOperator,
+  expectedValue: string,
+) {
+  const actualTimestamp = parseDateTimestamp(actualValue);
+  const expectedTimestamp = parseDateTimestamp(expectedValue);
+
+  if (actualTimestamp === null || expectedTimestamp === null) {
+    return false;
+  }
+
+  switch (operator) {
+    case "EQUALS":
+      return actualTimestamp === expectedTimestamp;
+    case "GREATER_THAN":
+      return actualTimestamp > expectedTimestamp;
+    case "GREATER_THAN_OR_EQUAL":
+      return actualTimestamp >= expectedTimestamp;
+    case "LESS_THAN":
+      return actualTimestamp < expectedTimestamp;
+    case "LESS_THAN_OR_EQUAL":
+      return actualTimestamp <= expectedTimestamp;
+    default:
+      return false;
+  }
+}
+
+function matchesHotspotFilter(
+  hotspot: HotspotViewItem,
+  filter: HotspotSearchFilter,
+) {
+  switch (filter.field) {
+    case "hotspotName":
+      return matchesTextOperator(hotspot.title, filter.operator, String(filter.value ?? ""));
+    case "status":
+      return matchesTextOperator(
+        hotspot.rawStatus,
+        filter.operator,
+        String(filter.value ?? ""),
+      );
+    case "tags.tagName":
+      return hotspot.rawTagNames.some((tagName) =>
+        matchesTextOperator(tagName, filter.operator, String(filter.value ?? "")),
+      );
+    case "xp":
+      return matchesNumericOperator(hotspot.rawXp, filter.operator, Number(filter.value));
+    case "address":
+      return matchesTextOperator(
+        hotspot.address,
+        filter.operator,
+        String(filter.value ?? ""),
+      );
+    case "description":
+      return matchesTextOperator(
+        hotspot.description,
+        filter.operator,
+        String(filter.value ?? ""),
+      );
+    case "historyInformation":
+      return matchesTextOperator(
+        hotspot.rawHistoryInformation,
+        filter.operator,
+        String(filter.value ?? ""),
+      );
+    case "point":
+      return matchesNumericOperator(
+        hotspot.rawPoint,
+        filter.operator,
+        Number(filter.value),
+      );
+    case "checkInRadius":
+      return matchesNumericOperator(
+        hotspot.rawCheckInRadius,
+        filter.operator,
+        Number(filter.value),
+      );
+    case "createdAt":
+      return matchesDateOperator(
+        hotspot.rawCreatedAt,
+        filter.operator,
+        String(filter.value ?? ""),
+      );
+    case "createdBy.username":
+      return matchesTextOperator(
+        hotspot.creatorUsername,
+        filter.operator,
+        String(filter.value ?? ""),
+      );
+    default:
+      return true;
+  }
+}
+
+function sortHotspotItems(
+  hotspots: HotspotViewItem[],
+  filters: AdvancedFilterState,
+) {
+  const sortedHotspots = [...hotspots];
+
+  sortedHotspots.sort((leftHotspot, rightHotspot) => {
+    let comparedValue = 0;
+
+    switch (filters.sortBy) {
+      case "hotspotName":
+        comparedValue = compareNormalizedText(leftHotspot.title, rightHotspot.title);
+        break;
+      case "xp":
+        comparedValue = compareNumericValues(leftHotspot.rawXp, rightHotspot.rawXp);
+        break;
+      case "point":
+        comparedValue = compareNumericValues(leftHotspot.rawPoint, rightHotspot.rawPoint);
+        break;
+      case "checkInRadius":
+        comparedValue = compareNumericValues(
+          leftHotspot.rawCheckInRadius,
+          rightHotspot.rawCheckInRadius,
+        );
+        break;
+      case "createdAt":
+      default:
+        comparedValue = compareNumericValues(
+          parseDateTimestamp(leftHotspot.rawCreatedAt),
+          parseDateTimestamp(rightHotspot.rawCreatedAt),
+        );
+        break;
+    }
+
+    return filters.sortDirection === "ASC" ? comparedValue : comparedValue * -1;
+  });
+
+  return sortedHotspots;
 }
 
 function buildHotspotCards(
   apiHotspots: BackendHotspot[],
-  creatorDisplayNames: Map<number, string>,
+  creatorProfiles: Map<number, CreatorProfile>,
 ): HotspotViewItem[] {
   const usedSlugs = new Set<string>();
 
-  return apiHotspots.filter(isCuratorVisibleHotspot).map((hotspot) => {
+  return apiHotspots.map((hotspot) => {
     const fallback = findFallbackHotspot(hotspot);
     const fallbackSlug = fallback?.slug ?? "";
+    const backendImageUrl = resolveHotspotImageUrl(hotspot.medias);
+    const creatorProfile = hotspot.createByUserId
+      ? creatorProfiles.get(hotspot.createByUserId)
+      : undefined;
+    const rawTagNames =
+      hotspot.tags
+        ?.map((tag) => tag.tagName?.trim())
+        .filter((tagName): tagName is string => Boolean(tagName)) ?? [];
     const category =
-      hotspot.tags?.find((tag) => tag.tagName?.trim())?.tagName.trim() ??
+      rawTagNames[0] ??
       fallback?.category ??
       "";
     const statusMeta = buildStatusMeta(hotspot.status, fallback);
@@ -240,43 +1010,56 @@ function buildHotspotCards(
     return {
       hotspotId: hotspot.hotspotId,
       slug,
-      title: hotspot.hotspotName?.trim() || fallback?.title || `Hotspot ${hotspot.hotspotId}`,
+      title:
+        hotspot.hotspotName?.trim() ||
+        fallback?.title ||
+        `Hotspot ${hotspot.hotspotId}`,
       subtitle: buildSubtitle(category, hotspot.address, fallback?.subtitle),
       author:
-        (hotspot.createByUserId
-          ? creatorDisplayNames.get(hotspot.createByUserId)
-          : undefined) ||
+        creatorProfile?.displayName ||
+        creatorProfile?.username ||
         fallback?.author ||
         (hotspot.createByUserId ? `Curator #${hotspot.createByUserId}` : ""),
-      date: formatDateLabel(hotspot.createdAt ?? hotspot.updatedAt) || fallback?.date || "",
+      creatorUsername: creatorProfile?.username || "",
+      date:
+        formatDateLabel(hotspot.createdAt ?? hotspot.updatedAt) ||
+        fallback?.date ||
+        "",
       address: hotspot.address?.trim() || fallback?.address || "",
       description: hotspot.description?.trim() || fallback?.description || "",
+      rawHistoryInformation: hotspot.historyInformation?.trim() || "",
       category,
       relatedTopics: fallback?.relatedTopics ?? [],
       videoLabel: fallback?.videoLabel,
       videoUrl: fallback?.videoUrl,
+      rawXp: hotspot.xp,
       xp:
         typeof hotspot.xp === "number"
           ? `${hotspot.xp} XP`
           : fallback?.xp || "",
+      rawStatus: hotspot.status?.trim() || "",
       status: statusMeta.label,
       statusStyle: statusMeta.style,
       badge: statusMeta.label,
+      rawPoint: hotspot.point,
+      rawCheckInRadius: hotspot.checkInRadius,
+      rawCreatedAt: hotspot.createdAt ?? hotspot.updatedAt ?? "",
       gps:
-        typeof hotspot.latitude === "number" && typeof hotspot.longitude === "number"
+        typeof hotspot.latitude === "number" &&
+        typeof hotspot.longitude === "number"
           ? "GPS OK"
           : fallback?.gps || "",
-      image: fallback?.image ?? "",
+      image: backendImageUrl || fallback?.image || "",
+      rawTagNames,
       tags: buildTagLabels(hotspot.tags, fallback),
     };
   });
 }
 
-async function loadCreatorDisplayNames(apiHotspots: BackendHotspot[]) {
+async function loadCreatorProfiles(apiHotspots: BackendHotspot[]) {
   const creatorIds = Array.from(
     new Set(
       apiHotspots
-        .filter(isCuratorVisibleHotspot)
         .map((hotspot) => hotspot.createByUserId)
         .filter((userId): userId is number => typeof userId === "number"),
     ),
@@ -284,72 +1067,70 @@ async function loadCreatorDisplayNames(apiHotspots: BackendHotspot[]) {
   const creatorEntries = await Promise.allSettled(
     creatorIds.map(async (userId) => {
       const user = await userApi.getUserById(userId);
-      return [userId, user?.displayName?.trim() || ""] as const;
+      return [
+        userId,
+        {
+          displayName: user?.displayName?.trim() || "",
+          username: user?.username?.trim() || "",
+        },
+      ] as const;
     }),
   );
-  const creatorDisplayNames = new Map<number, string>();
+  const creatorProfiles = new Map<number, CreatorProfile>();
 
   for (const entry of creatorEntries) {
     if (entry.status !== "fulfilled") {
       continue;
     }
 
-    const [userId, displayName] = entry.value;
+    const [userId, creatorProfile] = entry.value;
 
-    if (displayName) {
-      creatorDisplayNames.set(userId, displayName);
+    if (creatorProfile.displayName || creatorProfile.username) {
+      creatorProfiles.set(userId, creatorProfile);
     }
   }
 
-  return creatorDisplayNames;
+  return creatorProfiles;
 }
 
 export default function Page() {
   const [hotspots, setHotspots] = useState<HotspotViewItem[]>([]);
   const [openMenuKey, setOpenMenuKey] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [quickSearch, setQuickSearch] = useState<QuickSearchState>(() =>
+    createQuickSearchState(),
+  );
+  const [debouncedQuickSearch, setDebouncedQuickSearch] =
+    useState<QuickSearchState>(() => createQuickSearchState());
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState(ALL_STATUS_OPTION);
-  const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORY_OPTION);
+  const [draftFilters, setDraftFilters] = useState<AdvancedFilterState>(() =>
+    createDefaultAdvancedFilters(),
+  );
+  const [appliedFilters, setAppliedFilters] = useState<AdvancedFilterState>(
+    () => createDefaultAdvancedFilters(),
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [deletingHotspotId, setDeletingHotspotId] = useState<number | null>(null);
-  const filterMenuRef = useRef<HTMLDivElement | null>(null);
-
-  const hotspotStatusOptions = [
-    ALL_STATUS_OPTION,
-    ...Array.from(new Set(hotspots.map((item) => item.status).filter(Boolean))),
-  ];
-  const hotspotCategoryOptions = [
-    ALL_CATEGORY_OPTION,
-    ...Array.from(new Set(hotspots.map((item) => item.category).filter(Boolean))),
-  ];
-
-  const normalizedQuery = normalizeText(searchQuery);
-  const filteredHotspots = hotspots.filter((item) => {
-    const searchableFields = [
-      item.title,
-      item.subtitle,
-      item.address,
-      item.category,
-      item.author,
-    ].filter(Boolean);
-    const matchesQuery =
-      normalizedQuery.length === 0 ||
-      searchableFields.some((field) => normalizeText(field).includes(normalizedQuery));
-    const matchesStatus =
-      selectedStatus === ALL_STATUS_OPTION || item.status === selectedStatus;
-    const matchesCategory =
-      selectedCategory === ALL_CATEGORY_OPTION ||
-      item.category === selectedCategory;
-
-    return matchesQuery && matchesStatus && matchesCategory;
-  });
-  const activeFilterCount =
-    Number(selectedStatus !== ALL_STATUS_OPTION) +
-    Number(selectedCategory !== ALL_CATEGORY_OPTION);
-
+  const [deletingHotspotId, setDeletingHotspotId] = useState<number | null>(
+    null,
+  );
+  const activeFilterCount = countActiveAdvancedFilters(appliedFilters);
+  const quickSearchFieldOption = getSearchFieldOption(quickSearch.field);
+  const quickSearchWarning = quickSearchFieldOption.warning;
+  const appliedFilterSummary = buildAppliedFilterSummary(
+    quickSearch,
+    appliedFilters,
+  );
+  const activeSearchFilters = buildHotspotSearchFilters(
+    debouncedQuickSearch,
+    appliedFilters,
+  );
+  const filteredHotspots = sortHotspotItems(
+    hotspots.filter((hotspot) =>
+      activeSearchFilters.every((filter) => matchesHotspotFilter(hotspot, filter)),
+    ),
+    appliedFilters,
+  );
   const totalPages = Math.max(
     1,
     Math.ceil(filteredHotspots.length / HOTSPOTS_PER_PAGE),
@@ -365,9 +1146,43 @@ export default function Page() {
   );
 
   useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedQuickSearch({
+        ...quickSearch,
+        value: quickSearch.value.trim(),
+      });
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [quickSearch]);
+
+  useEffect(() => {
+    if (!isFilterOpen) {
+      return;
+    }
+
+    if (!canAutoApplyAdvancedFilters(draftFilters, appliedFilters)) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setAppliedFilters(cloneAdvancedFilters(draftFilters));
+      setCurrentPage(1);
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [appliedFilters, draftFilters, isFilterOpen]);
+
+  useEffect(() => {
     let isCancelled = false;
 
     async function loadHotspots() {
+      setIsLoading(true);
+
       try {
         const response = await hotspotApi.getHotspots();
 
@@ -376,13 +1191,13 @@ export default function Page() {
         }
 
         const apiHotspots = Array.isArray(response) ? response : [];
-        const creatorDisplayNames = await loadCreatorDisplayNames(apiHotspots);
+        const creatorProfiles = await loadCreatorProfiles(apiHotspots);
 
         if (isCancelled) {
           return;
         }
 
-        setHotspots(buildHotspotCards(apiHotspots, creatorDisplayNames));
+        setHotspots(buildHotspotCards(apiHotspots, creatorProfiles));
         setLoadError(null);
       } catch (error) {
         console.error("Failed to load curator hotspots", error);
@@ -391,9 +1206,11 @@ export default function Page() {
           return;
         }
 
-        setHotspots(hotspotItems.filter(isCuratorVisibleFallbackHotspot));
+        setHotspots([]);
         setLoadError(
-          "Không tải được danh sách hotspot từ API. Đang hiển thị dữ liệu hiện có.",
+          error instanceof Error
+            ? error.message
+            : "Không tải được danh sách hotspot từ API GET.",
         );
       } finally {
         if (!isCancelled) {
@@ -438,25 +1255,99 @@ export default function Page() {
     };
   }, []);
 
-  function handleSearchQueryChange(value: string) {
-    setSearchQuery(value);
+  function handleQuickSearchValueChange(value: string) {
+    setQuickSearch((currentSearch) => ({
+      ...currentSearch,
+      value,
+    }));
     setCurrentPage(1);
   }
 
-  function handleStatusChange(option: string) {
-    setSelectedStatus(option);
-    setCurrentPage(1);
+  function updateDraftFilter<Key extends keyof AdvancedFilterState>(
+    key: Key,
+    value: AdvancedFilterState[Key],
+  ) {
+    setDraftFilters((currentFilters) => ({
+      ...currentFilters,
+      [key]: value,
+    }));
   }
 
-  function handleCategoryChange(option: string) {
-    setSelectedCategory(option);
+  function handleAddFilterRow(field: SearchField = "status") {
+    setDraftFilters((currentFilters) => ({
+      ...currentFilters,
+      rows: [...currentFilters.rows, createFilterConditionState(field)],
+    }));
+  }
+
+  function updateDraftRow(
+    rowId: string,
+    updater: (row: FilterConditionState) => FilterConditionState,
+  ) {
+    setDraftFilters((currentFilters) => ({
+      ...currentFilters,
+      rows: currentFilters.rows.map((row) =>
+        row.id === rowId ? updater(row) : row,
+      ),
+    }));
+  }
+
+  function handleDraftRowFieldChange(rowId: string, field: SearchField) {
+    const fieldOption = getSearchFieldOption(field);
+
+    updateDraftRow(rowId, (row) => ({
+      ...row,
+      field,
+      operator: fieldOption.defaultOperator,
+      value: "",
+    }));
+  }
+
+  function handleDraftRowOperatorChange(
+    rowId: string,
+    operator: HotspotSearchOperator,
+  ) {
+    updateDraftRow(rowId, (row) => ({
+      ...row,
+      operator,
+      value: "",
+    }));
+  }
+
+  function handleDraftRowValueChange(rowId: string, value: string) {
+    updateDraftRow(rowId, (row) => ({
+      ...row,
+      value,
+    }));
+  }
+
+  function handleRemoveDraftRow(rowId: string) {
+    setDraftFilters((currentFilters) => ({
+      ...currentFilters,
+      rows: currentFilters.rows.filter((row) => row.id !== rowId),
+    }));
+  }
+
+  function handleApplyFilters() {
+    setAppliedFilters(cloneAdvancedFilters(draftFilters));
     setCurrentPage(1);
+    setIsFilterOpen(false);
   }
 
   function handleResetFilters() {
-    setSelectedStatus(ALL_STATUS_OPTION);
-    setSelectedCategory(ALL_CATEGORY_OPTION);
+    const nextFilters = createDefaultAdvancedFilters();
+
+    setDraftFilters(nextFilters);
+    setAppliedFilters(createDefaultAdvancedFilters());
     setCurrentPage(1);
+  }
+
+  function handleToggleFilterPanel() {
+    if (!isFilterOpen) {
+      setDraftFilters(cloneAdvancedFilters(appliedFilters));
+    }
+
+    setIsFilterOpen((open) => !open);
   }
 
   async function handleDeleteHotspot(item: HotspotViewItem) {
@@ -471,7 +1362,9 @@ export default function Page() {
       const message = await hotspotApi.deleteHotspot(item.hotspotId);
 
       setHotspots((currentHotspots) =>
-        currentHotspots.filter((hotspot) => hotspot.hotspotId !== item.hotspotId),
+        currentHotspots.filter(
+          (hotspot) => hotspot.hotspotId !== item.hotspotId,
+        ),
       );
       setOpenMenuKey(null);
       toast.success(message);
@@ -482,6 +1375,63 @@ export default function Page() {
     } finally {
       setDeletingHotspotId(null);
     }
+  }
+
+  function renderFilterValueControl(
+    filterState: Pick<FilterConditionState, "field" | "value">,
+    onChange: (value: string) => void,
+    className: string,
+  ) {
+    const fieldOption = getSearchFieldOption(filterState.field);
+
+    if (fieldOption.kind === "status") {
+      return (
+        <select
+          value={filterState.value}
+          onChange={(event) => onChange(event.target.value)}
+          className={className}
+        >
+          <option value="">Chọn trạng thái</option>
+          {hotspotStatusValueOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    if (fieldOption.kind === "datetime") {
+      return (
+        <Input
+          type="datetime-local"
+          value={filterState.value}
+          onChange={(event) => onChange(event.target.value)}
+          className={className}
+        />
+      );
+    }
+
+    if (fieldOption.kind === "number" || fieldOption.kind === "numberList") {
+      return (
+        <Input
+          type={fieldOption.kind === "number" ? "number" : "text"}
+          value={filterState.value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={fieldOption.placeholder}
+          className={className}
+        />
+      );
+    }
+
+    return (
+      <Input
+        value={filterState.value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={fieldOption.placeholder}
+        className={className}
+      />
+    );
   }
 
   return (
@@ -510,25 +1460,20 @@ export default function Page() {
           </Button>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <div className="relative">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              value={searchQuery}
-              onChange={(event) => handleSearchQueryChange(event.target.value)}
-              placeholder="Tìm theo tên hotspot hoặc địa chỉ..."
-              className="h-11 rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400/70 focus:border-primary focus:ring-2 focus:ring-primary/20"
-            />
+            {renderFilterValueControl(
+              quickSearch,
+              handleQuickSearchValueChange,
+              "h-11 rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400/70 focus:border-primary focus:ring-2 focus:ring-primary/20",
+            )}
           </div>
 
-          <div
-            ref={filterMenuRef}
-            data-hotspot-filter
-            className="relative sm:justify-self-end"
-          >
+          <div data-hotspot-filter className="relative sm:justify-self-end">
             <button
               type="button"
-              onClick={() => setIsFilterOpen((open) => !open)}
+              onClick={handleToggleFilterPanel}
               aria-expanded={isFilterOpen}
               aria-haspopup="dialog"
               className={`group relative inline-flex h-11 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 ${
@@ -554,57 +1499,170 @@ export default function Page() {
             </button>
 
             {isFilterOpen ? (
-              <div className="absolute right-0 top-[calc(100%+0.75rem)] z-20 w-[min(24rem,calc(100vw-2rem))] rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-[0_20px_45px_rgba(15,23,42,0.12)]">
-                <div className="space-y-4">
-                  <div>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      Danh mục
+              <div className="absolute right-0 top-[calc(100%+0.75rem)] z-20 w-[min(40rem,calc(100vw-2rem))] rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-[0_20px_45px_rgba(15,23,42,0.12)]">
+                <div className="max-h-[75vh] space-y-3.5 overflow-y-auto pr-1">
+                  <div className="rounded-[1.1rem] border border-slate-200/80 bg-white p-3.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                        Điều kiện bổ sung
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handleAddFilterRow()}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:border-primary/20 hover:text-primary"
+                      >
+                        <Plus className="h-3 w-3" />
+                        Thêm điều kiện
+                      </button>
+                    </div>
+
+                    {draftFilters.rows.length === 0 ? (
+                      <p className="mt-2.5 text-xs text-slate-500">
+                        Chưa có điều kiện bổ sung. Dùng các nút thêm nhanh ở
+                        trên để tạo filter mới.
+                      </p>
+                    ) : (
+                      <div className="mt-2.5 space-y-2.5">
+                        {draftFilters.rows.map((row) => {
+                          const rowFieldOption = getSearchFieldOption(
+                            row.field,
+                          );
+                          const usesAutoSyncField = isAutoSyncAdvancedFilterField(
+                            row.field,
+                          );
+
+                          return (
+                            <div
+                              key={row.id}
+                              className="rounded-[1rem] border border-slate-200 bg-slate-50/70 p-2.5"
+                            >
+                              <div
+                                className={`grid gap-1.5 ${
+                                  usesAutoSyncField
+                                    ? "xl:grid-cols-[10.5rem_minmax(0,1fr)_auto]"
+                                    : "xl:grid-cols-[10.5rem_10.5rem_minmax(0,1fr)_auto]"
+                                }`}
+                              >
+                                <select
+                                  value={row.field}
+                                  onChange={(event) =>
+                                    handleDraftRowFieldChange(
+                                      row.id,
+                                      event.target.value as SearchField,
+                                    )
+                                  }
+                                  className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                >
+                                  {searchFieldOptions.map((option) => (
+                                    <option
+                                      key={option.value}
+                                      value={option.value}
+                                    >
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+
+                                {usesAutoSyncField ? null : (
+                                  <select
+                                    value={row.operator}
+                                    onChange={(event) =>
+                                      handleDraftRowOperatorChange(
+                                        row.id,
+                                        event.target
+                                          .value as HotspotSearchOperator,
+                                      )
+                                    }
+                                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                  >
+                                    {rowFieldOption.operators.map((operator) => (
+                                      <option key={operator} value={operator}>
+                                        {operatorLabelMap[operator]}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
+
+                                {renderFilterValueControl(
+                                  row,
+                                  (value) =>
+                                    handleDraftRowValueChange(row.id, value),
+                                  "h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 outline-none transition placeholder:text-slate-400/70 focus:border-primary focus:ring-2 focus:ring-primary/20",
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveDraftRow(row.id)}
+                                  className="rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-500 transition hover:border-rose-200 hover:text-rose-600"
+                                >
+                                  Xóa
+                                </button>
+                              </div>
+
+                              <p className="mt-1.5 text-[11px] leading-5 text-slate-500">
+                                {rowFieldOption.description}
+                                {usesAutoSyncField
+                                  ? " Hệ thống sẽ tự lọc khi bạn nhập hoặc chọn giá trị."
+                                  : ""}
+                              </p>
+                              {rowFieldOption.warning ? (
+                                <p className="mt-1.5 text-[11px] font-medium text-amber-700">
+                                  {rowFieldOption.warning}
+                                </p>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-[1.1rem] border border-slate-200/80 bg-white p-3.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                      Sắp xếp kết quả
                     </p>
-                    <div className="flex flex-wrap gap-2">
-                      {hotspotCategoryOptions.map((option) => (
-                        <button
-                          key={option}
-                          type="button"
-                          onClick={() => handleCategoryChange(option)}
-                          className={`rounded-full border px-3 py-1.5 text-sm transition ${
-                            selectedCategory === option
-                              ? "border-primary/20 bg-primary/10 font-medium text-primary shadow-sm"
-                              : "border-slate-200 bg-white text-slate-600 hover:border-primary/20 hover:text-primary"
-                          }`}
-                        >
-                          {option}
-                        </button>
-                      ))}
+                    <div className="mt-2.5 grid gap-1.5 sm:grid-cols-2">
+                      <select
+                        value={draftFilters.sortBy}
+                        onChange={(event) =>
+                          updateDraftFilter(
+                            "sortBy",
+                            event.target.value as SortField,
+                          )
+                        }
+                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      >
+                        {sortFieldOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={draftFilters.sortDirection}
+                        onChange={(event) =>
+                          updateDraftFilter(
+                            "sortDirection",
+                            event.target.value as SortDirection,
+                          )
+                        }
+                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      >
+                        {sortDirectionOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
-                  <div>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      Trạng thái
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {hotspotStatusOptions.map((option) => (
-                        <button
-                          key={option}
-                          type="button"
-                          onClick={() => handleStatusChange(option)}
-                          className={`rounded-full border px-3 py-1.5 text-sm transition ${
-                            selectedStatus === option
-                              ? "border-primary/20 bg-primary/10 font-medium text-primary shadow-sm"
-                              : "border-slate-200 bg-white text-slate-600 hover:border-primary/20 hover:text-primary"
-                          }`}
-                        >
-                          {option}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-2.5">
                     <button
                       type="button"
                       onClick={handleResetFilters}
-                      className="text-sm font-medium text-slate-500 transition hover:text-slate-900"
+                      className="text-xs font-medium text-slate-500 transition hover:text-slate-900"
                     >
                       Đặt lại
                     </button>
@@ -612,10 +1670,10 @@ export default function Page() {
                       type="button"
                       variant="secondary"
                       size="sm"
-                      className="rounded-full px-4 text-white"
-                      onClick={() => setIsFilterOpen(false)}
+                      className="h-8 rounded-full px-3 text-[11px] text-white"
+                      onClick={handleApplyFilters}
                     >
-                      Xong
+                      Áp dụng bộ lọc
                     </Button>
                   </div>
                 </div>
@@ -624,9 +1682,34 @@ export default function Page() {
           </div>
         </div>
 
+        {appliedFilterSummary.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {appliedFilterSummary.map((item) => (
+              <span
+                key={item}
+                className="inline-flex rounded-full border border-[#F7DCE8] bg-[#FFF7FA] px-3 py-1 text-xs font-medium text-slate-700"
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500">
+            Nhập tên hotspot ở thanh tìm kiếm phía trên. Hệ thống sẽ tự lọc theo
+            kiểu chứa nội dung bạn nhập. Nếu cần thêm điều kiện khác, mở `Bộ lọc
+            nâng cao`.
+          </p>
+        )}
+
+        {quickSearchWarning ? (
+          <p className="text-xs font-medium text-amber-700">
+            {quickSearchWarning}
+          </p>
+        ) : null}
+
         {isLoading ? (
           <div className="rounded-[1.5rem] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
-            Đang tải danh sách hotspot từ API...
+            Đang tải danh sách hotspot...
           </div>
         ) : null}
 
@@ -790,7 +1873,9 @@ export default function Page() {
                                     key={action.label}
                                     type="button"
                                     role="menuitem"
-                                    onClick={() => void handleDeleteHotspot(item)}
+                                    onClick={() =>
+                                      void handleDeleteHotspot(item)
+                                    }
                                     disabled={isDeleting}
                                     className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-slate-100 px-3 py-2.5 pt-3 text-left text-sm font-medium text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                                   >
@@ -800,7 +1885,9 @@ export default function Page() {
                                       <ActionIcon className="h-4 w-4" />
                                     )}
                                     <span>
-                                      {isDeleting ? "Đang xóa..." : action.label}
+                                      {isDeleting
+                                        ? "Đang xóa..."
+                                        : action.label}
                                     </span>
                                   </button>
                                 ) : (
@@ -849,7 +1936,9 @@ export default function Page() {
           </div>
         ) : (
           <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-[#faf9f6] px-6 py-10 text-center text-sm text-slate-500">
-            Không tìm thấy hotspot phù hợp với bộ lọc hiện tại.
+            {quickSearch.value.trim() || appliedFilterSummary.length > 0
+              ? "Không có hotspot phù hợp với từ khóa hoặc bộ lọc hiện tại."
+              : "Chưa có hotspot để hiển thị."}
           </div>
         )}
 
