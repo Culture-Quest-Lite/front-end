@@ -1,4 +1,9 @@
-export { authApi, parseJwt, extractUserFromToken, type LoginResponse } from "./authApi";
+export {
+  authApi,
+  parseJwt,
+  extractUserFromToken,
+  type LoginResponse,
+} from "./authApi";
 export { tagApi } from "./tagApi";
 export { hotspotApi } from "./hotspotApi";
 export type {
@@ -11,6 +16,13 @@ export type {
   HotspotSearchRequest,
   HotspotSearchResponse,
 } from "./hotspotApi";
+export { storyApi } from "./storyApi";
+export type {
+  BackendStory,
+  BackendStoryTag,
+  BackendStoryMedia,
+  StoryPageResponse,
+} from "./storyApi";
 export { goongApi } from "./goongApi";
 export type {
   GoongAutocompleteResult,
