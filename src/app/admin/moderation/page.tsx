@@ -73,54 +73,25 @@ export default function ModerationPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [detailPost, setDetailPost] = useState<PostDetail | null>(null);
 
-  const requestPosts = useCallback(async () => {
-    const response = await adminApi.getPosts({
-      status: statusFilter === "ALL" ? undefined : statusFilter,
-      page: 0,
-      size: 20,
-    });
-    return response.content;
-  }, [statusFilter]);
-
   const loadPosts = useCallback(async () => {
     setLoadingPosts(true);
     try {
-      const nextPosts = await requestPosts();
-      setPosts(nextPosts);
+      const response = await adminApi.getPosts({
+        status: statusFilter === "ALL" ? undefined : statusFilter,
+        page: 0,
+        size: 20,
+      });
+      setPosts(response.content);
     } catch {
       setPosts([]);
     } finally {
       setLoadingPosts(false);
     }
-  }, [requestPosts]);
+  }, [statusFilter]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function syncPosts() {
-      try {
-        const nextPosts = await requestPosts();
-        if (cancelled) return;
-        setPosts(nextPosts);
-      } catch {
-        if (cancelled) return;
-        setPosts([]);
-      } finally {
-        if (!cancelled) setLoadingPosts(false);
-      }
-    }
-
-    void syncPosts();
-    return () => {
-      cancelled = true;
-    };
-  }, [requestPosts]);
-
-  function handleStatusFilterChange(nextStatus: PostStatusFilter) {
-    if (nextStatus === statusFilter) return;
-    setLoadingPosts(true);
-    setStatusFilter(nextStatus);
-  }
+    void loadPosts();
+  }, [loadPosts]);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -213,7 +184,7 @@ export default function ModerationPage() {
             <button
               key={item.value}
               type="button"
-              onClick={() => handleStatusFilterChange(item.value)}
+              onClick={() => setStatusFilter(item.value)}
               className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
                 statusFilter === item.value
                   ? "bg-blue-600 text-white"
@@ -229,10 +200,10 @@ export default function ModerationPage() {
         </Button>
       </div>
 
-      <div className="card-elev rounded-2xl overflow-hidden">
-        <ul className="divide-y divide-border">
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <ul className="space-y-3">
           {loadingPosts ? (
-            <li className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
+            <li className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-8 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
             </li>
           ) : (
@@ -319,7 +290,8 @@ function PostRow({
   const isDemo = post.postId < 0;
 
   return (
-    <li className="p-4 flex flex-col md:flex-row md:items-center gap-3">
+    <li className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center">
       <button
         type="button"
         onClick={onView}
@@ -395,6 +367,7 @@ function PostRow({
           </Button>
         ) : null}
       </div>
+      </div>
     </li>
   );
 }
@@ -451,7 +424,6 @@ function PostDetailModal({
         </div>
 
         {post.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img src={post.imageUrl} alt="Ảnh bài đăng" className="max-h-72 w-full object-cover" />
         ) : null}
 
