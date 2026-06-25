@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-/**
- * Generic proxy cho /api/partner/* — cùng pattern với
- * src/app/api/admin/[...path]/route.ts và src/app/api/tags/route.ts.
- *
- * Tránh lỗi CORS khi gọi trực tiếp sang backend, và tự động đính kèm
- * "Authorization: Bearer <token>" từ cookie "culture-quest-access-token".
- */
-
 const BACKEND_API_BASE_URL =
   process.env.API_BASE_URL ??
   process.env.NEXT_PUBLIC_API_BASE_URL ??
@@ -20,21 +12,21 @@ type PartnerMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 async function forwardPartnerRequest(request: NextRequest, method: PartnerMethod) {
   const backendUrl = buildBackendUrl(request);
   const headers = buildBackendHeaders(request);
-  const requestBody =
-    method === "POST" || method === "PUT" || method === "PATCH"
-      ? await request.text()
-      : undefined;
+
+  const hasBody = method === "POST" || method === "PUT" || method === "PATCH";
+  const requestBody = hasBody ? await request.arrayBuffer() : undefined;
 
   const response = await fetch(backendUrl, {
     method,
     headers,
     cache: "no-store",
-    body: requestBody && requestBody.length > 0 ? requestBody : undefined,
+    body: requestBody && requestBody.byteLength > 0 ? requestBody : undefined,
   });
 
-  const responseText = await response.text();
+  const responseBody = await response.arrayBuffer();
+
   const nextResponse = new NextResponse(
-    responseText.length > 0 ? responseText : null,
+    responseBody.byteLength > 0 ? responseBody : null,
     { status: response.status },
   );
 
@@ -42,6 +34,7 @@ async function forwardPartnerRequest(request: NextRequest, method: PartnerMethod
   if (contentType) {
     nextResponse.headers.set("content-type", contentType);
   }
+
   nextResponse.headers.set("cache-control", "no-store");
 
   return nextResponse;
@@ -59,10 +52,12 @@ function buildBackendUrl(request: NextRequest) {
 
 function buildBackendHeaders(request: NextRequest) {
   const headers = new Headers();
+
   const authorization = request.headers.get("authorization");
   const contentType = request.headers.get("content-type");
 
-  headers.set("accept", "application/json");
+  headers.set("accept", request.headers.get("accept") ?? "application/json");
+
   if (contentType) {
     headers.set("content-type", contentType);
   }
