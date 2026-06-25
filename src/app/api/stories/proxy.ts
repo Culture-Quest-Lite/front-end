@@ -1,37 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const BACKEND_API_BASE_URL =
-  process.env.HOTSPOT_API_BASE_URL ??
   process.env.API_BASE_URL ??
   process.env.NEXT_PUBLIC_API_BASE_URL ??
   "http://13.158.40.56:8080";
 
 const ACCESS_TOKEN_COOKIE_KEY = "culture-quest-access-token";
 
-type HotspotMethod = "GET" | "POST" | "PUT" | "DELETE";
+type StoriesMethod = "GET" | "POST" | "DELETE";
 
-export async function forwardHotspotRequest(
+export async function forwardStoriesRequest(
   request: NextRequest,
-  method: HotspotMethod,
-  hotspotPath: string[] = [],
+  method: StoriesMethod,
+  pathSegments?: string[],
 ) {
   const headers = buildBackendHeaders(request);
-  const requestBody =
-    method === "POST" || method === "PUT" ? await request.arrayBuffer() : undefined;
-  const response = await fetch(buildBackendUrl(request, hotspotPath), {
+  const init: RequestInit = {
     method,
     headers,
     cache: "no-store",
-    body: requestBody,
-  });
+  };
+
+  if (method !== "GET" && method !== "HEAD") {
+    init.body = request.body;
+    // Next.js requires duplex for request streams when forwarding bodies.
+    // See https://nextjs.org/docs/app/api-reference/functions/request#duplex
+    (init as RequestInit & { duplex: "half" }).duplex = "half";
+  }
+
+  const response = await fetch(buildBackendUrl(request, pathSegments), init);
 
   const responseText = await response.text();
   const nextResponse = new NextResponse(
     responseText.length > 0 ? responseText : null,
     { status: response.status },
   );
-  const contentType = response.headers.get("content-type");
 
+  const contentType = response.headers.get("content-type");
   if (contentType) {
     nextResponse.headers.set("content-type", contentType);
   }
@@ -40,13 +45,17 @@ export async function forwardHotspotRequest(
   return nextResponse;
 }
 
-function buildBackendUrl(request: NextRequest, hotspotPath: string[]) {
+function buildBackendUrl(request: NextRequest, pathSegments?: string[]) {
   const normalizedBaseUrl = BACKEND_API_BASE_URL.endsWith("/")
     ? BACKEND_API_BASE_URL.slice(0, -1)
     : BACKEND_API_BASE_URL;
-  const joinedPath = hotspotPath.length > 0 ? `/${hotspotPath.join("/")}` : "";
 
-  return `${normalizedBaseUrl}/api/v1/hotspots${joinedPath}${request.nextUrl.search}`;
+  const path =
+    pathSegments && pathSegments.length > 0
+      ? `/${pathSegments.map((segment) => encodeURIComponent(segment)).join("/")}`
+      : "";
+
+  return `${normalizedBaseUrl}/api/v1/stories${path}${request.nextUrl.search}`;
 }
 
 function buildBackendHeaders(request: NextRequest) {

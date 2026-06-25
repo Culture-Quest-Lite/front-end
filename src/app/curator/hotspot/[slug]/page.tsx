@@ -217,7 +217,7 @@ export async function renderHotspotDetailPage({
 
           <div className="flex flex-col gap-3 xl:items-end">
             {hotspot.badge || googleMapsUrl ? (
-              <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+              <div className="flex items-center gap-2 xl:justify-end">
                 {hotspot.badge ? (
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm ${hotspot.statusStyle}`}
@@ -342,6 +342,11 @@ export async function renderHotspotDetailPage({
             key={`${effectiveHotspotId ?? hotspot.slug}-${hotspot.videoUrl ?? "no-video"}-${hotspot.image}`}
             title={hotspot.title}
             imageUrl={hotspot.image}
+            imageUrls={
+              backendHotspot
+                ? resolveHotspotImageUrls(backendHotspot.medias)
+                : [hotspot.image]
+            }
             videoUrl={hotspot.videoUrl}
           />
         </SectionCard>
@@ -507,6 +512,47 @@ async function getCreatorDisplayName(userId: number) {
   return user.displayName?.trim() || "";
 }
 
+function resolveHotspotMedia(medias?: BackendHotspot["medias"]) {
+  const image =
+    medias
+      ?.filter((m) => Boolean(m.fileUrl?.trim()))
+      .find((m) => {
+        const mediaType = m.mediaType?.trim().toUpperCase();
+        const mimeType = m.mimeType?.trim().toLowerCase();
+
+        return mediaType === "IMAGE" || mimeType?.startsWith("image/");
+      }) ?? null;
+
+  const video =
+    medias
+      ?.filter((m) => Boolean(m.fileUrl?.trim()))
+      .find((m) => {
+        const mediaType = m.mediaType?.trim().toUpperCase();
+        const mimeType = m.mimeType?.trim().toLowerCase();
+
+        return mediaType === "VIDEO" || mimeType?.startsWith("video/");
+      }) ?? null;
+
+  return {
+    imageUrl: image?.fileUrl?.trim() || null,
+    videoUrl: video?.fileUrl?.trim() || null,
+  };
+}
+
+function resolveHotspotImageUrls(medias?: BackendHotspot["medias"]) {
+  return (
+    medias
+      ?.filter((m) => Boolean(m.fileUrl?.trim()))
+      .filter((m) => {
+        const mediaType = m.mediaType?.trim().toUpperCase();
+        const mimeType = m.mimeType?.trim().toLowerCase();
+
+        return mediaType === "IMAGE" || mimeType?.startsWith("image/");
+      })
+      .map((m) => m.fileUrl!.trim()) ?? []
+  );
+}
+
 function buildDetailHotspot(
   fallbackHotspot: HotspotItem | null,
   backendHotspot: BackendHotspot | null,
@@ -561,7 +607,10 @@ function buildDetailHotspot(
       ? (fallbackHotspot?.relatedTopics ?? [])
       : [],
     videoLabel: fallbackHotspot?.videoLabel,
-    videoUrl: fallbackHotspot?.videoUrl,
+    videoUrl:
+      (backendHotspot
+        ? resolveHotspotMedia(backendHotspot.medias).videoUrl
+        : null) || fallbackHotspot?.videoUrl,
     xp:
       typeof backendHotspot?.xp === "number"
         ? `${backendHotspot.xp} XP`
@@ -574,7 +623,12 @@ function buildDetailHotspot(
       typeof backendHotspot?.longitude === "number"
         ? "GPS OK"
         : (!hasBackendSource ? fallbackHotspot?.gps : "") || "",
-    image: fallbackHotspot?.image || buildDefaultHotspotImage(title),
+    image:
+      (backendHotspot
+        ? resolveHotspotMedia(backendHotspot.medias).imageUrl
+        : null) ||
+      fallbackHotspot?.image ||
+      buildDefaultHotspotImage(title),
     tags: buildTagLabels(
       backendHotspot?.tags,
       hasBackendSource ? null : fallbackHotspot,
@@ -824,6 +878,15 @@ function buildBackendMetrics(hotspot: BackendHotspot | null) {
   if (!hotspot) {
     return [];
   }
+  const durationLabel =
+    typeof hotspot.estimatedDurationMin === "number" &&
+    typeof hotspot.estimatedDurationMax === "number"
+      ? `${hotspot.estimatedDurationMin}–${hotspot.estimatedDurationMax} phút`
+      : typeof hotspot.estimatedDurationMin === "number"
+        ? `${hotspot.estimatedDurationMin} phút`
+        : typeof hotspot.estimatedDurationMax === "number"
+          ? `${hotspot.estimatedDurationMax} phút`
+          : "";
 
   return [
     typeof hotspot.xp === "number"
@@ -831,6 +894,9 @@ function buildBackendMetrics(hotspot: BackendHotspot | null) {
       : null,
     typeof hotspot.point === "number"
       ? { value: `${hotspot.point} điểm`, label: "Point thưởng" }
+      : null,
+    durationLabel
+      ? { value: durationLabel, label: "Thời lượng khám phá" }
       : null,
     typeof hotspot.checkInRadius === "number"
       ? { value: `${hotspot.checkInRadius} m`, label: "Bán kính check-in" }

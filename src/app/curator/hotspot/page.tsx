@@ -25,6 +25,8 @@ import {
   type BackendHotspot,
   type HotspotSearchFilter,
   type HotspotSearchOperator,
+  type HotspotSearchRequest,
+  type HotspotSearchResponse,
   userApi,
 } from "@/services/api";
 
@@ -75,12 +77,7 @@ type SearchField =
   | "createdBy.username";
 
 type SearchFieldKind = "text" | "status" | "number" | "numberList" | "datetime";
-type SortField =
-  | "createdAt"
-  | "hotspotName"
-  | "xp"
-  | "point"
-  | "checkInRadius";
+type SortField = "createdAt" | "hotspotName" | "xp" | "point" | "checkInRadius";
 type SortDirection = "ASC" | "DESC";
 
 type SearchFieldOption = {
@@ -519,7 +516,9 @@ function canAutoApplyAdvancedFilters(
   }
 
   const draftRowsById = new Map(draftFilters.rows.map((row) => [row.id, row]));
-  const appliedRowsById = new Map(appliedFilters.rows.map((row) => [row.id, row]));
+  const appliedRowsById = new Map(
+    appliedFilters.rows.map((row) => [row.id, row]),
+  );
   const changedDraftRows = draftFilters.rows.filter((row) => {
     const appliedRow = appliedRowsById.get(row.id);
 
@@ -530,7 +529,9 @@ function canAutoApplyAdvancedFilters(
       appliedRow.value !== row.value
     );
   });
-  const removedRows = appliedFilters.rows.filter((row) => !draftRowsById.has(row.id));
+  const removedRows = appliedFilters.rows.filter(
+    (row) => !draftRowsById.has(row.id),
+  );
 
   if (changedDraftRows.length === 0 && removedRows.length === 0) {
     return false;
@@ -674,6 +675,20 @@ function buildHotspotSearchFilters(
   return builtFilters;
 }
 
+function buildHotspotSearchPayload(
+  quickSearch: QuickSearchState,
+  filters: AdvancedFilterState,
+  currentPage: number,
+): HotspotSearchRequest {
+  return {
+    filters: buildHotspotSearchFilters(quickSearch, filters),
+    page: Math.max(0, currentPage - 1),
+    size: HOTSPOTS_PER_PAGE,
+    sortBy: filters.sortBy,
+    sortDirection: filters.sortDirection,
+  };
+}
+
 function formatFilterValue(field: SearchField, value: string) {
   if (field === "status") {
     return (
@@ -759,8 +774,10 @@ function resolveHotspotImageUrl(medias?: BackendHotspot["medias"]) {
         const mediaType = media.mediaType?.trim().toUpperCase();
         const mimeType = media.mimeType?.trim().toLowerCase();
 
-        return Boolean(media.fileUrl?.trim()) &&
-          (mediaType === "IMAGE" || mimeType?.startsWith("image/"));
+        return (
+          Boolean(media.fileUrl?.trim()) &&
+          (mediaType === "IMAGE" || mimeType?.startsWith("image/"))
+        );
       })
       .sort((leftMedia, rightMedia) => {
         return (
@@ -776,14 +793,19 @@ function compareNormalizedText(
   leftValue: string | undefined,
   rightValue: string | undefined,
 ) {
-  return normalizeText(leftValue ?? "").localeCompare(normalizeText(rightValue ?? ""));
+  return normalizeText(leftValue ?? "").localeCompare(
+    normalizeText(rightValue ?? ""),
+  );
 }
 
 function compareNumericValues(
   leftValue: number | null | undefined,
   rightValue: number | null | undefined,
 ) {
-  return (leftValue ?? Number.NEGATIVE_INFINITY) - (rightValue ?? Number.NEGATIVE_INFINITY);
+  return (
+    (leftValue ?? Number.NEGATIVE_INFINITY) -
+    (rightValue ?? Number.NEGATIVE_INFINITY)
+  );
 }
 
 function parseDateTimestamp(value?: string | null) {
@@ -875,7 +897,11 @@ function matchesHotspotFilter(
 ) {
   switch (filter.field) {
     case "hotspotName":
-      return matchesTextOperator(hotspot.title, filter.operator, String(filter.value ?? ""));
+      return matchesTextOperator(
+        hotspot.title,
+        filter.operator,
+        String(filter.value ?? ""),
+      );
     case "status":
       return matchesTextOperator(
         hotspot.rawStatus,
@@ -884,10 +910,18 @@ function matchesHotspotFilter(
       );
     case "tags.tagName":
       return hotspot.rawTagNames.some((tagName) =>
-        matchesTextOperator(tagName, filter.operator, String(filter.value ?? "")),
+        matchesTextOperator(
+          tagName,
+          filter.operator,
+          String(filter.value ?? ""),
+        ),
       );
     case "xp":
-      return matchesNumericOperator(hotspot.rawXp, filter.operator, Number(filter.value));
+      return matchesNumericOperator(
+        hotspot.rawXp,
+        filter.operator,
+        Number(filter.value),
+      );
     case "address":
       return matchesTextOperator(
         hotspot.address,
@@ -946,13 +980,22 @@ function sortHotspotItems(
 
     switch (filters.sortBy) {
       case "hotspotName":
-        comparedValue = compareNormalizedText(leftHotspot.title, rightHotspot.title);
+        comparedValue = compareNormalizedText(
+          leftHotspot.title,
+          rightHotspot.title,
+        );
         break;
       case "xp":
-        comparedValue = compareNumericValues(leftHotspot.rawXp, rightHotspot.rawXp);
+        comparedValue = compareNumericValues(
+          leftHotspot.rawXp,
+          rightHotspot.rawXp,
+        );
         break;
       case "point":
-        comparedValue = compareNumericValues(leftHotspot.rawPoint, rightHotspot.rawPoint);
+        comparedValue = compareNumericValues(
+          leftHotspot.rawPoint,
+          rightHotspot.rawPoint,
+        );
         break;
       case "checkInRadius":
         comparedValue = compareNumericValues(
@@ -992,10 +1035,7 @@ function buildHotspotCards(
       hotspot.tags
         ?.map((tag) => tag.tagName?.trim())
         .filter((tagName): tagName is string => Boolean(tagName)) ?? [];
-    const category =
-      rawTagNames[0] ??
-      fallback?.category ??
-      "";
+    const category = rawTagNames[0] ?? fallback?.category ?? "";
     const statusMeta = buildStatusMeta(hotspot.status, fallback);
     const candidateSlug =
       fallbackSlug ||
@@ -1114,6 +1154,9 @@ export default function Page() {
   const [deletingHotspotId, setDeletingHotspotId] = useState<number | null>(
     null,
   );
+  const [serverPageInfo, setServerPageInfo] = useState<
+    HotspotSearchResponse["page"] | null
+  >(null);
   const activeFilterCount = countActiveAdvancedFilters(appliedFilters);
   const quickSearchFieldOption = getSearchFieldOption(quickSearch.field);
   const quickSearchWarning = quickSearchFieldOption.warning;
@@ -1125,21 +1168,31 @@ export default function Page() {
     debouncedQuickSearch,
     appliedFilters,
   );
-  const filteredHotspots = sortHotspotItems(
+  const isRemoteSearchActive =
+    debouncedQuickSearch.value.trim() !== "" ||
+    countActiveAdvancedFilters(appliedFilters) > 0;
+
+  const localFilteredHotspots = sortHotspotItems(
     hotspots.filter((hotspot) =>
-      activeSearchFilters.every((filter) => matchesHotspotFilter(hotspot, filter)),
+      activeSearchFilters.every((filter) =>
+        matchesHotspotFilter(hotspot, filter),
+      ),
     ),
     appliedFilters,
   );
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredHotspots.length / HOTSPOTS_PER_PAGE),
-  );
+
+  const displayedHotspots = serverPageInfo ? hotspots : localFilteredHotspots;
+  const totalPages = serverPageInfo
+    ? Math.max(1, serverPageInfo.totalPages)
+    : Math.max(1, Math.ceil(displayedHotspots.length / HOTSPOTS_PER_PAGE));
+
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const paginatedHotspots = filteredHotspots.slice(
-    (safeCurrentPage - 1) * HOTSPOTS_PER_PAGE,
-    safeCurrentPage * HOTSPOTS_PER_PAGE,
-  );
+  const paginatedHotspots = serverPageInfo
+    ? hotspots
+    : displayedHotspots.slice(
+        (safeCurrentPage - 1) * HOTSPOTS_PER_PAGE,
+        safeCurrentPage * HOTSPOTS_PER_PAGE,
+      );
   const pageNumbers = Array.from(
     { length: totalPages },
     (_, index) => index + 1,
@@ -1151,6 +1204,7 @@ export default function Page() {
         ...quickSearch,
         value: quickSearch.value.trim(),
       });
+      setCurrentPage(1);
     }, 350);
 
     return () => {
@@ -1184,20 +1238,47 @@ export default function Page() {
       setIsLoading(true);
 
       try {
-        const response = await hotspotApi.getHotspots();
+        if (isRemoteSearchActive) {
+          const payload = buildHotspotSearchPayload(
+            debouncedQuickSearch,
+            appliedFilters,
+            currentPage,
+          );
+          const response = await hotspotApi.searchHotspots(payload);
 
-        if (isCancelled) {
-          return;
+          if (isCancelled) {
+            return;
+          }
+
+          const apiHotspots = Array.isArray(response.content)
+            ? response.content
+            : [];
+          const creatorProfiles = await loadCreatorProfiles(apiHotspots);
+
+          if (isCancelled) {
+            return;
+          }
+
+          setHotspots(buildHotspotCards(apiHotspots, creatorProfiles));
+          setServerPageInfo(response.page ?? null);
+        } else {
+          const response = await hotspotApi.getHotspots();
+
+          if (isCancelled) {
+            return;
+          }
+
+          const apiHotspots = Array.isArray(response) ? response : [];
+          const creatorProfiles = await loadCreatorProfiles(apiHotspots);
+
+          if (isCancelled) {
+            return;
+          }
+
+          setHotspots(buildHotspotCards(apiHotspots, creatorProfiles));
+          setServerPageInfo(null);
         }
 
-        const apiHotspots = Array.isArray(response) ? response : [];
-        const creatorProfiles = await loadCreatorProfiles(apiHotspots);
-
-        if (isCancelled) {
-          return;
-        }
-
-        setHotspots(buildHotspotCards(apiHotspots, creatorProfiles));
         setLoadError(null);
       } catch (error) {
         console.error("Failed to load curator hotspots", error);
@@ -1207,10 +1288,11 @@ export default function Page() {
         }
 
         setHotspots([]);
+        setServerPageInfo(null);
         setLoadError(
           error instanceof Error
             ? error.message
-            : "Không tải được danh sách hotspot từ API GET.",
+            : "Không tải được danh sách hotspot từ API.",
         );
       } finally {
         if (!isCancelled) {
@@ -1224,7 +1306,7 @@ export default function Page() {
     return () => {
       isCancelled = true;
     };
-  }, []);
+  }, [debouncedQuickSearch, appliedFilters, currentPage, isRemoteSearchActive]);
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
@@ -1527,9 +1609,8 @@ export default function Page() {
                           const rowFieldOption = getSearchFieldOption(
                             row.field,
                           );
-                          const usesAutoSyncField = isAutoSyncAdvancedFilterField(
-                            row.field,
-                          );
+                          const usesAutoSyncField =
+                            isAutoSyncAdvancedFilterField(row.field);
 
                           return (
                             <div
@@ -1575,11 +1656,13 @@ export default function Page() {
                                     }
                                     className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                                   >
-                                    {rowFieldOption.operators.map((operator) => (
-                                      <option key={operator} value={operator}>
-                                        {operatorLabelMap[operator]}
-                                      </option>
-                                    ))}
+                                    {rowFieldOption.operators.map(
+                                      (operator) => (
+                                        <option key={operator} value={operator}>
+                                          {operatorLabelMap[operator]}
+                                        </option>
+                                      ),
+                                    )}
                                   </select>
                                 )}
 
@@ -1721,7 +1804,7 @@ export default function Page() {
       </section>
 
       <section className="flex flex-1 flex-col gap-4">
-        {filteredHotspots.length > 0 ? (
+        {displayedHotspots.length > 0 ? (
           <div className="grid gap-4 xl:grid-cols-4 lg:grid-cols-3 sm:grid-cols-2">
             {paginatedHotspots.map((item) => {
               const menuKey = String(item.hotspotId ?? item.slug);
@@ -1942,7 +2025,7 @@ export default function Page() {
           </div>
         )}
 
-        {filteredHotspots.length > 0 ? (
+        {displayedHotspots.length > 0 ? (
           <div className="mt-auto flex justify-end pt-6">
             <div className="inline-flex items-end justify-center gap-1 sm:gap-2">
               <button
