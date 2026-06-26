@@ -10,6 +10,14 @@ export async function GET(
   return forwardStoriesRequest(request, "GET", storiesPath);
 }
 
+export async function PUT(
+  request: NextRequest,
+  context: { params: Promise<{ storiesPath: string[] }> },
+) {
+  const { storiesPath } = await context.params;
+  return forwardStoriesRequest(request, "PUT", storiesPath);
+}
+
 export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ storiesPath: string[] }> },

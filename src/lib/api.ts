@@ -1,4 +1,5 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
 export interface LoginCredentials {
   username: string;
@@ -11,47 +12,56 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
-export type ApiRequestOptions = Omit<RequestInit, 'body'> & {
+export type ApiRequestOptions = Omit<RequestInit, "body"> & {
   body?: BodyInit | object;
   sameOrigin?: boolean;
 };
 
-export async function apiFetch<T>(path: string, options: ApiRequestOptions = {}) {
+export async function apiFetch<T>(
+  path: string,
+  options: ApiRequestOptions = {},
+) {
   const { sameOrigin = false, ...requestOptions } = options;
-  const url = path.startsWith("http") ? path : sameOrigin ? path : `${API_BASE_URL}${path}`;
+  const url = path.startsWith("http")
+    ? path
+    : sameOrigin
+      ? path
+      : `${API_BASE_URL}${path}`;
   const isAuthRequest = path.startsWith("/api/auth/");
   const headers = new Headers(requestOptions.headers);
   const isFormDataBody =
-  typeof FormData !== "undefined" &&
-  requestOptions.body instanceof FormData;
+    typeof FormData !== "undefined" && requestOptions.body instanceof FormData;
 
-if (!isFormDataBody && !headers.has("Content-Type")) {
-  headers.set("Content-Type", "application/json");
-}
-
-const init: RequestInit = {
-  method: requestOptions.method,
-  headers,
-  cache: requestOptions.cache,
-  credentials: requestOptions.credentials,
-  integrity: requestOptions.integrity,
-  keepalive: requestOptions.keepalive,
-  mode: requestOptions.mode,
-  redirect: requestOptions.redirect,
-  referrer: requestOptions.referrer,
-  referrerPolicy: requestOptions.referrerPolicy,
-  signal: requestOptions.signal,
-};
-
-if (requestOptions.body !== undefined) {
-  if (isFormDataBody) {
-    init.body = requestOptions.body as FormData;
-  } else if (typeof requestOptions.body === "string") {
-    init.body = requestOptions.body;
-  } else {
-    init.body = JSON.stringify(requestOptions.body);
+  if (!isFormDataBody && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
   }
-}
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+  const init: RequestInit = {
+    method: requestOptions.method,
+    headers,
+    cache: requestOptions.cache,
+    credentials: requestOptions.credentials,
+    integrity: requestOptions.integrity,
+    keepalive: requestOptions.keepalive,
+    mode: requestOptions.mode,
+    redirect: requestOptions.redirect,
+    referrer: requestOptions.referrer,
+    referrerPolicy: requestOptions.referrerPolicy,
+    signal: requestOptions.signal ?? controller.signal,
+  };
+
+  if (requestOptions.body !== undefined) {
+    if (isFormDataBody) {
+      init.body = requestOptions.body as FormData;
+    } else if (typeof requestOptions.body === "string") {
+      init.body = requestOptions.body;
+    } else {
+      init.body = JSON.stringify(requestOptions.body);
+    }
+  }
 
   if (isAuthRequest) {
     console.debug("[apiFetch] Auth request", {
@@ -62,39 +72,94 @@ if (requestOptions.body !== undefined) {
     });
   }
 
-  const response = await fetch(url, {
-    ...init,
-    credentials: "include",
-  });
-
-  const body = await response.json().catch(() => ({}));
-  const authProxyVersion = response.headers.get("x-auth-proxy-version");
-
-  if (!response.ok) {
-    const message = (body && (body.message || body.error)) ?? response.statusText;
-    console.error("[apiFetch] Request failed", {
-      url,
-      status: response.status,
-      body,
-      authProxyVersion,
-      contentType: response.headers.get("content-type"),
+  try {
+    const response = await fetch(url, {
+      ...init,
+      credentials: "include",
     });
 
-    const error = new Error(typeof message === "string" ? message : "Request failed") as Error & {
-      status?: number;
-      responseBody?: unknown;
-      url?: string;
-    };
-    error.status = response.status;
-    error.responseBody = body;
-    error.url = url;
-    if (authProxyVersion) {
-      (error as Error & { authProxyVersion?: string }).authProxyVersion = authProxyVersion;
+    clearTimeout(timeoutId);
+
+    const contentType = response.headers.get("content-type") ?? "";
+    const responseText = await response.text();
+    const authProxyVersion = response.headers.get("x-auth-proxy-version");
+
+    let body: unknown = null;
+    const trimmedText = responseText.trim();
+    const jsonText = trimmedText.replace(/^\uFEFF/, "");
+    const shouldParseJson =
+      contentType.includes("application/json") ||
+      contentType.includes("+json") ||
+      jsonText.startsWith("{") ||
+      jsonText.startsWith("[");
+
+    if (shouldParseJson) {
+      try {
+        body = jsonText ? JSON.parse(jsonText) : {};
+      } catch (parseError) {
+        console.error("[apiFetch] Failed to parse JSON response", {
+          url,
+          status: response.status,
+          contentType,
+          responseText,
+          parseError,
+        });
+        throw new Error(`Invalid JSON response from ${url}`);
+      }
+    } else {
+      body = responseText;
     }
+
+    if (!response.ok) {
+      const message =
+        (body &&
+          typeof body === "object" &&
+          ((body as any).message || (body as any).error)) ??
+        (typeof body === "string" && body.trim() !== ""
+          ? body
+          : response.statusText);
+      console.error("[apiFetch] Request failed", {
+        url,
+        status: response.status,
+        body,
+        authProxyVersion,
+        contentType,
+      });
+
+      const error = new Error(
+        typeof message === "string" ? message : "Request failed",
+      ) as Error & {
+        status?: number;
+        responseBody?: unknown;
+        url?: string;
+      };
+      error.status = response.status;
+      error.responseBody = body;
+      error.url = url;
+      if (authProxyVersion) {
+        (error as Error & { authProxyVersion?: string }).authProxyVersion =
+          authProxyVersion;
+      }
+      throw error;
+    }
+
+    return body as T;
+  } catch (error) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof Error && error.name === "AbortError") {
+      const timeoutError = new Error(
+        `Request timeout after 15s: ${url}`,
+      ) as Error & {
+        status?: number;
+        url?: string;
+      };
+      timeoutError.url = url;
+      throw timeoutError;
+    }
+
     throw error;
   }
-
-  return body as T;
 }
 
 export interface AuditEntry {
@@ -124,11 +189,14 @@ export async function loginUser(credentials: LoginCredentials) {
 }
 
 export async function fetchUserProfile(token: string) {
-  return apiFetch<{ id: string; email: string; name?: string }>("/auth/profile", {
-    headers: {
-      Authorization: `Bearer ${token}`,
+  return apiFetch<{ id: string; email: string; name?: string }>(
+    "/auth/profile",
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     },
-  });
+  );
 }
 
 export interface KeycloakTokenResponse {
@@ -168,4 +236,3 @@ export async function logoutUser() {
     sameOrigin: true,
   });
 }
-

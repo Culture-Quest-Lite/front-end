@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import {
   ArrowLeft,
   BookOpen,
@@ -107,22 +107,19 @@ function MetricTile({ value, label }: { value: string; label: string }) {
 
 export default async function HotspotDetailPage({
   params,
-  searchParams,
 }: {
-  params: Promise<{ slug: string }>;
-  searchParams?: Promise<{ hotspotId?: string }> | { hotspotId?: string };
+  params: Promise<{ id: string }>;
 }) {
-  const { slug } = await params;
-  const resolvedSearchParams = searchParams
-    ? await Promise.resolve(searchParams)
-    : undefined;
-  const hotspotId = parseHotspotId(resolvedSearchParams?.hotspotId);
+  const { id } = await params;
+  const hotspotId = parseHotspotId(id);
 
-  if (hotspotId) {
-    redirect(`/curator/hotspots/${hotspotId}`);
-  }
+  // If numeric ID, use it; otherwise treat as slug
+  const detailContent = await renderHotspotDetailPage({
+    slug: hotspotId ? null : id,
+    hotspotId: hotspotId,
+  });
 
-  return renderHotspotDetailPage({ slug });
+  return detailContent;
 }
 
 export async function renderHotspotDetailPage({
@@ -185,10 +182,10 @@ export async function renderHotspotDetailPage({
         </Link>
         <div>
           <h1 className="text-lg font-semibold tracking-[-0.03em] text-foreground sm:text-xl">
-            Chi tiết hotspot
+            Chi tiết địa điểm
           </h1>
           <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground sm:text-xs">
-            Thông tin chi tiết hotspot.
+            Thông tin chi tiết địa điểm.
           </p>
         </div>
       </div>
@@ -196,7 +193,7 @@ export async function renderHotspotDetailPage({
       <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
           <div className="max-w-4xl">
-            <p className="cq-kicker">Tổng quan hotspot</p>
+            <p className="cq-kicker">Tổng quan địa điểm</p>
             <h1
               className="cq-page-title mt-3"
               style={{ fontFamily: "'Playfair Display', serif" }}
@@ -471,20 +468,37 @@ async function getHotspotFromBackend(hotspotId: number) {
     headers.set("authorization", `Bearer ${accessToken}`);
   }
 
-  const response = await fetch(
-    `${BACKEND_API_BASE_URL}/api/v1/hotspots/${hotspotId}`,
-    {
-      method: "GET",
-      headers,
-      cache: "no-store",
-    },
-  );
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-  if (!response.ok) {
+    const response = await fetch(
+      `${BACKEND_API_BASE_URL}/api/v1/hotspots/${hotspotId}`,
+      {
+        method: "GET",
+        headers,
+        cache: "force-cache",
+        next: { revalidate: 300 }, // cache 5 min
+        signal: controller.signal,
+      },
+    );
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.warn(`Failed to fetch hotspot ${hotspotId}: ${response.status}`);
+      return null;
+    }
+
+    return (await response.json()) as BackendHotspot;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      console.error(`Hotspot ${hotspotId} fetch timeout`);
+    } else {
+      console.error(`Error fetching hotspot ${hotspotId}:`, error);
+    }
     return null;
   }
-
-  return (await response.json()) as BackendHotspot;
 }
 
 async function getCreatorDisplayName(userId: number) {
@@ -498,18 +512,38 @@ async function getCreatorDisplayName(userId: number) {
     headers.set("authorization", `Bearer ${accessToken}`);
   }
 
-  const response = await fetch(`${BACKEND_API_BASE_URL}/api/users/${userId}`, {
-    method: "GET",
-    headers,
-    cache: "no-store",
-  });
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
 
-  if (!response.ok) {
+    const response = await fetch(
+      `${BACKEND_API_BASE_URL}/api/users/${userId}`,
+      {
+        method: "GET",
+        headers,
+        cache: "force-cache",
+        next: { revalidate: 600 }, // cache 10 min
+        signal: controller.signal,
+      },
+    );
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.warn(`Failed to fetch user ${userId}: ${response.status}`);
+      return "";
+    }
+
+    const user = (await response.json()) as BackendUser;
+    return user.displayName?.trim() || "";
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      console.error(`User ${userId} fetch timeout`);
+    } else {
+      console.error(`Error fetching user ${userId}:`, error);
+    }
     return "";
   }
-
-  const user = (await response.json()) as BackendUser;
-  return user.displayName?.trim() || "";
 }
 
 function resolveHotspotMedia(medias?: BackendHotspot["medias"]) {
@@ -893,7 +927,7 @@ function buildBackendMetrics(hotspot: BackendHotspot | null) {
       ? { value: `${hotspot.xp} XP`, label: "XP thưởng" }
       : null,
     typeof hotspot.point === "number"
-      ? { value: `${hotspot.point} điểm`, label: "Point thưởng" }
+      ? { value: `${hotspot.point} điểm`, label: "Điểm thưởng" }
       : null,
     durationLabel
       ? { value: durationLabel, label: "Thời lượng khám phá" }

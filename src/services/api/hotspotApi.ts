@@ -106,6 +106,7 @@ export const hotspotApi = {
     return apiFetch<BackendHotspot[]>("/api/hotspots", {
       method: "GET",
       sameOrigin: true,
+      cache: "no-store",
     });
   },
 
@@ -113,6 +114,7 @@ export const hotspotApi = {
     return apiFetch<BackendHotspot>(`/api/hotspots/${hotspotId}`, {
       method: "GET",
       sameOrigin: true,
+      cache: "no-store",
     });
   },
 
