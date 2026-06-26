@@ -2,6 +2,7 @@ export interface TagRecord {
   tagId: number;
   tagName: string;
   tagStatus: string;
+  hotspotCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -71,22 +72,20 @@ export function getTagColor(index: number) {
   return tagColorPalette[index % tagColorPalette.length] ?? tagColorPalette[0];
 }
 
-export function getTagDetailHref(tagId: number | string, tagName?: string) {
+export function getTagDetailHref(tagId: number | string) {
   const normalizedId = String(tagId).trim();
-  const normalizedSlug = tagName ? buildTagSlug(tagName) : "";
+  return `/curator/tags/${normalizedId}`;
+}
 
-  if (!normalizedSlug) {
-    return `/curator/tags/${normalizedId}`;
+export function buildTagDetailHref(tagId: number | string) {
+  return getTagDetailHref(tagId);
+}
+
+export function parseTagDetailId(value: string | null | undefined) {
+  if (!value) {
+    return null;
   }
 
-  return `/curator/tags/${normalizedId}/${normalizedSlug}`;
-}
-
-export function buildTagDetailHref(tagId: number | string, tagName?: string) {
-  return getTagDetailHref(tagId, tagName);
-}
-
-export function parseTagDetailId(value: string) {
   const matchedId = value.trim().match(/^\d+/)?.[0];
 
   if (!matchedId) {

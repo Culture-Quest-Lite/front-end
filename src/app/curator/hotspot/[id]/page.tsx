@@ -182,10 +182,10 @@ export async function renderHotspotDetailPage({
         </Link>
         <div>
           <h1 className="text-lg font-semibold tracking-[-0.03em] text-foreground sm:text-xl">
-            Chi tiết hotspot
+            Chi tiết địa điểm
           </h1>
           <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground sm:text-xs">
-            Thông tin chi tiết hotspot.
+            Thông tin chi tiết địa điểm.
           </p>
         </div>
       </div>
@@ -193,7 +193,7 @@ export async function renderHotspotDetailPage({
       <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
           <div className="max-w-4xl">
-            <p className="cq-kicker">Tổng quan hotspot</p>
+            <p className="cq-kicker">Tổng quan địa điểm</p>
             <h1
               className="cq-page-title mt-3"
               style={{ fontFamily: "'Playfair Display', serif" }}
@@ -927,7 +927,7 @@ function buildBackendMetrics(hotspot: BackendHotspot | null) {
       ? { value: `${hotspot.xp} XP`, label: "XP thưởng" }
       : null,
     typeof hotspot.point === "number"
-      ? { value: `${hotspot.point} điểm`, label: "Point thưởng" }
+      ? { value: `${hotspot.point} điểm`, label: "Điểm thưởng" }
       : null,
     durationLabel
       ? { value: durationLabel, label: "Thời lượng khám phá" }

@@ -482,11 +482,11 @@ function HotspotCreatePageContent() {
           </Link>
           <div>
             <h1 className="text-lg font-semibold tracking-[-0.03em] text-foreground sm:text-xl">
-              {isEditMode ? "Chỉnh sửa Hotspot" : "Tạo Hotspot mới"}
+              {isEditMode ? "Chỉnh sửa địa điểm" : "Tạo địa điểm mới"}
             </h1>
             <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground sm:text-xs">
               {isEditMode
-                ? "Cập nhật thông tin chi tiết của hotspot."
+                ? "Cập nhật thông tin chi tiết của địa điểm."
                 : "Nhập thông tin chi tiết và phương tiện."}
             </p>
           </div>
@@ -534,7 +534,7 @@ function HotspotCreatePageContent() {
                 ? "Đang cập nhật..."
                 : "Đang gửi..."
               : isEditMode
-                ? "Cập nhật hotspot"
+                ? "Cập nhật địa điểm"
                 : "Gửi duyệt"}
           </Button>
         </div>
@@ -542,7 +542,7 @@ function HotspotCreatePageContent() {
 
       {isLoadingHotspot ? (
         <div className="rounded-3xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-700">
-          Đang tải dữ liệu hotspot để chỉnh sửa...
+          Đang tải dữ liệu địa điểm để chỉnh sửa...
         </div>
       ) : null}
 
@@ -590,7 +590,7 @@ function HotspotCreatePageContent() {
               <h2 className="cq-section-title">Thông tin cơ bản</h2>
               <div className="mt-5 grid gap-4">
                 <div>
-                  <label className="cq-label mb-2 block">Tên hotspot</label>
+                  <label className="cq-label mb-2 block">Tên địa điểm</label>
                   <Input
                     value={formState.hotspotName}
                     onChange={(event) =>
@@ -701,12 +701,12 @@ function HotspotCreatePageContent() {
                   <p className="mt-2 text-xs text-slate-500">
                     Bạn vẫn có thể chọn thủ công từ danh sách gợi ý Goong bên
                     dưới ô địa chỉ. Nếu Goong không ra đúng kết quả, bạn vẫn có
-                    thể nhập tay latitude và longitude bên dưới.
+                    thể nhập tay kinh độ và vĩ độ bên dưới.
                   </p>
                   {formState.latitude && formState.longitude ? (
                     <p className="mt-2 inline-flex items-center gap-2 text-xs font-medium text-emerald-700">
                       <MapPin className="h-3.5 w-3.5" />
-                      Đã đồng bộ latitude/longitude.
+                      Đã đồng bộ kinh độ và vĩ độ.
                     </p>
                   ) : null}
                   {addressSearchError && !showAddressSuggestions ? (
@@ -755,7 +755,7 @@ function HotspotCreatePageContent() {
                     />
                   </div>
                   <div>
-                    <label className="cq-label mb-2 block">Point thưởng</label>
+                    <label className="cq-label mb-2 block">Điểm thưởng</label>
                     <Input
                       type="number"
                       min="0"
@@ -764,7 +764,7 @@ function HotspotCreatePageContent() {
                       onChange={(event) =>
                         updateField("point", event.target.value)
                       }
-                      placeholder="Hãy nhập point thưởng"
+                      placeholder="Hãy nhập điểm thưởng"
                       className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -853,7 +853,7 @@ function HotspotCreatePageContent() {
               <div className="mt-5 grid gap-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="cq-label mb-2 block">Latitude</label>
+                    <label className="cq-label mb-2 block">Kinh độ</label>
                     <Input
                       type="number"
                       step="any"
@@ -866,7 +866,7 @@ function HotspotCreatePageContent() {
                     />
                   </div>
                   <div>
-                    <label className="cq-label mb-2 block">Longitude</label>
+                    <label className="cq-label mb-2 block">Vĩ độ</label>
                     <Input
                       type="number"
                       step="any"
@@ -1459,11 +1459,11 @@ function isSameCoordinate(
 
 function validateCoordinateRange(latitude: number, longitude: number) {
   if (latitude < -90 || latitude > 90) {
-    throw new Error("Latitude phải nằm trong khoảng từ -90 đến 90.");
+    throw new Error("Kinh độ phải nằm trong khoảng từ -90 đến 90.");
   }
 
   if (longitude < -180 || longitude > 180) {
-    throw new Error("Longitude phải nằm trong khoảng từ -180 đến 180.");
+    throw new Error("Vĩ độ phải nằm trong khoảng từ -180 đến 180.");
   }
 }
 
