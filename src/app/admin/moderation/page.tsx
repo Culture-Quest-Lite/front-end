@@ -17,11 +17,7 @@ import {
 
 type PostStatusFilter = "ALL" | "PENDING" | "APPROVED" | "REJECTED";
 
-/**
- * ⚠ GIẢ ĐỊNH: 3 trạng thái PENDING/APPROVED/REJECTED dựa theo quy trình
- * duyệt nội dung thông thường của app — cần đối chiếu lại đúng enum thật
- * trong PostItem.status.
- */
+
 const postStatusLabels: Record<string, string> = {
   PENDING: "Chờ duyệt",
   APPROVED: "Đã duyệt",
@@ -34,23 +30,11 @@ const postStatusClasses: Record<string, string> = {
   REJECTED: "bg-red-100 text-red-700 border-red-200",
 };
 
-/**
- * ⚠ Mở rộng PostItem với field optional CHƯA XÁC NHẬN trong adminApi.ts
- * thật (imageUrl, createdAt). Vì là optional nên PostItem thật (không có 2
- * field này) vẫn gán được vào PostDetail[] bình thường, không lỗi type —
- * chỉ là khi render mình dùng optional chaining để không vỡ nếu thiếu.
- * Nếu backend trả tên field khác (vd "mediaUrl"), đổi lại tên ở đây.
- */
 type PostDetail = PostItem & {
   imageUrl?: string;
   createdAt?: string;
 };
 
-/**
- * Dữ liệu MẪU — chỉ để xem trước giao diện "xem chi tiết bài đăng" ngay cả
- * khi danh sách thật đang trống. postId âm để phân biệt với dữ liệu thật;
- * mọi hành động duyệt/từ chối/xoá đều bị chặn cho mục này (xem isDemo).
- */
 const DEMO_POST: PostDetail = {
   postId: -1,
   content:
@@ -81,7 +65,8 @@ export default function ModerationPage() {
         page: 0,
         size: 20,
       });
-      setPosts(response.content);
+      const visiblePosts = response.content.filter((post) => post.status !== "DELETED");
+      setPosts(visiblePosts);
     } catch {
       setPosts([]);
     } finally {
@@ -235,20 +220,22 @@ export default function ModerationPage() {
 
       {rejectTarget ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
-          <div className="w-full max-w-sm overflow-hidden rounded-3xl bg-white p-6 shadow-2xl">
-            <h2 className="text-lg font-semibold text-slate-900">Từ chối bài đăng</h2>
-            <p className="mt-1 truncate text-sm text-slate-500">{rejectTarget.content}</p>
-            <div className="mt-4">
-              <label className="mb-1.5 block text-xs font-medium text-slate-600">Lý do từ chối</label>
-              <textarea
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                rows={3}
-                placeholder="Không phù hợp với tiêu chuẩn nội dung"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
+          <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="min-h-0 flex-1 overflow-y-auto p-6">
+              <h2 className="text-lg font-semibold text-slate-900">Từ chối bài đăng</h2>
+              <p className="mt-1 line-clamp-3 text-sm text-slate-500">{rejectTarget.content}</p>
+              <div className="mt-4">
+                <label className="mb-1.5 block text-xs font-medium text-slate-600">Lý do từ chối</label>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  rows={5}
+                  placeholder="Không phù hợp với tiêu chuẩn nội dung"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
             </div>
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="shrink-0 flex justify-end gap-3 border-t border-slate-100 p-6">
               <button
                 type="button"
                 onClick={() => setRejectTarget(null)}
@@ -395,10 +382,10 @@ function PostDetailModal({
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white shadow-2xl"
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-6">
+        <div className="shrink-0 flex items-start justify-between gap-3 border-b border-slate-100 p-6">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-semibold text-slate-900">Chi tiết bài đăng</h2>
@@ -423,11 +410,12 @@ function PostDetailModal({
           </button>
         </div>
 
-        {post.imageUrl ? (
-          <img src={post.imageUrl} alt="Ảnh bài đăng" className="max-h-72 w-full object-cover" />
-        ) : null}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {post.imageUrl ? (
+            <img src={post.imageUrl} alt="Ảnh bài đăng" className="max-h-80 w-full object-cover" />
+          ) : null}
 
-        <div className="space-y-4 p-6">
+          <div className="space-y-4 p-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Nội dung</p>
             <p className="mt-1.5 whitespace-pre-wrap text-sm text-slate-700">{post.content}</p>
@@ -457,16 +445,17 @@ function PostDetailModal({
             </div>
           ) : null}
 
-          {isDemo ? (
-            <p className="rounded-xl bg-violet-50 px-3 py-2 text-xs text-violet-700">
-              Đây chỉ là dữ liệu mẫu để xem trước giao diện — không phải bài đăng thật, các hành
-              động duyệt/từ chối/xoá đã bị tắt cho mục này.
-            </p>
-          ) : null}
+            {isDemo ? (
+              <p className="rounded-xl bg-violet-50 px-3 py-2 text-xs text-violet-700">
+                Đây chỉ là dữ liệu mẫu để xem trước giao diện — không phải bài đăng thật, các hành
+                động duyệt/từ chối/xoá đã bị tắt cho mục này.
+              </p>
+            ) : null}
+          </div>
         </div>
 
         {!isDemo ? (
-          <div className="flex flex-wrap gap-2 border-t border-slate-100 p-6 pt-4">
+          <div className="shrink-0 flex flex-wrap gap-2 border-t border-slate-100 p-6 pt-4">
             {post.status === "PENDING" ? (
               <>
                 <Button
