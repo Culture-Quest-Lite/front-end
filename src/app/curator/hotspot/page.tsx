@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
@@ -1096,6 +1096,8 @@ function buildHotspotCards(
   });
 }
 
+const creatorProfileCache = new Map<number, CreatorProfile>();
+
 async function loadCreatorProfiles(apiHotspots: BackendHotspot[]) {
   const creatorIds = Array.from(
     new Set(
@@ -1104,29 +1106,43 @@ async function loadCreatorProfiles(apiHotspots: BackendHotspot[]) {
         .filter((userId): userId is number => typeof userId === "number"),
     ),
   );
-  const creatorEntries = await Promise.allSettled(
-    creatorIds.map(async (userId) => {
-      const user = await userApi.getUserById(userId);
-      return [
-        userId,
-        {
+
+  // Filter out already cached IDs
+  const uncachedIds = creatorIds.filter((id) => !creatorProfileCache.has(id));
+
+  if (uncachedIds.length > 0) {
+    // Limit concurrent requests to 3 at a time
+    const CONCURRENCY_LIMIT = 3;
+    const results = await Promise.allSettled(
+      uncachedIds.map(async (userId) => {
+        const user = await userApi.getUserById(userId);
+        const profile: CreatorProfile = {
           displayName: user?.displayName?.trim() || "",
           username: user?.username?.trim() || "",
-        },
-      ] as const;
-    }),
-  );
-  const creatorProfiles = new Map<number, CreatorProfile>();
+        };
 
-  for (const entry of creatorEntries) {
-    if (entry.status !== "fulfilled") {
-      continue;
+        if (profile.displayName || profile.username) {
+          creatorProfileCache.set(userId, profile);
+        }
+
+        return [userId, profile] as const;
+      }),
+    );
+
+    // Process results (already cached above)
+    for (const entry of results) {
+      if (entry.status !== "fulfilled") {
+        continue;
+      }
     }
+  }
 
-    const [userId, creatorProfile] = entry.value;
-
-    if (creatorProfile.displayName || creatorProfile.username) {
-      creatorProfiles.set(userId, creatorProfile);
+  // Return from cache
+  const creatorProfiles = new Map<number, CreatorProfile>();
+  for (const creatorId of creatorIds) {
+    const cached = creatorProfileCache.get(creatorId);
+    if (cached) {
+      creatorProfiles.set(creatorId, cached);
     }
   }
 
@@ -1157,6 +1173,10 @@ export default function Page() {
   const [serverPageInfo, setServerPageInfo] = useState<
     HotspotSearchResponse["page"] | null
   >(null);
+
+  // Cache to prevent duplicate requests
+  const lastRequestKeyRef = useRef<string>("");
+
   const activeFilterCount = countActiveAdvancedFilters(appliedFilters);
   const quickSearchFieldOption = getSearchFieldOption(quickSearch.field);
   const quickSearchWarning = quickSearchFieldOption.warning;
@@ -1235,6 +1255,28 @@ export default function Page() {
     let isCancelled = false;
 
     async function loadHotspots() {
+      console.debug("[hotspot] loadHotspots start", {
+        debouncedQuickSearch,
+        appliedFilters,
+        currentPage,
+        isRemoteSearchActive,
+      });
+
+      // Create request key to avoid duplicate calls with same params
+      const requestKey = JSON.stringify({
+        search: debouncedQuickSearch,
+        filters: appliedFilters,
+        page: currentPage,
+        remote: isRemoteSearchActive,
+      });
+
+      // Skip if same request is already pending
+      if (lastRequestKeyRef.current === requestKey) {
+        console.debug("[hotspot] skip duplicate request", { requestKey });
+        return;
+      }
+
+      lastRequestKeyRef.current = requestKey;
       setIsLoading(true);
 
       try {
@@ -1253,30 +1295,40 @@ export default function Page() {
           const apiHotspots = Array.isArray(response.content)
             ? response.content
             : [];
-          const creatorProfiles = await loadCreatorProfiles(apiHotspots);
 
-          if (isCancelled) {
-            return;
-          }
-
-          setHotspots(buildHotspotCards(apiHotspots, creatorProfiles));
+          // Render hotspots immediately without waiting for creator profiles
+          setHotspots(buildHotspotCards(apiHotspots, new Map()));
           setServerPageInfo(response.page ?? null);
+
+          // Load creator profiles in background and update cards when ready
+          void loadCreatorProfiles(apiHotspots).then((creatorProfiles) => {
+            if (isCancelled) return;
+            setHotspots(buildHotspotCards(apiHotspots, creatorProfiles));
+          });
         } else {
           const response = await hotspotApi.getHotspots();
+          console.debug("[hotspot] getHotspots response", { response });
 
           if (isCancelled) {
             return;
           }
 
           const apiHotspots = Array.isArray(response) ? response : [];
-          const creatorProfiles = await loadCreatorProfiles(apiHotspots);
 
-          if (isCancelled) {
-            return;
-          }
-
-          setHotspots(buildHotspotCards(apiHotspots, creatorProfiles));
+          // Render hotspots immediately without waiting for creator profiles
+          setHotspots(buildHotspotCards(apiHotspots, new Map()));
           setServerPageInfo(null);
+
+          // Load creator profiles in background and update cards when ready
+          void loadCreatorProfiles(apiHotspots).then((creatorProfiles) => {
+            if (isCancelled) return;
+            console.debug("[hotspot] built hotspots", {
+              count: apiHotspots.length,
+              apiHotspots,
+              creatorProfiles: Array.from(creatorProfiles.entries()),
+            });
+            setHotspots(buildHotspotCards(apiHotspots, creatorProfiles));
+          });
         }
 
         setLoadError(null);
@@ -1810,7 +1862,7 @@ export default function Page() {
               const menuKey = String(item.hotspotId ?? item.slug);
               const isMenuOpen = openMenuKey === menuKey;
               const detailHref = item.hotspotId
-                ? `/curator/hotspots/${item.hotspotId}`
+                ? `/curator/hotspot/${item.hotspotId}`
                 : `/curator/hotspot/${item.slug}`;
               const editHref = item.hotspotId
                 ? `/curator/hotspot/create?id=${item.hotspotId}`

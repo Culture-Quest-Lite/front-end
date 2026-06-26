@@ -7,7 +7,7 @@ const BACKEND_API_BASE_URL =
 
 const ACCESS_TOKEN_COOKIE_KEY = "culture-quest-access-token";
 
-type StoriesMethod = "GET" | "POST" | "DELETE";
+type StoriesMethod = "GET" | "POST" | "PUT" | "DELETE";
 
 export async function forwardStoriesRequest(
   request: NextRequest,
@@ -21,7 +21,7 @@ export async function forwardStoriesRequest(
     cache: "no-store",
   };
 
-  if (method !== "GET" && method !== "HEAD") {
+  if (method !== "GET") {
     init.body = request.body;
     // Next.js requires duplex for request streams when forwarding bodies.
     // See https://nextjs.org/docs/app/api-reference/functions/request#duplex

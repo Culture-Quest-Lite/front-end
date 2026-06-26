@@ -455,7 +455,8 @@ function HotspotCreatePageContent() {
           : "Hotspot đã được tạo thành công.";
 
       toast.success(successMessage);
-      router.push("/curator/hotspot");
+      await router.push("/curator/hotspot");
+      router.refresh();
     } catch (error) {
       setSubmitError(
         error instanceof Error

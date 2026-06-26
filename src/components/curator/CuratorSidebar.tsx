@@ -2,6 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
@@ -65,20 +66,24 @@ const cn = (...classes: Array<string | false | null | undefined>) =>
 
 export function CuratorSidebar() {
   const pathname = usePathname();
+  const [currentPathname, setCurrentPathname] = useState<string>("");
   const { logout } = useAuth();
   //   const { setTokens } = useAppContext();
 
+  useEffect(() => {
+    setCurrentPathname(pathname || "");
+  }, [pathname]);
+
   const isActive = (href: string) => {
-    if (href === "/") return pathname === "/";
-    if (href === "/curator") return pathname === "/curator";
+    if (href === "/") return currentPathname === "/";
+    if (href === "/curator") return currentPathname === "/curator";
     if (href === "/curator/hotspot") {
       return (
-        pathname === href ||
-        pathname.startsWith("/curator/hotspot/") ||
-        pathname.startsWith("/curator/hotspots/")
+        currentPathname === href ||
+        currentPathname.startsWith("/curator/hotspot/")
       );
     }
-    return pathname === href || pathname.startsWith(`${href}/`);
+    return currentPathname === href || currentPathname.startsWith(`${href}/`);
   };
 
   return (

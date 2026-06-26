@@ -17,7 +17,9 @@ export async function forwardHotspotRequest(
 ) {
   const headers = buildBackendHeaders(request);
   const requestBody =
-    method === "POST" || method === "PUT" ? await request.arrayBuffer() : undefined;
+    method === "POST" || method === "PUT"
+      ? await request.arrayBuffer()
+      : undefined;
   const response = await fetch(buildBackendUrl(request, hotspotPath), {
     method,
     headers,
@@ -34,6 +36,11 @@ export async function forwardHotspotRequest(
 
   if (contentType) {
     nextResponse.headers.set("content-type", contentType);
+  } else if (
+    responseText.trim().startsWith("{") ||
+    responseText.trim().startsWith("[")
+  ) {
+    nextResponse.headers.set("content-type", "application/json");
   }
 
   nextResponse.headers.set("cache-control", "no-store");
