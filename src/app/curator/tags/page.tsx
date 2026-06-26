@@ -14,13 +14,10 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { hotspotItems } from "@/data/hotspots";
 import {
   buildTagChipLabel,
   buildTagDetailHref,
   buildTagSlug,
-  buildTagStatsLabel,
-  buildTagToken,
   formatTagDateTime,
   formatTagStatus,
   getTagStatusTone,
@@ -46,21 +43,13 @@ type TagItem = {
   updatedAt: string | null;
 };
 
-function getUsageCountForTag(tagName: string) {
-  const tagToken = buildTagToken(tagName);
-
-  return hotspotItems.filter((hotspot) =>
-    hotspot.tags.some((tag) => buildTagToken(tag) === tagToken),
-  ).length;
-}
-
 function mapTagRecordToTagItem(tag: TagRecord): TagItem {
   return {
     id: String(tag.tagId),
     backendId: tag.tagId,
     slug: buildTagSlug(tag.tagName) || `tag-${tag.tagId}`,
     name: tag.tagName,
-    usageCount: getUsageCountForTag(tag.tagName),
+    usageCount: tag.hotspotCount,
     color: getTagColor(tag.tagId - 1),
     status: tag.tagStatus,
     createdAt: tag.createdAt,
@@ -69,6 +58,46 @@ function mapTagRecordToTagItem(tag: TagRecord): TagItem {
 }
 
 const TAGS_PAGE_SIZE = 10;
+type TagListResponse = Awaited<ReturnType<typeof tagApi.getTags>>;
+
+const pendingTagListRequests = new Map<string, Promise<TagListResponse>>();
+
+function loadTagsOnce({
+  search,
+  page,
+  size,
+  reloadVersion,
+}: {
+  search?: string;
+  page: number;
+  size: number;
+  reloadVersion: number;
+}) {
+  const requestKey = JSON.stringify({
+    search: search ?? "",
+    page,
+    size,
+    reloadVersion,
+  });
+  const existingRequest = pendingTagListRequests.get(requestKey);
+
+  if (existingRequest) {
+    return existingRequest;
+  }
+
+  const request = tagApi
+    .getTags({
+      search,
+      page,
+      size,
+    })
+    .finally(() => {
+      pendingTagListRequests.delete(requestKey);
+    });
+
+  pendingTagListRequests.set(requestKey, request);
+  return request;
+}
 
 export default function CuratorTagsPage() {
   const [tags, setTags] = useState<TagItem[]>([]);
@@ -112,10 +141,11 @@ export default function CuratorTagsPage() {
         setIsLoadingTags(true);
         setLoadError(null);
 
-        const response = await tagApi.getTags({
+        const response = await loadTagsOnce({
           search: effectiveSearchQuery || undefined,
           page: currentPage - 1,
           size: TAGS_PAGE_SIZE,
+          reloadVersion,
         });
         if (cancelled) {
           return;
@@ -349,66 +379,33 @@ export default function CuratorTagsPage() {
           ) : null}
 
           <section className="rounded-[1.75rem] border border-slate-200/80 bg-card p-4 shadow-sm sm:p-5">
-            <div className="grid gap-6 xl:grid-cols-[0.94fr_1.06fr]">
-              <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
-                <h3 className="cq-card-title">Thẻ đang dùng</h3>
+            <div className="rounded-[1.5rem] border border-slate-200 bg-white p-4">
+              <h3 className="cq-card-title">Thống kê sử dụng thẻ</h3>
 
-                <div className="mt-4 flex flex-wrap gap-3">
-                  {isLoadingTags ? (
-                    <p className="cq-page-subtitle">
-                      Đang tải danh sách thẻ...
-                    </p>
-                  ) : null}
+              <div className="mt-4 space-y-4">
+                {isLoadingTags ? (
+                  <p className="cq-page-subtitle">Đang tải thống kê thẻ...</p>
+                ) : null}
 
-                  {tags.map((tag) => {
-                    const colorState = getTagColorState(tag.color);
+                {tags.map((tag) => {
+                  const colorState = getTagColorState(tag.color);
 
-                    return (
+                  return (
+                    <div
+                      key={`${tag.id}-stats`}
+                      className="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)_40px] items-center gap-4"
+                    >
                       <Link
-                        key={tag.id}
-                        href={buildTagDetailHref(
-                          tag.backendId ?? tag.id,
-                          tag.name,
-                        )}
-                        className="inline-flex items-center gap-2.5 rounded-full border px-4 py-2 text-xs font-medium transition hover:opacity-85 sm:text-sm"
+                        href={buildTagDetailHref(tag.backendId ?? tag.id)}
+                        className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition hover:opacity-85 sm:text-sm whitespace-nowrap"
                         style={{
                           color: tag.color,
                           backgroundColor: colorState.chipBg,
                           borderColor: colorState.chipBorder,
                         }}
                       >
-                        <span>{buildTagChipLabel(tag.name)}</span>
-                        <span className="text-sm opacity-75">
-                          {tag.usageCount}
-                        </span>
+                        {buildTagChipLabel(tag.name)}
                       </Link>
-                    );
-                  })}
-
-                  {showEmptyState ? (
-                    <p className="cq-page-subtitle">
-                      Không có thẻ nào khớp với từ khóa hiện tại.
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="rounded-[1.5rem] border border-slate-200 bg-white p-4">
-                <h3 className="cq-card-title">Thống kê sử dụng thẻ</h3>
-
-                <div className="mt-4 space-y-4">
-                  {isLoadingTags ? (
-                    <p className="cq-page-subtitle">Đang tải thống kê thẻ...</p>
-                  ) : null}
-
-                  {tags.map((tag) => (
-                    <div
-                      key={`${tag.id}-stats`}
-                      className="grid grid-cols-[minmax(0,128px)_minmax(0,1fr)_40px] items-center gap-4"
-                    >
-                      <span className="text-xs text-slate-800 sm:text-sm">
-                        {buildTagStatsLabel(tag.name)}
-                      </span>
 
                       <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
                         <div
@@ -424,14 +421,14 @@ export default function CuratorTagsPage() {
                         {tag.usageCount}
                       </span>
                     </div>
-                  ))}
+                  );
+                })}
 
-                  {showEmptyState ? (
-                    <p className="cq-page-subtitle">
-                      Chưa có dữ liệu để hiển thị thống kê.
-                    </p>
-                  ) : null}
-                </div>
+                {showEmptyState ? (
+                  <p className="cq-page-subtitle">
+                    Chưa có dữ liệu để hiển thị thống kê.
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -449,7 +446,7 @@ export default function CuratorTagsPage() {
                 </span>
               </div>
 
-              <div className="mt-4">
+              <div className="mt-4 overflow-x-auto bg-white">
                 {isLoadingTags ? (
                   <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-white px-5 py-10 text-center">
                     <p className="cq-card-title sm:text-base">
@@ -461,135 +458,154 @@ export default function CuratorTagsPage() {
                   </div>
                 ) : null}
 
-                {tags.map((tag, index) => {
-                  const colorState = getTagColorState(tag.color);
+                {!isLoadingTags && tags.length > 0 ? (
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50">
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 sm:text-sm">
+                          Thẻ
+                        </th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold text-slate-700 sm:text-sm">
+                          Số lượng
+                        </th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold text-slate-700 sm:text-sm">
+                          Trạng thái
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 sm:text-sm">
+                          Cập nhật lần cuối
+                        </th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold text-slate-700 sm:text-sm">
+                          Hành động
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tags.map((tag, index) => {
+                        const colorState = getTagColorState(tag.color);
 
-                  return (
-                    <div
-                      key={`${tag.id}-row`}
-                      className={cn(
-                        "relative flex flex-col gap-4 py-4 lg:flex-row lg:items-center",
-                        index !== tags.length - 1 &&
-                          "border-b border-[#E6DDD1]",
-                        openMenuTagId === tag.id && "z-20",
-                      )}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <Link
-                            href={buildTagDetailHref(
-                              tag.backendId ?? tag.id,
-                              tag.name,
+                        return (
+                          <tr
+                            key={`${tag.id}-row`}
+                            className={cn(
+                              "border-b border-slate-200 transition hover:bg-slate-50",
+                              index === tags.length - 1 && "border-b-0",
+                              openMenuTagId === tag.id && "bg-slate-50",
                             )}
-                            className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium sm:text-sm"
-                            style={{
-                              color: tag.color,
-                              backgroundColor: colorState.chipBg,
-                              borderColor: colorState.chipBorder,
-                            }}
                           >
-                            {buildTagChipLabel(tag.name)}
-                          </Link>
+                            <td className="px-4 py-3">
+                              <Link
+                                href={buildTagDetailHref(
+                                  tag.backendId ?? tag.id,
+                                )}
+                                className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition hover:opacity-85 sm:text-sm"
+                                style={{
+                                  color: tag.color,
+                                  backgroundColor: colorState.chipBg,
+                                  borderColor: colorState.chipBorder,
+                                }}
+                              >
+                                {buildTagChipLabel(tag.name)}
+                              </Link>
+                            </td>
 
-                          <Link
-                            href={buildTagDetailHref(
-                              tag.backendId ?? tag.id,
-                              tag.name,
-                            )}
-                            className="cq-card-title transition hover:text-[#cf3d37]"
-                          >
-                            {tag.name}
-                          </Link>
-                        </div>
+                            <td className="px-4 py-3 text-center">
+                              <span className="text-xs text-slate-700 sm:text-sm font-medium">
+                                {tag.usageCount}
+                              </span>
+                            </td>
 
-                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 sm:text-sm">
-                          <span>{buildTagStatsLabel(tag.name)}</span>
-                          <span>{tag.usageCount} hotspot sử dụng</span>
-                          <span className="inline-flex items-center gap-2">
-                            <span>Trạng thái:</span>
-                            <span
-                              className={cn(
-                                "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium",
-                                getTagStatusTone(tag.status),
-                              )}
-                            >
-                              {formatTagStatus(tag.status)}
-                            </span>
-                          </span>
-                          <span>
-                            Cập nhật: {formatTagDateTime(tag.updatedAt)}
-                          </span>
-                        </div>
-                      </div>
+                            <td className="px-4 py-3 text-center">
+                              <span
+                                className={cn(
+                                  "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium",
+                                  getTagStatusTone(tag.status),
+                                )}
+                              >
+                                {formatTagStatus(tag.status)}
+                              </span>
+                            </td>
 
-                      <div
-                        className="relative self-end lg:self-auto"
-                        data-tag-actions
-                      >
-                        <button
-                          type="button"
-                          aria-haspopup="menu"
-                          aria-expanded={openMenuTagId === tag.id}
-                          onClick={() =>
-                            setOpenMenuTagId(
-                              openMenuTagId === tag.id ? null : tag.id,
-                            )
-                          }
-                          className={cn(
-                            "inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-white hover:text-slate-700",
-                            openMenuTagId === tag.id && "bg-white",
-                          )}
-                          aria-label={`Tác vụ cho ${tag.name}`}
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
+                            <td className="px-4 py-3">
+                              <span className="text-xs text-slate-500 sm:text-sm">
+                                {formatTagDateTime(tag.updatedAt)}
+                              </span>
+                            </td>
 
-                        {openMenuTagId === tag.id ? (
-                          <div
-                            role="menu"
-                            className="absolute right-0 top-[calc(100%+0.6rem)] w-40 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
-                          >
-                            <Link
-                              href={buildTagDetailHref(
-                                tag.backendId ?? tag.id,
-                                tag.name,
-                              )}
-                              role="menuitem"
-                              onClick={() => setOpenMenuTagId(null)}
-                              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-                            >
-                              <Eye className="h-4 w-4" />
-                              <span>Xem chi tiết</span>
-                            </Link>
+                            <td className="px-4 py-3">
+                              <div
+                                className="relative flex justify-center"
+                                data-tag-actions
+                              >
+                                <button
+                                  type="button"
+                                  aria-haspopup="menu"
+                                  aria-expanded={openMenuTagId === tag.id}
+                                  onClick={() =>
+                                    setOpenMenuTagId(
+                                      openMenuTagId === tag.id ? null : tag.id,
+                                    )
+                                  }
+                                  className={cn(
+                                    "inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-200 hover:text-slate-700",
+                                    openMenuTagId === tag.id &&
+                                      "bg-slate-200 text-slate-700",
+                                  )}
+                                  aria-label={`Tác vụ cho ${tag.name}`}
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </button>
 
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={() => {
-                                setOpenMenuTagId(null);
-                                handleEditTag(tag);
-                              }}
-                              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-                            >
-                              <Pencil className="h-4 w-4" />
-                              <span>Chỉnh sửa</span>
-                            </button>
+                                {openMenuTagId === tag.id ? (
+                                  <div
+                                    role="menu"
+                                    className="absolute right-0 top-[calc(100%+0.4rem)] w-40 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)] z-30"
+                                  >
+                                    <Link
+                                      href={buildTagDetailHref(
+                                        tag.backendId ?? tag.id,
+                                      )}
+                                      role="menuitem"
+                                      onClick={() => setOpenMenuTagId(null)}
+                                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                      <span>Xem chi tiết</span>
+                                    </Link>
 
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={() => handleDeleteRequest(tag.id)}
-                              className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-slate-100 px-3 pt-3 pb-2.5 text-left text-sm font-medium text-red-500 transition hover:bg-red-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              <span>Xóa</span>
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })}
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      onClick={() => {
+                                        setOpenMenuTagId(null);
+                                        handleEditTag(tag);
+                                      }}
+                                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                      <span>Chỉnh sửa</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      onClick={() =>
+                                        handleDeleteRequest(tag.id)
+                                      }
+                                      className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-slate-100 px-3 pt-3 pb-2.5 text-left text-sm font-medium text-red-500 transition hover:bg-red-50"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                      <span>Xóa</span>
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                ) : null}
 
                 {showEmptyState ? (
                   <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-white px-5 py-10 text-center">

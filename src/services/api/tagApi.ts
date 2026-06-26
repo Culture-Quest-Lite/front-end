@@ -47,6 +47,13 @@ export const tagApi = {
     });
   },
 
+  getTagById: async (tagId: number) => {
+    return apiFetch<TagRecord>(`/api/tags/${tagId}`, {
+      method: "GET",
+      sameOrigin: true,
+    });
+  },
+
   createTag: async (payload: { tagName: string }) => {
     return apiFetch<TagRecord>("/api/tags", {
       method: "POST",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
@@ -1174,9 +1174,6 @@ export default function Page() {
     HotspotSearchResponse["page"] | null
   >(null);
 
-  // Cache to prevent duplicate requests
-  const lastRequestKeyRef = useRef<string>("");
-
   const activeFilterCount = countActiveAdvancedFilters(appliedFilters);
   const quickSearchFieldOption = getSearchFieldOption(quickSearch.field);
   const quickSearchWarning = quickSearchFieldOption.warning;
@@ -1220,10 +1217,18 @@ export default function Page() {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      setDebouncedQuickSearch({
+      const nextQuickSearch = {
         ...quickSearch,
         value: quickSearch.value.trim(),
-      });
+      };
+
+      setDebouncedQuickSearch((previous) =>
+        previous.field === nextQuickSearch.field &&
+        previous.operator === nextQuickSearch.operator &&
+        previous.value === nextQuickSearch.value
+          ? previous
+          : nextQuickSearch,
+      );
       setCurrentPage(1);
     }, 350);
 
@@ -1261,22 +1266,6 @@ export default function Page() {
         currentPage,
         isRemoteSearchActive,
       });
-
-      // Create request key to avoid duplicate calls with same params
-      const requestKey = JSON.stringify({
-        search: debouncedQuickSearch,
-        filters: appliedFilters,
-        page: currentPage,
-        remote: isRemoteSearchActive,
-      });
-
-      // Skip if same request is already pending
-      if (lastRequestKeyRef.current === requestKey) {
-        console.debug("[hotspot] skip duplicate request", { requestKey });
-        return;
-      }
-
-      lastRequestKeyRef.current = requestKey;
       setIsLoading(true);
 
       try {
