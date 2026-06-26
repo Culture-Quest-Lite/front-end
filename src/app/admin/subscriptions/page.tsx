@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { PageHeader } from "@/components/app/ui-bits";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,17 +19,64 @@ import {
   Loader2,
   Crown,
   Briefcase,
+  X,
 } from "lucide-react";
 
 /**
- * Backend KHÔNG có field `planType` riêng (đã xác nhận qua response thật
- * của GET /api/admin/subscription-plans) — chỉ có `configLimit` là JSON tự
- * do. Vì vậy "loại gói" Premium/Partner ở đây là khái niệm THUẦN PHÍA
- * CLIENT, suy luận bằng cách so khớp các key có trong configLimit với 2
- * danh sách field định nghĩa sẵn (xem detectPlanType bên dưới) — không gửi
- * field này lên backend.
+ * Backend hiện chỉ có `configLimit` là JSON tự do, không có field `planType` riêng.
+ * Vì vậy file này lưu loại gói ngay bên trong configLimit bằng key `planType`, ví dụ:
+ * {
+ *   planType: "PREMIUM",
+ *   adFree: true,
+ *   xpBoostPercent: 20
+ * }
+ *
+ * Cách này vẫn giữ logic Premium / Partner, nhưng Admin có thể tự thêm config mới
+ * bằng UI mà không cần sửa code hoặc nhập JSON thủ công.
  */
 type SubscriptionPlanType = "PREMIUM" | "PARTNER";
+type ConfigValueType = "boolean" | "number" | "text";
+type ConfigValue = boolean | number | string;
+
+type ConfigItem = {
+  id: string;
+  key: string;
+  type: ConfigValueType;
+  value: ConfigValue;
+};
+
+const PLAN_TYPE_KEY = "planType";
+const HIDDEN_CONFIG_KEYS = new Set([PLAN_TYPE_KEY]);
+
+const configLabelsVi: Record<string, string> = {
+  adFree: "Không hiển thị quảng cáo",
+  exclusiveRoutes: "Truy cập tuyến độc quyền",
+  prioritySupport: "Hỗ trợ ưu tiên",
+  maxOfflineDownloads: "Số lượt tải ngoại tuyến tối đa",
+  xpBoostPercent: "Tăng phần trăm XP",
+  maxVouchers: "Số voucher tối đa",
+  maxActiveHotspots: "Số điểm đến được đăng tối đa",
+  maxStaffAccounts: "Số tài khoản nhân viên tối đa",
+  featuredPlacement: "Ưu tiên hiển thị",
+  analyticsAccess: "Truy cập báo cáo thống kê",
+};
+
+const configKeySuggestionsByType: Record<SubscriptionPlanType, { key: string; label: string }[]> = {
+  PREMIUM: [
+    { key: "adFree", label: "Không hiển thị quảng cáo" },
+    { key: "exclusiveRoutes", label: "Truy cập tuyến độc quyền" },
+    { key: "prioritySupport", label: "Hỗ trợ ưu tiên" },
+    { key: "maxOfflineDownloads", label: "Số lượt tải ngoại tuyến tối đa" },
+    { key: "xpBoostPercent", label: "Tăng phần trăm XP" },
+  ],
+  PARTNER: [
+    { key: "maxVouchers", label: "Số voucher tối đa" },
+    { key: "maxActiveHotspots", label: "Số điểm đến được đăng tối đa" },
+    { key: "maxStaffAccounts", label: "Số tài khoản nhân viên tối đa" },
+    { key: "featuredPlacement", label: "Ưu tiên hiển thị" },
+    { key: "analyticsAccess", label: "Truy cập báo cáo thống kê" },
+  ],
+};
 
 const statusLabels: Record<SubscriptionPlanStatus, string> = {
   ACTIVE: "Đang hoạt động",
@@ -62,90 +110,173 @@ const planTypeIcons: Record<SubscriptionPlanType, typeof Crown> = {
   PARTNER: Briefcase,
 };
 
-function formatPrice(price: number) {
-  if (price === 0) return "Miễn phí";
-  return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
-}
-type LimitFieldType = "boolean" | "number";
-
-interface LimitFieldDef {
-  key: string;
-  label: string;  
-  type: LimitFieldType;
-  hint?: string;
-}
-
-const PREMIUM_LIMIT_FIELDS: LimitFieldDef[] = [
-  { key: "adFree", label: "Không hiển thị quảng cáo", type: "boolean" },
-  { key: "exclusiveRoutes", label: "Truy cập tuyến hành trình độc quyền", type: "boolean" },
-  { key: "prioritySupport", label: "Hỗ trợ ưu tiên", type: "boolean" },
-  { key: "maxOfflineDownloads", label: "Lượt tải ngoại tuyến tối đa", type: "number", hint: "0 = không giới hạn" },
-  { key: "xpBoostPercent", label: "Tăng % điểm XP nhận được", type: "number" },
+const suggestedPremiumConfigs: ConfigItem[] = [
+  createConfigItem("adFree", "boolean", true),
+  createConfigItem("exclusiveRoutes", "boolean", true),
+  createConfigItem("prioritySupport", "boolean", true),
+  createConfigItem("maxOfflineDownloads", "number", 10),
+  createConfigItem("xpBoostPercent", "number", 20),
 ];
 
-const PARTNER_LIMIT_FIELDS: LimitFieldDef[] = [
-  { key: "maxVouchers", label: "Số voucher tối đa được tạo", type: "number", hint: "0 = không giới hạn" },
-  { key: "maxActiveHotspots", label: "Số điểm đến tối đa được đăng", type: "number", hint: "0 = không giới hạn" },
-  { key: "maxStaffAccounts", label: "Số tài khoản nhân viên tối đa", type: "number", hint: "0 = không giới hạn" },
-  { key: "featuredPlacement", label: "Ưu tiên hiển thị (Featured)", type: "boolean" },
-  { key: "analyticsAccess", label: "Truy cập báo cáo thống kê", type: "boolean" },
+const suggestedPartnerConfigs: ConfigItem[] = [
+  createConfigItem("maxVouchers", "number", 50),
+  createConfigItem("maxActiveHotspots", "number", 10),
+  createConfigItem("maxStaffAccounts", "number", 3),
+  createConfigItem("featuredPlacement", "boolean", true),
+  createConfigItem("analyticsAccess", "boolean", true),
 ];
 
-const LIMIT_FIELDS_BY_TYPE: Record<SubscriptionPlanType, LimitFieldDef[]> = {
-  PREMIUM: PREMIUM_LIMIT_FIELDS,
-  PARTNER: PARTNER_LIMIT_FIELDS,
+const suggestedConfigsByType: Record<SubscriptionPlanType, ConfigItem[]> = {
+  PREMIUM: suggestedPremiumConfigs,
+  PARTNER: suggestedPartnerConfigs,
 };
 
-/**
- * Suy luận loại gói từ configLimit thật trả về — so khớp key hiện có với
- * 2 danh sách field, bên nào khớp nhiều hơn thì là loại đó. Hoà nhau hoặc
- * configLimit rỗng -> mặc định PREMIUM. Đây là heuristic phía client, không
- * phải dữ liệu tuyệt đối từ backend.
- */
-function detectPlanType(configLimit?: Record<string, unknown> | null): SubscriptionPlanType {
+function formatPrice(price: number) {
+  if (price === 0) return "Miễn phí";
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+  }).format(price);
+}
+
+function createId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createConfigItem(
+  key = "",
+  type: ConfigValueType = "boolean",
+  value?: ConfigValue,
+): ConfigItem {
+  return {
+    id: createId(),
+    key,
+    type,
+    value: value ?? getDefaultValueByType(type),
+  };
+}
+
+function getDefaultValueByType(type: ConfigValueType): ConfigValue {
+  if (type === "boolean") return true;
+  if (type === "number") return 0;
+  return "";
+}
+
+function isSubscriptionPlanType(value: unknown): value is SubscriptionPlanType {
+  return value === "PREMIUM" || value === "PARTNER";
+}
+
+function valueToConfigType(value: unknown): ConfigValueType {
+  if (typeof value === "boolean") return "boolean";
+  if (typeof value === "number") return "number";
+  return "text";
+}
+
+function valueToConfigValue(value: unknown): ConfigValue {
+  if (
+    typeof value === "boolean" ||
+    typeof value === "number" ||
+    typeof value === "string"
+  )
+    return value;
+  return JSON.stringify(value ?? "");
+}
+
+function prettifyConfigKey(key: string) {
+  if (configLabelsVi[key]) return configLabelsVi[key];
+
+  return key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .replace(/^./, (char) => char.toUpperCase());
+}
+
+function formatConfigValue(value: unknown) {
+  if (typeof value === "boolean") return value ? "Có" : "Không";
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") return value;
+  return JSON.stringify(value);
+}
+
+function detectPlanType(
+  configLimit?: Record<string, unknown> | null,
+): SubscriptionPlanType {
   if (!configLimit) return "PREMIUM";
+
+  if (isSubscriptionPlanType(configLimit[PLAN_TYPE_KEY])) {
+    return configLimit[PLAN_TYPE_KEY];
+  }
+
+  // Fallback cho dữ liệu cũ chưa có planType trong configLimit.
   const keys = new Set(Object.keys(configLimit));
-  const premiumMatches = PREMIUM_LIMIT_FIELDS.filter((f) => keys.has(f.key)).length;
-  const partnerMatches = PARTNER_LIMIT_FIELDS.filter((f) => keys.has(f.key)).length;
+  const partnerKeys = [
+    "maxVouchers",
+    "maxActiveHotspots",
+    "maxStaffAccounts",
+    "featuredPlacement",
+    "analyticsAccess",
+  ];
+  const premiumKeys = [
+    "adFree",
+    "exclusiveRoutes",
+    "prioritySupport",
+    "maxOfflineDownloads",
+    "xpBoostPercent",
+  ];
+  const partnerMatches = partnerKeys.filter((key) => keys.has(key)).length;
+  const premiumMatches = premiumKeys.filter((key) => keys.has(key)).length;
+
   return partnerMatches > premiumMatches ? "PARTNER" : "PREMIUM";
 }
 
-/** Build object configLimit từ giá trị form — chỉ thêm key có giá trị "có nghĩa" (bool=true, số>0), giữ lại các key lạ không nằm trong danh sách field đã định nghĩa để không làm mất dữ liệu cũ khi sửa. */
-function buildConfigLimit(
-  planType: SubscriptionPlanType,
-  values: Record<string, boolean | number>,
-  extra: Record<string, unknown>,
-): Record<string, unknown> | undefined {
-  const result: Record<string, unknown> = { ...extra };
-  for (const field of LIMIT_FIELDS_BY_TYPE[planType]) {
-    const value = values[field.key];
-    if (field.type === "boolean") {
-      if (value === true) result[field.key] = true;
-    } else if (typeof value === "number" && value > 0) {
-      result[field.key] = value;
-    }
-  }
-  return Object.keys(result).length > 0 ? result : undefined;
+function configLimitToItems(
+  configLimit?: Record<string, unknown> | null,
+): ConfigItem[] {
+  return Object.entries(configLimit ?? {})
+    .filter(([key]) => !HIDDEN_CONFIG_KEYS.has(key))
+    .map(([key, value]) =>
+      createConfigItem(
+        key,
+        valueToConfigType(value),
+        valueToConfigValue(value),
+      ),
+    );
 }
 
-/** Tách configLimit hiện có thành { values (field đã biết), extra (field lạ) } để hiển thị lên form sửa. */
-function splitConfigLimit(
+function buildConfigLimit(
   planType: SubscriptionPlanType,
-  configLimit: Record<string, unknown> | undefined | null,
-): { values: Record<string, boolean | number>; extra: Record<string, unknown> } {
-  const knownKeys = new Set(LIMIT_FIELDS_BY_TYPE[planType].map((f) => f.key));
-  const values: Record<string, boolean | number> = {};
-  const extra: Record<string, unknown> = {};
+  items: ConfigItem[],
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {
+    [PLAN_TYPE_KEY]: planType,
+  };
 
-  for (const [key, value] of Object.entries(configLimit ?? {})) {
-    if (knownKeys.has(key) && (typeof value === "boolean" || typeof value === "number")) {
-      values[key] = value;
-    } else {
-      extra[key] = value;
+  for (const item of items) {
+    const key = item.key.trim();
+    if (!key) continue;
+
+    if (item.type === "boolean") {
+      result[key] = Boolean(item.value);
+      continue;
     }
+
+    if (item.type === "number") {
+      const numberValue = Number(item.value);
+      result[key] = Number.isFinite(numberValue) ? numberValue : 0;
+      continue;
+    }
+
+    result[key] = String(item.value ?? "").trim();
   }
 
-  return { values, extra };
+  return result;
+}
+
+function getVisibleConfigEntries(configLimit?: Record<string, unknown> | null) {
+  return Object.entries(configLimit ?? {}).filter(
+    ([key]) => !HIDDEN_CONFIG_KEYS.has(key),
+  );
 }
 
 type FormData = {
@@ -154,8 +285,7 @@ type FormData = {
   subscriptionPlanDescription: string;
   priceMonthly: number;
   priceYearly: number;
-  configLimitValues: Record<string, boolean | number>;
-  extraConfigLimit: Record<string, unknown>;
+  configItems: ConfigItem[];
 };
 
 const emptyForm: FormData = {
@@ -164,8 +294,7 @@ const emptyForm: FormData = {
   subscriptionPlanDescription: "",
   priceMonthly: 0,
   priceYearly: 0,
-  configLimitValues: {},
-  extraConfigLimit: {},
+  configItems: [],
 };
 
 export default function SubscriptionsPage() {
@@ -177,7 +306,9 @@ export default function SubscriptionsPage() {
   const [form, setForm] = useState<FormData>(emptyForm);
   const [toast, setToast] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [typeFilter, setTypeFilter] = useState<SubscriptionPlanType | "all">("all");
+  const [typeFilter, setTypeFilter] = useState<SubscriptionPlanType | "all">(
+    "all",
+  );
 
   const requestPlans = useCallback(async () => {
     return adminApi.getSubscriptionPlans({
@@ -195,7 +326,11 @@ export default function SubscriptionsPage() {
       const response = await requestPlans();
       setPlans(response.content);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể tải danh sách gói dịch vụ.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Không thể tải danh sách gói dịch vụ.",
+      );
       setPlans([]);
     } finally {
       setLoading(false);
@@ -212,7 +347,11 @@ export default function SubscriptionsPage() {
         setPlans(response.content);
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Không thể tải danh sách gói dịch vụ.");
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Không thể tải danh sách gói dịch vụ.",
+        );
         setPlans([]);
       } finally {
         if (!cancelled) setLoading(false);
@@ -251,22 +390,26 @@ export default function SubscriptionsPage() {
   }
 
   function openCreate() {
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+      configItems: suggestedConfigsByType.PREMIUM.map((item) => ({
+        ...item,
+        id: createId(),
+      })),
+    });
     setEditingId(null);
     setDialog("create");
   }
 
   function openEdit(plan: SubscriptionPlan) {
     const planType = detectPlanType(plan.configLimit);
-    const { values, extra } = splitConfigLimit(planType, plan.configLimit);
     setForm({
       planType,
       subscriptionPlanName: plan.subscriptionPlanName,
       subscriptionPlanDescription: plan.subscriptionPlanDescription ?? "",
       priceMonthly: plan.priceMonthly,
       priceYearly: plan.priceYearly,
-      configLimitValues: values,
-      extraConfigLimit: extra,
+      configItems: configLimitToItems(plan.configLimit),
     });
     setEditingId(plan.subscriptionPlanId);
     setDialog("edit");
@@ -276,29 +419,50 @@ export default function SubscriptionsPage() {
     setForm((f) => ({
       ...f,
       planType: nextType,
-      // Đổi loại gói -> danh sách field giới hạn khác hẳn, reset để tránh
-      // gửi nhầm field của loại cũ.
-      configLimitValues: {},
-      extraConfigLimit: {},
+      configItems: suggestedConfigsByType[nextType].map((item) => ({
+        ...item,
+        id: createId(),
+      })),
     }));
   }
 
-  async function handleSave() {
+  function validateForm() {
     if (!form.subscriptionPlanName.trim()) {
-      showToast("Tên gói không được để trống.");
+      return "Tên gói không được để trống.";
+    }
+
+    const keys = form.configItems
+      .map((item) => item.key.trim())
+      .filter(Boolean);
+    const uniqueKeys = new Set(keys);
+    if (keys.length !== uniqueKeys.size) {
+      return "Key config không được trùng nhau.";
+    }
+
+    const invalidKey = keys.find((key) => !/^[A-Za-z][A-Za-z0-9_]*$/.test(key));
+    if (invalidKey) {
+      return `Key "${invalidKey}" không hợp lệ. Key nên bắt đầu bằng chữ và chỉ gồm chữ, số, dấu _.`;
+    }
+
+    return null;
+  }
+
+  async function handleSave() {
+    const validationError = validateForm();
+    if (validationError) {
+      showToast(validationError);
       return;
     }
 
     setSubmitting(true);
     try {
-      // KHÔNG gửi field "planType" — backend không có field này, loại gói
-      // chỉ tồn tại ở phía client (suy luận từ configLimit).
       const payload = {
         subscriptionPlanName: form.subscriptionPlanName.trim(),
-        subscriptionPlanDescription: form.subscriptionPlanDescription.trim() || undefined,
+        subscriptionPlanDescription:
+          form.subscriptionPlanDescription.trim() || undefined,
         priceMonthly: form.priceMonthly,
         priceYearly: form.priceYearly,
-        configLimit: buildConfigLimit(form.planType, form.configLimitValues, form.extraConfigLimit),
+        configLimit: buildConfigLimit(form.planType, form.configItems),
       };
 
       if (dialog === "create") {
@@ -311,7 +475,9 @@ export default function SubscriptionsPage() {
       setDialog(null);
       await loadPlans();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Không thể lưu gói đăng ký.");
+      showToast(
+        err instanceof Error ? err.message : "Không thể lưu gói đăng ký.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -324,7 +490,9 @@ export default function SubscriptionsPage() {
       showToast("Đã xóa gói đăng ký.");
       await loadPlans();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Không thể xóa gói đăng ký.");
+      showToast(
+        err instanceof Error ? err.message : "Không thể xóa gói đăng ký.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -340,7 +508,7 @@ export default function SubscriptionsPage() {
 
       <PageHeader
         title="Quản lý gói đăng ký"
-        subtitle="Tạo, chỉnh sửa và quản lý các gói Premium (người dùng) và Partner (đối tác)."
+        subtitle="Tạo, chỉnh sửa và quản lý các gói Premium cho Explorer và Partner cho đối tác."
         actions={
           <Button size="sm" className="gap-1.5" onClick={openCreate}>
             <Plus className="h-4 w-4" /> Tạo gói mới
@@ -349,14 +517,36 @@ export default function SubscriptionsPage() {
       />
 
       {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
       ) : null}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Tổng gói" value={String(stats.total)} icon={CreditCard} iconClass="bg-blue-50 text-blue-600" />
-        <StatCard label="Đang hoạt động" value={String(stats.active)} icon={Check} iconClass="bg-emerald-50 text-emerald-600" />
-        <StatCard label="Premium" value={String(stats.premium)} icon={Crown} iconClass="bg-violet-50 text-violet-600" />
-        <StatCard label="Partner" value={String(stats.partner)} icon={Briefcase} iconClass="bg-amber-50 text-amber-600" />
+        <StatCard
+          label="Tổng gói"
+          value={String(stats.total)}
+          icon={CreditCard}
+          iconClass="bg-blue-50 text-blue-600"
+        />
+        <StatCard
+          label="Đang hoạt động"
+          value={String(stats.active)}
+          icon={Check}
+          iconClass="bg-emerald-50 text-emerald-600"
+        />
+        <StatCard
+          label="Premium"
+          value={String(stats.premium)}
+          icon={Crown}
+          iconClass="bg-violet-50 text-violet-600"
+        />
+        <StatCard
+          label="Partner"
+          value={String(stats.partner)}
+          icon={Briefcase}
+          iconClass="bg-amber-50 text-amber-600"
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
@@ -395,6 +585,8 @@ export default function SubscriptionsPage() {
           {filteredPlans.map((plan) => {
             const planType = detectPlanType(plan.configLimit);
             const PlanTypeIcon = planTypeIcons[planType];
+            const visibleConfigs = getVisibleConfigEntries(plan.configLimit);
+
             return (
               <div
                 key={plan.subscriptionPlanId}
@@ -403,16 +595,23 @@ export default function SubscriptionsPage() {
                 <div className="border-b border-slate-100 p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-900">{plan.subscriptionPlanName}</h3>
-                      <p className="mt-1 text-sm text-slate-500">{plan.subscriptionPlanDescription}</p>
+                      <h3 className="text-lg font-semibold text-slate-900">
+                        {plan.subscriptionPlanName}
+                      </h3>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {plan.subscriptionPlanDescription}
+                      </p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1.5">
                       <span
                         className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${planTypeBadgeClasses[planType]}`}
                       >
-                        <PlanTypeIcon className="h-3.5 w-3.5" /> {planTypeLabels[planType]}
+                        <PlanTypeIcon className="h-3.5 w-3.5" />{" "}
+                        {planTypeLabels[planType]}
                       </span>
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClasses[plan.status]}`}>
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClasses[plan.status]}`}
+                      >
                         {statusLabels[plan.status]}
                       </span>
                     </div>
@@ -420,34 +619,46 @@ export default function SubscriptionsPage() {
                   <div className="mt-4 grid gap-2 sm:grid-cols-2">
                     <div>
                       <p className="text-xs text-slate-500">Giá tháng</p>
-                      <p className="text-lg font-bold text-slate-900">{formatPrice(plan.priceMonthly)}</p>
+                      <p className="text-lg font-bold text-slate-900">
+                        {formatPrice(plan.priceMonthly)}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Giá năm</p>
-                      <p className="text-lg font-bold text-slate-900">{formatPrice(plan.priceYearly)}</p>
+                      <p className="text-lg font-bold text-slate-900">
+                        {formatPrice(plan.priceYearly)}
+                      </p>
                     </div>
                   </div>
                 </div>
 
                 <div className="p-5">
-                  {plan.configLimit && Object.keys(plan.configLimit).length > 0 ? (
+                  {visibleConfigs.length > 0 ? (
                     <>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Quyền lợi / Giới hạn</p>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                        Quyền lợi / Giới hạn
+                      </p>
                       <ul className="mt-2 space-y-1.5">
-                        {LIMIT_FIELDS_BY_TYPE[planType]
-                          .filter((field) => plan.configLimit?.[field.key] !== undefined)
-                          .map((field) => (
-                            <li key={field.key} className="flex items-center gap-2 text-sm text-slate-700">
-                              <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                              {field.type === "boolean"
-                                ? field.label
-                                : `${field.label}: ${plan.configLimit?.[field.key]}`}
-                            </li>
-                          ))}
+                        {visibleConfigs.map(([key, value]) => (
+                          <li
+                            key={key}
+                            className="flex items-center gap-2 text-sm text-slate-700"
+                          >
+                            <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                            <span>
+                              {prettifyConfigKey(key)}:{" "}
+                              <span className="font-medium">
+                                {formatConfigValue(value)}
+                              </span>
+                            </span>
+                          </li>
+                        ))}
                       </ul>
                     </>
                   ) : (
-                    <p className="text-sm text-slate-400">Chưa thiết lập quyền lợi/giới hạn.</p>
+                    <p className="text-sm text-slate-400">
+                      Chưa thiết lập quyền lợi/giới hạn.
+                    </p>
                   )}
                   {plan.createdAt ? (
                     <p className="mt-4 text-xs text-slate-500">
@@ -506,147 +717,301 @@ function SubscriptionFormDialog({
 }: {
   mode: "create" | "edit";
   form: FormData;
-  setForm: React.Dispatch<React.SetStateAction<FormData>>;
+  setForm: Dispatch<SetStateAction<FormData>>;
   onPlanTypeChange: (type: SubscriptionPlanType) => void;
   submitting: boolean;
   onCancel: () => void;
   onSubmit: () => void;
 }) {
-  const fieldDefs = LIMIT_FIELDS_BY_TYPE[form.planType];
-
-  const previewJson = useMemo(
-    () => JSON.stringify(buildConfigLimit(form.planType, form.configLimitValues, form.extraConfigLimit) ?? {}, null, 2),
-    [form.planType, form.configLimitValues, form.extraConfigLimit],
-  );
-
-  function setBooleanField(key: string, checked: boolean) {
-    setForm((f) => ({ ...f, configLimitValues: { ...f.configLimitValues, [key]: checked } }));
-  }
-
-  function setNumberField(key: string, raw: string) {
-    const num = Number(raw);
+  function addConfigItem() {
     setForm((f) => ({
       ...f,
-      configLimitValues: { ...f.configLimitValues, [key]: Number.isFinite(num) ? num : 0 },
+      configItems: [...f.configItems, createConfigItem()],
+    }));
+  }
+
+  function removeConfigItem(id: string) {
+    setForm((f) => ({
+      ...f,
+      configItems: f.configItems.filter((item) => item.id !== id),
+    }));
+  }
+
+  function updateConfigItem(id: string, patch: Partial<ConfigItem>) {
+    setForm((f) => ({
+      ...f,
+      configItems: f.configItems.map((item) => {
+        if (item.id !== id) return item;
+
+        if (patch.type && patch.type !== item.type) {
+          return {
+            ...item,
+            ...patch,
+            value: getDefaultValueByType(patch.type),
+          };
+        }
+
+        return { ...item, ...patch };
+      }),
+    }));
+  }
+
+  function applySuggestedConfigs() {
+    setForm((f) => ({
+      ...f,
+      configItems: suggestedConfigsByType[f.planType].map((item) => ({
+        ...item,
+        id: createId(),
+      })),
     }));
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
-        <h2 className="text-xl font-semibold text-slate-900">
-          {mode === "create" ? "Tạo gói đăng ký mới" : "Chỉnh sửa gói"}
-        </h2>
-
-        <div className="mt-5 space-y-4">
-          <Field label="Loại gói">
-            <div className="flex gap-2">
-              {(["PREMIUM", "PARTNER"] as SubscriptionPlanType[]).map((type) => {
-                const Icon = planTypeIcons[type];
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => onPlanTypeChange(type)}
-                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition ${
-                      form.planType === type
-                        ? type === "PREMIUM"
-                          ? "border-violet-500 bg-violet-50 text-violet-700"
-                          : "border-amber-500 bg-amber-50 text-amber-700"
-                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" /> {planTypeLabels[type]}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-1.5 text-xs text-slate-400">
-              Chỉ để chọn đúng bộ trường giới hạn bên dưới — backend không lưu field này, hệ
-              thống sẽ tự nhận diện lại loại gói dựa vào các key có trong configLimit.
-            </p>
-          </Field>
-
-          <Field label="Tên gói">
-            <input
-              value={form.subscriptionPlanName}
-              onChange={(e) => setForm({ ...form, subscriptionPlanName: e.target.value })}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              placeholder="Gói Cơ Bản"
-            />
-          </Field>
-          <Field label="Mô tả">
-            <textarea
-              value={form.subscriptionPlanDescription}
-              onChange={(e) => setForm({ ...form, subscriptionPlanDescription: e.target.value })}
-              rows={2}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            />
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Giá tháng (VND)">
-              <input
-                type="number"
-                min={0}
-                value={form.priceMonthly}
-                onChange={(e) => setForm({ ...form, priceMonthly: Number(e.target.value) })}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
-            </Field>
-            <Field label="Giá năm (VND)">
-              <input
-                type="number"
-                min={0}
-                value={form.priceYearly}
-                onChange={(e) => setForm({ ...form, priceYearly: Number(e.target.value) })}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
-            </Field>
-          </div>
-
-          <Field label={`Quyền lợi / Giới hạn (${planTypeLabels[form.planType]})`}>
-            <div className="space-y-3 rounded-xl border border-slate-200 p-3">
-              {fieldDefs.map((field) => (
-                <div key={field.key} className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm text-slate-700">{field.label}</p>
-                    {field.hint ? <p className="text-xs text-slate-400">{field.hint}</p> : null}
-                  </div>
-                  {field.type === "boolean" ? (
-                    <input
-                      type="checkbox"
-                      checked={Boolean(form.configLimitValues[field.key])}
-                      onChange={(e) => setBooleanField(field.key, e.target.checked)}
-                      className="h-5 w-5 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                    />
-                  ) : (
-                    <input
-                      type="number"
-                      min={0}
-                      value={Number(form.configLimitValues[field.key] ?? 0)}
-                      onChange={(e) => setNumberField(field.key, e.target.value)}
-                      className="w-24 shrink-0 rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </Field>
-
-          <details className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-            <summary className="cursor-pointer text-xs font-medium text-slate-500">
-              Xem JSON configLimit sẽ gửi cho backend
-            </summary>
-            <pre className="mt-2 overflow-x-auto text-xs text-slate-600">{previewJson}</pre>
-          </details>
+      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div className="shrink-0 border-b border-slate-100 p-6">
+          <h2 className="text-xl font-semibold text-slate-900">
+            {mode === "create" ? "Tạo gói đăng ký mới" : "Chỉnh sửa gói"}
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Chọn loại gói, sau đó tự thêm các config động cho Premium hoặc
+            Partner.
+          </p>
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
+          <div className="space-y-4">
+            <Field label="Loại gói">
+              <div className="flex gap-2">
+                {(["PREMIUM", "PARTNER"] as SubscriptionPlanType[]).map(
+                  (type) => {
+                    const Icon = planTypeIcons[type];
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => onPlanTypeChange(type)}
+                        className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                          form.planType === type
+                            ? type === "PREMIUM"
+                              ? "border-violet-500 bg-violet-50 text-violet-700"
+                              : "border-amber-500 bg-amber-50 text-amber-700"
+                            : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" /> {planTypeLabels[type]}
+                      </button>
+                    );
+                  },
+                )}
+              </div>
+              <p className="mt-1.5 text-xs text-slate-400">
+                Loại gói sẽ được lưu trong configLimit.planType để FE/BE nhận
+                diện Premium hoặc Partner.
+              </p>
+            </Field>
+
+            <Field label="Tên gói">
+              <input
+                value={form.subscriptionPlanName}
+                onChange={(e) =>
+                  setForm({ ...form, subscriptionPlanName: e.target.value })
+                }
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                placeholder="Ví dụ: Premium Basic, Partner Pro"
+              />
+            </Field>
+
+            <Field label="Mô tả">
+              <textarea
+                value={form.subscriptionPlanDescription}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    subscriptionPlanDescription: e.target.value,
+                  })
+                }
+                rows={2}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                placeholder="Mô tả ngắn về quyền lợi của gói"
+              />
+            </Field>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Giá tháng (VND)">
+                <input
+                  type="number"
+                  min={0}
+                  value={form.priceMonthly}
+                  onChange={(e) =>
+                    setForm({ ...form, priceMonthly: Number(e.target.value) })
+                  }
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </Field>
+              <Field label="Giá năm (VND)">
+                <input
+                  type="number"
+                  min={0}
+                  value={form.priceYearly}
+                  onChange={(e) =>
+                    setForm({ ...form, priceYearly: Number(e.target.value) })
+                  }
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </Field>
+            </div>
+
+            <Field label={`Config động (${planTypeLabels[form.planType]})`}>
+              <div className="rounded-2xl border border-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 p-3">
+                  <div className="text-sm text-slate-500">
+                    <p>Admin có thể tự thêm quyền lợi hoặc giới hạn mới cho gói.</p>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {configKeySuggestionsByType[form.planType].map((item) => (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() =>
+                            setForm((f) => ({
+                              ...f,
+                              configItems: [
+                                ...f.configItems,
+                                createConfigItem(item.key, valueToConfigType(false), true),
+                              ],
+                            }))
+                          }
+                          className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-200"
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={applySuggestedConfigs}
+                    >
+                      Dùng mẫu
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={addConfigItem}
+                    >
+                      <Plus className="h-4 w-4" /> Thêm config
+                    </Button>
+                  </div>
+                </div>
+
+                {form.configItems.length === 0 ? (
+                  <div className="p-6 text-center text-sm text-slate-400">
+                    Chưa có config nào. Bấm “Thêm config” để tạo quyền lợi/giới
+                    hạn mới.
+                  </div>
+                ) : (
+                  <div className="space-y-3 p-3">
+                    {form.configItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="grid gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3 md:grid-cols-[1fr_140px_1fr_36px]"
+                      >
+                        <input
+                          value={item.key}
+                          onChange={(e) =>
+                            updateConfigItem(item.id, { key: e.target.value })
+                          }
+                          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          placeholder="Mã config, ví dụ: maxVouchers"
+                        />
+
+                        <select
+                          value={item.type}
+                          onChange={(e) =>
+                            updateConfigItem(item.id, {
+                              type: e.target.value as ConfigValueType,
+                            })
+                          }
+                          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        >
+                          <option value="boolean">Có / Không</option>
+                          <option value="number">Giá trị số</option>
+                          <option value="text">Nội dung chữ</option>
+                        </select>
+
+                        {item.type === "boolean" ? (
+                          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(item.value)}
+                              onChange={(e) =>
+                                updateConfigItem(item.id, {
+                                  value: e.target.checked,
+                                })
+                              }
+                              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            Có quyền lợi này
+                          </label>
+                        ) : item.type === "number" ? (
+                          <input
+                            type="number"
+                            min={0}
+                            value={Number(item.value ?? 0)}
+                            onChange={(e) =>
+                              updateConfigItem(item.id, {
+                                value: Number(e.target.value),
+                              })
+                            }
+                            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            placeholder="Nhập số lượng / giới hạn"
+                          />
+                        ) : (
+                          <input
+                            value={String(item.value ?? "")}
+                            onChange={(e) =>
+                              updateConfigItem(item.id, {
+                                value: e.target.value,
+                              })
+                            }
+                            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            placeholder="Nội dung chữ"
+                          />
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => removeConfigItem(item.id)}
+                          className="grid h-9 w-9 place-items-center rounded-lg text-red-500 transition hover:bg-red-50"
+                          aria-label="Xóa config"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Field>
+          </div>
+        </div>
+
+        <div className="shrink-0 flex justify-end gap-3 border-t border-slate-100 p-6">
           <Button variant="outline" onClick={onCancel} disabled={submitting}>
             Huỷ
           </Button>
           <Button onClick={onSubmit} disabled={submitting}>
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === "create" ? "Tạo gói" : "Lưu thay đổi"}
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : mode === "create" ? (
+              "Tạo gói"
+            ) : (
+              "Lưu thay đổi"
+            )}
           </Button>
         </div>
       </div>
@@ -672,7 +1037,9 @@ function StatCard({
           <p className="text-xs text-slate-500">{label}</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
         </div>
-        <div className={`grid h-10 w-10 place-items-center rounded-xl ${iconClass}`}>
+        <div
+          className={`grid h-10 w-10 place-items-center rounded-xl ${iconClass}`}
+        >
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -680,10 +1047,12 @@ function StatCard({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium text-slate-600">{label}</label>
+      <label className="mb-1.5 block text-xs font-medium text-slate-600">
+        {label}
+      </label>
       {children}
     </div>
   );
