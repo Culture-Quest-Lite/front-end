@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { buildTagToken, type TagRecord } from "@/lib/tags";
+import { cn } from "@/lib/utils";
 import {
   goongApi,
   hotspotApi,
@@ -17,6 +18,7 @@ import {
 } from "@/services/api";
 import {
   ArrowLeft,
+  ChevronDown,
   CheckCircle2,
   ImagePlus,
   LoaderCircle,
@@ -77,7 +79,7 @@ function HotspotCreatePageContent() {
   const [formState, setFormState] = useState(defaultHotspotForm);
   const [availableTags, setAvailableTags] = useState<TagRecord[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
-  const [tagSelectValue, setTagSelectValue] = useState("");
+  const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
   const [isLoadingHotspot, setIsLoadingHotspot] = useState(false);
   const [isLoadingTags, setIsLoadingTags] = useState(true);
   const [tagError, setTagError] = useState<string | null>(null);
@@ -102,6 +104,7 @@ function HotspotCreatePageContent() {
   );
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
   const [shouldSearchAddress, setShouldSearchAddress] = useState(false);
+  const tagDropdownRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let isCancelled = false;
@@ -196,6 +199,35 @@ function HotspotCreatePageContent() {
   }, [editingHotspotId, isEditMode]);
 
   useEffect(() => {
+    if (!isTagDropdownOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (
+        tagDropdownRef.current &&
+        !tagDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsTagDropdownOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsTagDropdownOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isTagDropdownOpen]);
+
+  useEffect(() => {
     if (!shouldSearchAddress) {
       return;
     }
@@ -247,6 +279,15 @@ function HotspotCreatePageContent() {
   const selectedTags = availableTags.filter((tag) =>
     selectedTagIds.includes(tag.tagId),
   );
+  const tagDropdownLabel = isLoadingTags
+    ? "Đang tải danh sách thẻ..."
+    : selectedTags.length === 0
+      ? availableTags.length > 0
+        ? "Chọn một hoặc nhiều thẻ"
+        : "Chưa có thẻ nào khả dụng"
+      : selectedTags.length <= 2
+        ? selectedTags.map((tag) => `#${buildTagToken(tag.tagName)}`).join(", ")
+        : `${selectedTags.length} thẻ đã chọn`;
 
   function updateField<Key extends keyof HotspotFormState>(
     field: Key,
@@ -264,20 +305,6 @@ function HotspotCreatePageContent() {
         ? current.filter((item) => item !== tagId)
         : [...current, tagId],
     );
-  }
-
-  function handleTagSelectChange(value: string) {
-    setTagSelectValue(value);
-
-    const nextTagId = Number(value);
-    if (!Number.isInteger(nextTagId) || nextTagId <= 0) {
-      return;
-    }
-
-    setSelectedTagIds((current) =>
-      current.includes(nextTagId) ? current : [...current, nextTagId],
-    );
-    setTagSelectValue("");
   }
 
   function handleAddressInputChange(value: string) {
@@ -771,36 +798,107 @@ function HotspotCreatePageContent() {
                 </div>
                 <div>
                   <label className="cq-label mb-2 block">Thẻ</label>
-                  <select
-                    value={tagSelectValue}
-                    onChange={(event) =>
-                      handleTagSelectChange(event.target.value)
-                    }
-                    disabled={isLoadingTags || availableTags.length === 0}
-                    className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:text-slate-400"
-                  >
-                    <option value="" disabled>
-                      {isLoadingTags
-                        ? "Đang tải danh sách thẻ..."
-                        : availableTags.length > 0
-                          ? "Hãy chọn thẻ"
-                          : "Chưa có thẻ nào khả dụng"}
-                    </option>
-                    {availableTags.map((tag) => {
-                      const isSelected = selectedTagIds.includes(tag.tagId);
+                  <div className="relative" ref={tagDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsTagDropdownOpen((current) => !current)}
+                      disabled={isLoadingTags || availableTags.length === 0}
+                      aria-expanded={isTagDropdownOpen}
+                      aria-haspopup="dialog"
+                      className={cn(
+                        "flex w-full items-center justify-between gap-3 rounded-3xl border px-4 py-3 text-left text-sm shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-primary/20",
+                        isTagDropdownOpen
+                          ? "border-[#F7DCE8] bg-[#FFF1F7]"
+                          : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white",
+                        "disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400",
+                      )}
+                    >
+                      <span className="min-w-0 flex-1 truncate text-slate-900">
+                        {tagDropdownLabel}
+                      </span>
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 shrink-0 text-slate-400 transition",
+                          isTagDropdownOpen && "rotate-180 text-[#D94A8D]",
+                        )}
+                      />
+                    </button>
 
-                      return (
-                        <option
-                          key={tag.tagId}
-                          value={tag.tagId}
-                          disabled={isSelected}
-                        >
-                          {tag.tagName}
-                          {isSelected ? " - đã chọn" : ""}
-                        </option>
-                      );
-                    })}
-                  </select>
+                    {isTagDropdownOpen &&
+                    !isLoadingTags &&
+                    availableTags.length > 0 ? (
+                      <div className="absolute left-0 right-0 top-[calc(100%+0.75rem)] z-20 rounded-[1.5rem] border border-slate-200 bg-white p-3 shadow-[0_20px_45px_rgba(15,23,42,0.12)]">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Chọn thẻ
+                          </p>
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                            {selectedTags.length} đã chọn
+                          </span>
+                        </div>
+
+                        <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                          {availableTags.map((tag) => {
+                            const isSelected = selectedTagIds.includes(tag.tagId);
+
+                            return (
+                              <label
+                                key={tag.tagId}
+                                className={cn(
+                                  "flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 text-sm transition",
+                                  isSelected
+                                    ? "border-[#F7DCE8] bg-[#FFF1F7] shadow-sm"
+                                    : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white",
+                                )}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => handleToggleTag(tag.tagId)}
+                                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[#D94A8D] focus:ring-[#D94A8D]"
+                                />
+                                <span className="min-w-0 flex-1">
+                                  <span className="flex items-center justify-between gap-2">
+                                    <span
+                                      className={cn(
+                                        "truncate font-semibold",
+                                        isSelected
+                                          ? "text-[#D94A8D]"
+                                          : "text-slate-900",
+                                      )}
+                                    >
+                                      #{buildTagToken(tag.tagName)}
+                                    </span>
+                                    {isSelected ? (
+                                      <CheckCircle2 className="h-4 w-4 shrink-0 text-[#D94A8D]" />
+                                    ) : null}
+                                  </span>
+                                  <span className="mt-1 block text-xs text-slate-500">
+                                    Chọn thẻ này cho hotspot
+                                  </span>
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          <p className="text-xs text-slate-500">
+                            Có thể chọn nhiều thẻ trong một lần mở dropdown.
+                          </p>
+                          {selectedTags.length > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedTagIds([])}
+                              className="text-xs font-medium text-slate-500 transition hover:text-slate-900"
+                            >
+                              Xóa tất cả
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                   {selectedTags.length > 0 ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {selectedTags.map((tag) => (
@@ -825,7 +923,8 @@ function HotspotCreatePageContent() {
                     </button>
                   ) : null}
                   <p className="mt-2 text-xs text-slate-500">
-                    Chọn một hoặc nhiều thẻ nội dung cho hotspot này.
+                    Bấm vào ô chọn để xổ danh sách checkbox và chọn nhiều thẻ cho
+                    hotspot này.
                   </p>
                   {tagError ? (
                     <p className="mt-2 text-xs font-medium text-rose-700">
