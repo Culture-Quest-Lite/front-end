@@ -110,4 +110,17 @@ export const storyApi = {
       sameOrigin: true,
     });
   },
+
+  updateStory: async (
+    storyId: number,
+    payload:
+      | FormData
+      | { title: string; content: string; tagId: number; hotspotId: number },
+  ) => {
+    return apiFetch<BackendStory>(`/api/stories/${storyId}`, {
+      method: "PUT",
+      body: payload,
+      sameOrigin: true,
+    });
+  },
 };

@@ -158,7 +158,17 @@ export default function CuratorStoriesPage() {
 
         const storiesWithHotspot = await Promise.all(
           response.content.map(async (story: BackendStory) => {
-            const hotspot = await hotspotApi.getHotspotById(story.hotspotId);
+            const hotspot = await hotspotApi
+              .getHotspotById(story.hotspotId)
+              .catch((error) => {
+                console.warn("[story] Failed to load hotspot for story", {
+                  storyId: story.storyId,
+                  hotspotId: story.hotspotId,
+                  error,
+                });
+                return { hotspotName: `#${story.hotspotId}` } as BackendHotspot;
+              });
+
             return {
               id: String(story.storyId),
               title: story.title,
@@ -585,18 +595,15 @@ export default function CuratorStoriesPage() {
                                     <span>Xem chi tiết</span>
                                   </Link>
 
-                                  <button
-                                    type="button"
+                                  <Link
+                                    href={`/curator/stories/${story.id}/edit`}
                                     role="menuitem"
-                                    onClick={() => {
-                                      setOpenMenuStoryId(null);
-                                      handleEditStory(story);
-                                    }}
                                     className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                                    onClick={() => setOpenMenuStoryId(null)}
                                   >
                                     <Pencil className="h-4 w-4" />
                                     <span>Chỉnh sửa</span>
-                                  </button>
+                                  </Link>
 
                                   <button
                                     type="button"

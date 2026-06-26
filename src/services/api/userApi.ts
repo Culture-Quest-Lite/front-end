@@ -20,20 +20,47 @@ export interface BackendUser {
 
 export const userApi = {
   getUserById: async (userId: number) => {
-    const response = await fetch(`/api/users/${userId}`, {
-      method: "GET",
-      credentials: "include",
-      headers: {
-        accept: "application/json",
-      },
-    });
-    const responseText = await response.text();
+    const controller = new AbortController();
+    const TIMEOUT_MS = 3000; // abort slow profile requests after 3s
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-    if (!response.ok) {
+    try {
+      const start = Date.now();
+      const response = await fetch(`/api/users/${userId}`, {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          accept: "application/json",
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      const duration = Date.now() - start;
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        console.debug(`[userApi] getUserById ${userId} failed`, {
+          status: response.status,
+          duration,
+        });
+        return null;
+      }
+
+      console.debug(`[userApi] getUserById ${userId} success`, { duration });
+      return safeParseUser(responseText);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === "AbortError") {
+        console.warn(
+          `[userApi] getUserById ${userId} timed out after ${TIMEOUT_MS}ms`,
+        );
+        return null;
+      }
+
+      console.error(`[userApi] getUserById ${userId} error`, error);
       return null;
     }
-
-    return safeParseUser(responseText);
   },
 };
 
