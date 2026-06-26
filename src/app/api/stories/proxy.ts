@@ -21,8 +21,13 @@ export async function forwardStoriesRequest(
     cache: "no-store",
   };
 
-  if (method !== "GET") {
-    init.body = request.body;
+  const requestBody =
+    method === "POST" || method === "PUT"
+      ? await request.arrayBuffer()
+      : undefined;
+
+  if (requestBody !== undefined) {
+    init.body = requestBody;
     // Next.js requires duplex for request streams when forwarding bodies.
     // See https://nextjs.org/docs/app/api-reference/functions/request#duplex
     (init as RequestInit & { duplex: "half" }).duplex = "half";

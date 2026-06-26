@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const BACKEND_API_BASE_URL =
+  process.env.ROUTE_API_BASE_URL ??
   process.env.API_BASE_URL ??
   process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://localhost:8080";
+  "http://13.158.40.56:8080";
 
 const ACCESS_TOKEN_COOKIE_KEY = "culture-quest-access-token";
 
-type PartnerMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+type RouteMethod = "GET" | "POST" | "PUT" | "DELETE";
 
-async function forwardPartnerRequest(request: NextRequest, method: PartnerMethod) {
-  const backendUrl = buildBackendUrl(request);
+export async function forwardRouteRequest(
+  request: NextRequest,
+  method: RouteMethod,
+  routePath: string[] = [],
+) {
   const headers = buildBackendHeaders(request);
+  const requestBody = method === "POST" || method === "PUT" ? await request.arrayBuffer() : undefined;
 
-  const hasBody = method === "POST" || method === "PUT" || method === "PATCH";
-  const requestBody = hasBody ? await request.arrayBuffer() : undefined;
-
-  const response = await fetch(backendUrl, {
+  const response = await fetch(buildBackendUrl(request, routePath), {
     method,
     headers,
     cache: "no-store",
@@ -24,7 +26,6 @@ async function forwardPartnerRequest(request: NextRequest, method: PartnerMethod
   });
 
   const responseBody = await response.arrayBuffer();
-
   const nextResponse = new NextResponse(
     responseBody.byteLength > 0 ? responseBody : null,
     { status: response.status },
@@ -36,28 +37,24 @@ async function forwardPartnerRequest(request: NextRequest, method: PartnerMethod
   }
 
   nextResponse.headers.set("cache-control", "no-store");
-
   return nextResponse;
 }
 
-function buildBackendUrl(request: NextRequest) {
+function buildBackendUrl(request: NextRequest, routePath: string[]) {
   const normalizedBaseUrl = BACKEND_API_BASE_URL.endsWith("/")
     ? BACKEND_API_BASE_URL.slice(0, -1)
     : BACKEND_API_BASE_URL;
+  const joinedPath = routePath.length > 0 ? `/${routePath.map(encodeURIComponent).join("/")}` : "";
 
-  const requestPath = request.nextUrl.pathname.replace(/^\/api\/partner/, "");
-
-  return `${normalizedBaseUrl}/api/partner${requestPath}${request.nextUrl.search}`;
+  return `${normalizedBaseUrl}/api/v1/routes${joinedPath}${request.nextUrl.search}`;
 }
 
 function buildBackendHeaders(request: NextRequest) {
   const headers = new Headers();
-
   const authorization = request.headers.get("authorization");
   const contentType = request.headers.get("content-type");
 
   headers.set("accept", request.headers.get("accept") ?? "application/json");
-
   if (contentType) {
     headers.set("content-type", contentType);
   }
@@ -73,24 +70,4 @@ function buildBackendHeaders(request: NextRequest) {
   }
 
   return headers;
-}
-
-export async function GET(request: NextRequest) {
-  return forwardPartnerRequest(request, "GET");
-}
-
-export async function POST(request: NextRequest) {
-  return forwardPartnerRequest(request, "POST");
-}
-
-export async function PUT(request: NextRequest) {
-  return forwardPartnerRequest(request, "PUT");
-}
-
-export async function PATCH(request: NextRequest) {
-  return forwardPartnerRequest(request, "PATCH");
-}
-
-export async function DELETE(request: NextRequest) {
-  return forwardPartnerRequest(request, "DELETE");
 }
