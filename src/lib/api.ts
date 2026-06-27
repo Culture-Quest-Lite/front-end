@@ -71,7 +71,13 @@ export async function apiFetch<T>(
       headers: init.headers,
     });
   }
-
+  console.log("[apiFetch URL]", {
+  path,
+  url,
+  sameOrigin,
+  method: init.method,
+  isFormDataBody,
+});
   try {
     const response = await fetch(url, {
       ...init,

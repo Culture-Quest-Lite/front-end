@@ -70,7 +70,7 @@ export interface VoucherRequest {
   minOrderAmount?: number;
   pointsRequired: number;
   quantityTotal: number;
-  status?: VoucherStatus;
+  status: VoucherStatus;
   startDate: string;
   endDate: string;
   files?: File[];
@@ -79,7 +79,6 @@ export interface VoucherRequest {
 export interface VoucherFilterParams {
   search?: string;
   status?: VoucherStatus;
-  partnerId?: number;
   page?: number;
   size?: number;
   sortBy?: string;
@@ -149,12 +148,6 @@ function buildQuery(params?: Record<string, string | number | undefined>) {
   return query ? `?${query}` : "";
 }
 
-/**
- * Endpoint Swagger mới:
- * GET /api/partner/{id}/vouchers
- *
- * Trong đó {id} sẽ lấy từ GET /api/users/me -> userId.
- */
 export const partnerApi = {
   /**
    * GET /api/users/me
@@ -179,10 +172,11 @@ export const partnerApi = {
   /**
    * GET /api/partner/{id}/vouchers
    *
-   * Dùng khi bạn đã có id.
-   * id này hiện đang truyền bằng userId lấy từ /api/users/me.
+   * id nằm trên path, không phải query partnerId.
+   * Ví dụ:
+   * /api/partner/22/vouchers?page=0&size=8&sortBy=createdAt&sortDir=desc
    */
-  getVouchersByUserId: async (id: number, params?: Omit<VoucherFilterParams, "partnerId">) => {
+  getVouchersByUserId: async (id: number, params?: VoucherFilterParams) => {
     const query = buildQuery({
       search: params?.search?.trim() || undefined,
       status: params?.status,
@@ -204,35 +198,16 @@ export const partnerApi = {
   },
 
   /**
-   * Hàm chính nên dùng trong trang Partner Voucher.
-   * Tự lấy userId hiện tại rồi gọi GET /api/partner/{id}/vouchers.
+   * Hàm chính nên dùng ở Partner dashboard / Partner voucher page.
+   * Tự lấy userId từ /api/users/me rồi truyền vào path {id}.
    */
-  getMyVouchers: async (params?: Omit<VoucherFilterParams, "partnerId">) => {
+  getVouchers: async (params?: VoucherFilterParams) => {
     const userId = await partnerApi.getCurrentUserId();
-
     return partnerApi.getVouchersByUserId(userId, params);
   },
 
   /**
-   * Giữ lại hàm cũ để tránh vỡ code nơi khác.
-   * Nếu có params.partnerId thì dùng partnerId làm path id.
-   * Nếu không có partnerId thì tự lấy userId hiện tại.
-   */
-  getVouchers: async (params?: VoucherFilterParams) => {
-    const id = params?.partnerId ?? (await partnerApi.getCurrentUserId());
-
-    return partnerApi.getVouchersByUserId(id, {
-      search: params?.search,
-      status: params?.status,
-      page: params?.page,
-      size: params?.size,
-      sortBy: params?.sortBy,
-      sortDir: params?.sortDir,
-    });
-  },
-
-  /**
-   * Nếu backend có endpoint GET /api/partner/vouchers/{id}, có thể dùng hàm này.
+   * Nếu backend có endpoint GET /api/partner/vouchers/{id}.
    */
   getVoucherById: async (voucherId: number) =>
     apiFetch<VoucherResponse>(`/api/partner/vouchers/${voucherId}`, {
@@ -241,11 +216,10 @@ export const partnerApi = {
     }),
 
   /**
-   * Tìm voucher theo id trong danh sách voucher của user/partner hiện tại.
-   * Dùng khi backend chưa có GET detail riêng hoặc muốn đảm bảo chỉ lấy voucher của user hiện tại.
+   * Tìm 1 voucher theo voucherId trong danh sách voucher của user hiện tại.
    */
   getVoucherByIdOfCurrentPartner: async (voucherId: number) => {
-    const response = await partnerApi.getMyVouchers({
+    const response = await partnerApi.getVouchers({
       page: 0,
       size: 100,
       sortBy: "createdAt",
@@ -256,21 +230,10 @@ export const partnerApi = {
   },
 
   /**
-   * POST /api/partner/vouchers
-   * Multipart form-data.
-   *
-   * Có 2 cách tạo mã:
-   * - Không truyền voucherCode: backend tự tạo.
-   * - Có truyền voucherCode: backend dùng mã người dùng nhập, nếu backend đã hỗ trợ.
-   *
-   * Không bắt buộc truyền status khi create.
+   * POST /api/partner/vouchers — multipart/form-data.
    */
-  createVoucher: async (payload: VoucherRequest) => {
+  createVoucher: async (payload: Omit<VoucherRequest, "voucherCode">) => {
     const formData = new FormData();
-
-    if (payload.voucherCode?.trim()) {
-      formData.append("voucherCode", payload.voucherCode.trim().toUpperCase());
-    }
 
     formData.append("voucherName", payload.voucherName);
 
@@ -291,11 +254,7 @@ export const partnerApi = {
 
     formData.append("pointsRequired", String(payload.pointsRequired));
     formData.append("quantityTotal", String(payload.quantityTotal));
-
-    if (payload.status) {
-      formData.append("status", payload.status);
-    }
-
+    formData.append("status", payload.status);
     formData.append("startDate", payload.startDate);
     formData.append("endDate", payload.endDate);
 
@@ -312,7 +271,6 @@ export const partnerApi = {
 
   /**
    * PUT /api/partner/vouchers/{id}
-   * JSON thường, chưa hỗ trợ đổi ảnh.
    */
   updateVoucher: async (id: number, payload: VoucherRequest) =>
     apiFetch<VoucherResponse>(`/api/partner/vouchers/${id}`, {

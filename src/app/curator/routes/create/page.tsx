@@ -11,18 +11,21 @@ import {
   Plus,
   Search,
   SlidersHorizontal,
+  Upload,
+  Image as ImageIcon,
   X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { buildTagToken, type TagRecord } from "@/lib/tags";
 import { hotspotApi, tagApi, type BackendHotspot } from "@/services/api";
 import {
-  routeApi,
   type RouteDifficulty,
   type RoutePayload,
+  type RouteResponse,
 } from "@/services/api/routeApi";
 
 type RouteBuilderStep = 1 | 2 | 3 | 4 | 5 | 6;
@@ -34,10 +37,54 @@ const routeSteps = [
   { id: 3, label: "Sắp xếp" },
   { id: 4, label: "Thông tin" },
   { id: 5, label: "Xem trước" },
-  { id: 6, label: "Gửi duyệt" },
+  { id: 6, label: "Tạo bản nháp" },
 ];
 
 const HOTSPOTS_PER_PAGE = 4;
+
+function buildRouteCreateFormData(payload: RoutePayload) {
+  const formData = new FormData();
+
+  payload.files?.forEach((file) => {
+    formData.append("files", file);
+  });
+
+  formData.append("routeName", payload.routeName);
+
+  if (payload.description?.trim()) {
+    formData.append("description", payload.description.trim());
+  }
+
+  formData.append("difficulty", payload.difficulty);
+  formData.append("estimateTime", String(payload.estimateTime));
+  formData.append("totalDistance", String(payload.totalDistance));
+
+  payload.hotspots.forEach((hotspot, index) => {
+    formData.append(`hotspots[${index}].hotspotId`, String(hotspot.hotspotId));
+    formData.append(`hotspots[${index}].index`, String(hotspot.index));
+  });
+
+  payload.tagIds.forEach((tagId) => {
+    formData.append("tagIds", String(tagId));
+  });
+
+  formData.append("xp", String(payload.xp));
+  formData.append("point", String(payload.point));
+
+  if (payload.status) {
+    formData.append("status", payload.status);
+  }
+
+  return formData;
+}
+
+async function createRouteMultipart(payload: RoutePayload) {
+  return apiFetch<RouteResponse>("/api/routes", {
+    method: "POST",
+    body: buildRouteCreateFormData(payload),
+    sameOrigin: true,
+  });
+}
 
 const difficultyOptions: Array<{
   label: string;
@@ -283,6 +330,7 @@ export default function CuratorRouteCreatePage() {
   const [routePointInput, setRoutePointInput] = useState("100");
   const [routeDifficulty, setRouteDifficulty] =
     useState<RouteDifficulty>("MEDIUM");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -543,6 +591,30 @@ export default function CuratorRouteCreatePage() {
     setDraggingHotspotId(null);
   }
 
+  function handleRouteFilesSelected(fileList: FileList | null) {
+    if (!fileList) return;
+
+    const incomingFiles = Array.from(fileList).filter((file) =>
+      file.type.startsWith("image/"),
+    );
+
+    setSelectedFiles((current) => [
+      ...current,
+      ...incomingFiles.filter(
+        (file) =>
+          !current.some(
+            (item) => item.name === file.name && item.size === file.size,
+          ),
+      ),
+    ]);
+  }
+
+  function removeRouteFile(index: number) {
+    setSelectedFiles((current) =>
+      current.filter((_, itemIndex) => itemIndex !== index),
+    );
+  }
+
   function buildPayload(): RoutePayload {
     const routeName = routeTitle.trim();
     const description = routeDescription.trim();
@@ -587,6 +659,8 @@ export default function CuratorRouteCreatePage() {
       tagIds: selectedTagIds,
       xp,
       point,
+      status: "DRAFT",
+      files: selectedFiles,
     };
   }
 
@@ -596,7 +670,7 @@ export default function CuratorRouteCreatePage() {
       setIsSubmitting(true);
 
       const payload = buildPayload();
-      const response = await routeApi.createRoute(payload);
+      const response = await createRouteMultipart(payload);
 
       window.location.href = `/curator/routes/${response.routeId}`;
     } catch (err) {
@@ -860,6 +934,67 @@ export default function CuratorRouteCreatePage() {
             className="min-h-28 w-full resize-none rounded-[1.05rem] border border-[#e6ddd2] bg-[#fcfbf8] px-4 py-3 text-base text-slate-900 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
 
+          <div className="rounded-[1.05rem] border border-dashed border-[#e6ddd2] bg-[#fcfbf8] p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">
+                  Hình ảnh tuyến
+                </h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Thêm một hoặc nhiều ảnh đại diện cho tuyến bản nháp.
+                </p>
+              </div>
+
+              <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-[#cf3d37]/20 bg-white px-4 py-2 text-sm font-medium text-[#cf3d37] shadow-sm transition hover:bg-[#fff2ef]">
+                <Upload className="h-4 w-4" />
+                Thêm ảnh
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(event) => {
+                    handleRouteFilesSelected(event.target.files);
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+
+            {selectedFiles.length > 0 ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {selectedFiles.map((file, index) => (
+                  <div
+                    key={`${file.name}-${file.size}-${index}`}
+                    className="flex items-center gap-3 rounded-[1rem] border border-[#e6ddd2] bg-white p-2.5"
+                  >
+                    <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[0.8rem] bg-[#fff2ef] text-[#cf3d37]">
+                      <ImageIcon className="h-5 w-5" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-900">
+                        {file.name}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => removeRouteFile(index)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                      aria-label={`Xoá ảnh ${file.name}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
           <div className="grid gap-3 md:grid-cols-2">
             <Input
               value={routeDurationInput}
@@ -975,10 +1110,10 @@ export default function CuratorRouteCreatePage() {
             <CheckCircle2 className="h-8 w-8 text-emerald-600" />
           </div>
           <h2 className="mt-4 text-[1.45rem] font-semibold tracking-[-0.02em] text-slate-900">
-            Sẵn sàng gửi duyệt
+            Sẵn sàng tạo bản nháp
           </h2>
           <p className="mt-2 text-sm text-slate-500">
-            Tuyến sẽ được tạo ở trạng thái chờ duyệt.
+            Tuyến sẽ được tạo ở trạng thái bản nháp.
           </p>
           <Button
             type="button"
@@ -991,7 +1126,7 @@ export default function CuratorRouteCreatePage() {
             {isSubmitting ? (
               <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
             ) : null}
-            Gửi duyệt tuyến
+            Tạo bản nháp
           </Button>
         </div>
       </div>

@@ -8,7 +8,7 @@ const BACKEND_API_BASE_URL =
 
 const ACCESS_TOKEN_COOKIE_KEY = "culture-quest-access-token";
 
-type RouteMethod = "GET" | "POST" | "PUT" | "DELETE";
+type RouteMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export async function forwardRouteRequest(
   request: NextRequest,
@@ -16,7 +16,9 @@ export async function forwardRouteRequest(
   routePath: string[] = [],
 ) {
   const headers = buildBackendHeaders(request);
-  const requestBody = method === "POST" || method === "PUT" ? await request.arrayBuffer() : undefined;
+  const requestBody = shouldForwardBody(method)
+    ? await request.arrayBuffer()
+    : undefined;
 
   const response = await fetch(buildBackendUrl(request, routePath), {
     method,
@@ -26,6 +28,7 @@ export async function forwardRouteRequest(
   });
 
   const responseBody = await response.arrayBuffer();
+
   const nextResponse = new NextResponse(
     responseBody.byteLength > 0 ? responseBody : null,
     { status: response.status },
@@ -40,21 +43,39 @@ export async function forwardRouteRequest(
   return nextResponse;
 }
 
+function shouldForwardBody(method: RouteMethod) {
+  return method === "POST" || method === "PUT" || method === "PATCH";
+}
+
 function buildBackendUrl(request: NextRequest, routePath: string[]) {
   const normalizedBaseUrl = BACKEND_API_BASE_URL.endsWith("/")
     ? BACKEND_API_BASE_URL.slice(0, -1)
     : BACKEND_API_BASE_URL;
-  const joinedPath = routePath.length > 0 ? `/${routePath.map(encodeURIComponent).join("/")}` : "";
+
+  const joinedPath =
+    routePath.length > 0
+      ? `/${routePath.map(encodeURIComponent).join("/")}`
+      : "";
 
   return `${normalizedBaseUrl}/api/v1/routes${joinedPath}${request.nextUrl.search}`;
 }
-
+  
 function buildBackendHeaders(request: NextRequest) {
   const headers = new Headers();
+
   const authorization = request.headers.get("authorization");
   const contentType = request.headers.get("content-type");
 
   headers.set("accept", request.headers.get("accept") ?? "application/json");
+
+  /**
+   * Quan trọng:
+   * - JSON cần content-type: application/json
+   * - FormData cần content-type: multipart/form-data; boundary=...
+   *
+   * Không tự set multipart/form-data thủ công ở FE.
+   * Ở đây chỉ copy content-type từ request gốc để giữ boundary.
+   */
   if (contentType) {
     headers.set("content-type", contentType);
   }
@@ -65,6 +86,7 @@ function buildBackendHeaders(request: NextRequest) {
   }
 
   const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE_KEY)?.value;
+
   if (accessToken) {
     headers.set("authorization", `Bearer ${accessToken}`);
   }
