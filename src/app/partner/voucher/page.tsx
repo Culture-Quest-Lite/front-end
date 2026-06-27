@@ -261,7 +261,6 @@ export default function PartnerVouchersPage() {
         const userId = await getCurrentUserId();
 
         const response = await partnerApi.getVouchers({
-          partnerId: userId,
           page: page - 1,
           size: PAGE_SIZE,
           search: query.trim() || undefined,
