@@ -15,32 +15,40 @@ export async function forwardRouteRequest(
   method: RouteMethod,
   routePath: string[] = [],
 ) {
-  const headers = buildBackendHeaders(request);
-  const requestBody = shouldForwardBody(method)
-    ? await request.arrayBuffer()
-    : undefined;
+  try {
+    const headers = buildBackendHeaders(request);
+    const requestBody = shouldForwardBody(method)
+      ? await request.arrayBuffer()
+      : undefined;
 
-  const response = await fetch(buildBackendUrl(request, routePath), {
-    method,
-    headers,
-    cache: "no-store",
-    body: requestBody && requestBody.byteLength > 0 ? requestBody : undefined,
-  });
+    const backendUrl = buildBackendUrl(request, routePath);
+    const response = await fetch(backendUrl, {
+      method,
+      headers,
+      cache: "no-store",
+      body: requestBody && requestBody.byteLength > 0 ? requestBody : undefined,
+    });
 
-  const responseBody = await response.arrayBuffer();
+    const responseBody = await response.arrayBuffer();
+    const nextResponse = new NextResponse(
+      responseBody.byteLength > 0 ? responseBody : null,
+      { status: response.status },
+    );
 
-  const nextResponse = new NextResponse(
-    responseBody.byteLength > 0 ? responseBody : null,
-    { status: response.status },
-  );
+    copyResponseHeader(response, nextResponse, "content-type");
+    nextResponse.headers.set("cache-control", "no-store");
+    return nextResponse;
+  } catch (error) {
+    console.error("[route proxy] Backend route request failed", error);
 
-  const contentType = response.headers.get("content-type");
-  if (contentType) {
-    nextResponse.headers.set("content-type", contentType);
+    return NextResponse.json(
+      {
+        message: "Không thể kết nối Route API backend.",
+        detail: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 502 },
+    );
   }
-
-  nextResponse.headers.set("cache-control", "no-store");
-  return nextResponse;
 }
 
 function shouldForwardBody(method: RouteMethod) {
@@ -54,12 +62,12 @@ function buildBackendUrl(request: NextRequest, routePath: string[]) {
 
   const joinedPath =
     routePath.length > 0
-      ? `/${routePath.map(encodeURIComponent).join("/")}`
+      ? `/${routePath.map((segment) => encodeURIComponent(segment)).join("/")}`
       : "";
 
   return `${normalizedBaseUrl}/api/v1/routes${joinedPath}${request.nextUrl.search}`;
 }
-  
+
 function buildBackendHeaders(request: NextRequest) {
   const headers = new Headers();
 
@@ -68,14 +76,7 @@ function buildBackendHeaders(request: NextRequest) {
 
   headers.set("accept", request.headers.get("accept") ?? "application/json");
 
-  /**
-   * Quan trọng:
-   * - JSON cần content-type: application/json
-   * - FormData cần content-type: multipart/form-data; boundary=...
-   *
-   * Không tự set multipart/form-data thủ công ở FE.
-   * Ở đây chỉ copy content-type từ request gốc để giữ boundary.
-   */
+  // Giữ nguyên boundary khi frontend gửi FormData/multipart.
   if (contentType) {
     headers.set("content-type", contentType);
   }
@@ -86,10 +87,20 @@ function buildBackendHeaders(request: NextRequest) {
   }
 
   const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE_KEY)?.value;
-
   if (accessToken) {
     headers.set("authorization", `Bearer ${accessToken}`);
   }
 
   return headers;
+}
+
+function copyResponseHeader(
+  source: Response,
+  target: NextResponse,
+  headerName: string,
+) {
+  const value = source.headers.get(headerName);
+  if (value) {
+    target.headers.set(headerName, value);
+  }
 }
