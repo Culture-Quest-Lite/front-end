@@ -18,14 +18,13 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { buildTagToken, type TagRecord } from "@/lib/tags";
 import { hotspotApi, tagApi, type BackendHotspot } from "@/services/api";
 import {
+  routeApi,
   type RouteDifficulty,
   type RoutePayload,
-  type RouteResponse,
 } from "@/services/api/routeApi";
 
 type RouteBuilderStep = 1 | 2 | 3 | 4 | 5 | 6;
@@ -41,50 +40,6 @@ const routeSteps = [
 ];
 
 const HOTSPOTS_PER_PAGE = 4;
-
-function buildRouteCreateFormData(payload: RoutePayload) {
-  const formData = new FormData();
-
-  payload.files?.forEach((file) => {
-    formData.append("files", file);
-  });
-
-  formData.append("routeName", payload.routeName);
-
-  if (payload.description?.trim()) {
-    formData.append("description", payload.description.trim());
-  }
-
-  formData.append("difficulty", payload.difficulty);
-  formData.append("estimateTime", String(payload.estimateTime));
-  formData.append("totalDistance", String(payload.totalDistance));
-
-  payload.hotspots.forEach((hotspot, index) => {
-    formData.append(`hotspots[${index}].hotspotId`, String(hotspot.hotspotId));
-    formData.append(`hotspots[${index}].index`, String(hotspot.index));
-  });
-
-  payload.tagIds.forEach((tagId) => {
-    formData.append("tagIds", String(tagId));
-  });
-
-  formData.append("xp", String(payload.xp));
-  formData.append("point", String(payload.point));
-
-  if (payload.status) {
-    formData.append("status", payload.status);
-  }
-
-  return formData;
-}
-
-async function createRouteMultipart(payload: RoutePayload) {
-  return apiFetch<RouteResponse>("/api/routes", {
-    method: "POST",
-    body: buildRouteCreateFormData(payload),
-    sameOrigin: true,
-  });
-}
 
 const difficultyOptions: Array<{
   label: string;
@@ -670,7 +625,7 @@ export default function CuratorRouteCreatePage() {
       setIsSubmitting(true);
 
       const payload = buildPayload();
-      const response = await createRouteMultipart(payload);
+      const response = await routeApi.createRoute(payload);
 
       window.location.href = `/curator/routes/${response.routeId}`;
     } catch (err) {
