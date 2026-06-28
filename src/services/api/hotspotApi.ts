@@ -101,6 +101,18 @@ export interface HotspotSearchResponse {
   };
 }
 
+type HotspotStatus =
+  | "ACTIVE"
+  | "APPROVED"
+  | "ARCHIVED"
+  | "DELETED"
+  | "DRAFT"
+  | "INACTIVE"
+  | "PENDING"
+  | "PUBLISHED"
+  | "REJECTED"
+  | "SUBMITTED";
+
 export const hotspotApi = {
   getHotspots: async () => {
     return apiFetch<BackendHotspot[]>("/api/hotspots", {
@@ -127,11 +139,46 @@ export const hotspotApi = {
   },
 
   searchHotspots: async (payload: HotspotSearchRequest) => {
-    return apiFetch<HotspotSearchResponse>("/api/hotspots/search", {
-      method: "POST",
-      body: payload,
-      sameOrigin: true,
+    const searchParams = new URLSearchParams();
+
+    searchParams.set("page", String(payload.page));
+    searchParams.set("size", String(payload.size));
+
+    if (payload.sortBy?.trim()) {
+      searchParams.set("sortBy", payload.sortBy.trim());
+    }
+
+    if (payload.sortDirection?.trim()) {
+      searchParams.set("sortDirection", payload.sortDirection.trim());
+    }
+
+    payload.filters.forEach((filter, filterIndex) => {
+      const filterKey = `filters[${filterIndex}]`;
+
+      searchParams.set(`${filterKey}.field`, filter.field);
+      searchParams.set(`${filterKey}.operator`, filter.operator);
+
+      if (filter.value !== undefined && filter.value !== null) {
+        searchParams.set(`${filterKey}.value`, String(filter.value));
+      }
+
+      filter.values?.forEach((value, valueIndex) => {
+        if (value === undefined || value === null) {
+          return;
+        }
+
+        searchParams.set(`${filterKey}.values[${valueIndex}]`, String(value));
+      });
     });
+
+    return apiFetch<HotspotSearchResponse>(
+      `/api/hotspots/search?${searchParams.toString()}`,
+      {
+        method: "GET",
+        cache: "no-store",
+        sameOrigin: true,
+      },
+    );
   },
 
   updateHotspot: async (hotspotId: number, payload: CreateHotspotPayload) => {
@@ -140,6 +187,21 @@ export const hotspotApi = {
       body: payload,
       sameOrigin: true,
     });
+  },
+
+  updateHotspotStatus: async (hotspotId: number, status: HotspotStatus) => {
+    const searchParams = new URLSearchParams({ status });
+
+    return apiFetch<BackendHotspot | string>(
+      `/api/hotspots/${hotspotId}?${searchParams.toString()}`,
+      {
+        method: "PUT",
+        headers: {
+          "x-hotspot-subresource": "status",
+        },
+        sameOrigin: true,
+      },
+    );
   },
 
   deleteHotspot: async (hotspotId: number) => {
