@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { apiFetch } from "@/lib/api";
 import { PageHeader } from "@/components/app/ui-bits";
 import {
   partnerApi,
@@ -30,6 +31,32 @@ import {
 } from "lucide-react";
 
 const PAGE_SIZE = 8;
+
+interface CurrentUserResponse {
+  userId: number;
+  username?: string;
+  email?: string;
+  displayName?: string | null;
+  role?: string;
+}
+
+/**
+ * Backend user có endpoint GET /api/users/me.
+ * Endpoint này đọc token hiện tại, lấy Keycloak subject rồi map ra userId nội bộ.
+ * Dùng userId này truyền vào partnerId để chỉ load voucher của partner/user đang đăng nhập.
+ */
+async function getCurrentUserId() {
+  const me = await apiFetch<CurrentUserResponse>("/api/users/me", {
+    method: "GET",
+    sameOrigin: true,
+  });
+
+  if (!me.userId) {
+    throw new Error("Không tìm thấy userId của tài khoản đang đăng nhập.");
+  }
+
+  return me.userId;
+}
 
 const STATUS_FILTERS: { value: VoucherStatus | "all"; label: string }[] = [
   { value: "all", label: "Tất cả" },
@@ -113,6 +140,52 @@ function toVoucherRequest(
   };
 }
 
+type CreateVoucherPayload = Omit<VoucherRequest, "voucherCode" | "status"> & {
+  files?: File[];
+};
+
+type SaveVoucherPayload = VoucherRequest | CreateVoucherPayload;
+
+/**
+ * Tạo voucher KHÔNG truyền status. Backend sẽ tự quyết định trạng thái ban đầu
+ * thường là PENDING. Sau khi tạo xong, card voucher vẫn có nút cập nhật status.
+ */
+async function createVoucherWithoutStatus(payload: CreateVoucherPayload) {
+  const formData = new FormData();
+
+  formData.append("voucherName", payload.voucherName);
+
+  if (payload.description) {
+    formData.append("description", payload.description);
+  }
+
+  formData.append("discountType", payload.discountType);
+  formData.append("discountValue", String(payload.discountValue));
+
+  if (payload.maxDiscountAmount !== undefined) {
+    formData.append("maxDiscountAmount", String(payload.maxDiscountAmount));
+  }
+
+  if (payload.minOrderAmount !== undefined) {
+    formData.append("minOrderAmount", String(payload.minOrderAmount));
+  }
+
+  formData.append("pointsRequired", String(payload.pointsRequired));
+  formData.append("quantityTotal", String(payload.quantityTotal));
+  formData.append("startDate", payload.startDate);
+  formData.append("endDate", payload.endDate);
+
+  payload.files?.forEach((file) => {
+    formData.append("files", file);
+  });
+
+  return apiFetch<VoucherResponse>("/api/partner/vouchers", {
+    method: "POST",
+    body: formData,
+    sameOrigin: true,
+  });
+}
+
 type FormState = {
   code: string; // chỉ hiển thị/dùng khi sửa — KHÔNG cho phép chỉnh sửa
   title: string;
@@ -138,9 +211,7 @@ const emptyForm: FormState = {
   minOrderAmount: "",
   pointsRequired: "100",
   quantityTotal: "100",
-  // Tạo mới: backend LUÔN ép status = PENDING bất kể gửi gì lên, để mặc
-  // định PENDING cho đồng bộ với thực tế (ô chọn trạng thái sẽ bị ẩn khi
-  // tạo mới — xem VoucherFormDialog).
+  // Chỉ dùng khi sửa voucher. Khi tạo mới không truyền status lên backend.
   status: "PENDING",
   startDate: todayPlusDays(0),
   endDate: todayPlusDays(30),
@@ -155,6 +226,7 @@ export default function PartnerVouchersPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [reloadVersion, setReloadVersion] = useState(0);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<VoucherStatus | "all">("all");
@@ -186,6 +258,8 @@ export default function PartnerVouchersPage() {
         setIsLoading(true);
         setLoadError(null);
 
+        const userId = await getCurrentUserId();
+
         const response = await partnerApi.getVouchers({
           page: page - 1,
           size: PAGE_SIZE,
@@ -195,6 +269,7 @@ export default function PartnerVouchersPage() {
 
         if (cancelled) return;
 
+        setCurrentUserId(userId);
         setVouchers(response.content);
         setTotalItems(response.page.totalElements);
         setTotalPages(Math.max(1, response.page.totalPages || 1));
@@ -262,7 +337,7 @@ export default function PartnerVouchersPage() {
     setDialog("edit");
   }
 
-  function buildPayload(): VoucherRequest | null {
+  function buildPayload(): SaveVoucherPayload | null {
     const title = form.title.trim();
     if (!title) {
       setFormError("Tên voucher không được để trống.");
@@ -319,8 +394,7 @@ export default function PartnerVouchersPage() {
       return null;
     }
 
-    return {
-      voucherCode: dialog === "edit" ? form.code : undefined,
+    const basePayload: CreateVoucherPayload = {
       voucherName: title,
       description: form.description.trim() || undefined,
       discountType: form.discountType,
@@ -329,10 +403,19 @@ export default function PartnerVouchersPage() {
       minOrderAmount,
       pointsRequired,
       quantityTotal,
-      status: form.status,
       startDate: `${form.startDate}T00:00:00`,
       endDate: `${form.endDate}T23:59:59`,
     };
+
+    if (dialog === "edit") {
+      return {
+        ...basePayload,
+        voucherCode: form.code,
+        status: form.status,
+      };
+    }
+
+    return basePayload;
   }
 
   async function handleSave() {
@@ -344,10 +427,13 @@ export default function PartnerVouchersPage() {
 
     try {
       if (dialog === "create") {
-        // createVoucher gửi multipart/form-data, kèm ảnh đã chọn (nếu có).
-        await partnerApi.createVoucher({ ...payload, files: selectedFiles });
+        // Tạo mới KHÔNG truyền status; backend tự set trạng thái ban đầu.
+        await createVoucherWithoutStatus({
+          ...(payload as CreateVoucherPayload),
+          files: selectedFiles,
+        });
       } else if (editingId) {
-        await partnerApi.updateVoucher(editingId, payload);
+        await partnerApi.updateVoucher(editingId, payload as VoucherRequest);
       }
       setDialog(null);
       refresh();
@@ -394,7 +480,11 @@ export default function PartnerVouchersPage() {
     <div className="space-y-6">
       <PageHeader
         title="Voucher giảm giá"
-        subtitle="Tạo và quản lý voucher đổi bằng điểm cho khách hàng của bạn."
+        subtitle={
+          currentUserId
+            ? `Tạo và quản lý voucher của tài khoản hiện tại (userId: ${currentUserId}).`
+            : "Tạo và quản lý voucher đổi bằng điểm cho khách hàng của bạn."
+        }
         actions={
           <div className="flex flex-wrap gap-2">
             <button
@@ -623,7 +713,11 @@ function VoucherCard({
             ) : (
               <Power className="h-3.5 w-3.5" />
             )}
-            {voucher.status === "ACTIVE" ? "Tạm ngưng" : "Bật lại"}
+            {voucher.status === "ACTIVE"
+              ? "Tạm ngưng"
+              : voucher.status === "PENDING"
+                ? "Kích hoạt"
+                : "Bật lại"}
           </button>
           <button
             type="button"
@@ -663,7 +757,6 @@ function VoucherFormDialog({
 }) {
   function handleFilesSelected(fileList: FileList | null) {
     if (!fileList) return;
-    console.log("files =", Array.from(fileList));
     const incoming = Array.from(fileList);
 
     setSelectedFiles((prev) => [
@@ -685,12 +778,18 @@ function VoucherFormDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
-        <h2 className="text-xl font-semibold text-slate-900">
-          {mode === "create" ? "Tạo voucher mới" : "Chỉnh sửa voucher"}
-        </h2>
+      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div className="shrink-0 border-b border-slate-100 p-6">
+          <h2 className="text-xl font-semibold text-slate-900">
+            {mode === "create" ? "Tạo voucher mới" : "Chỉnh sửa voucher"}
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Nhập thông tin voucher. Phần nội dung có thể cuộn bên trong modal.
+          </p>
+        </div>
 
-        <div className="mt-5 space-y-4">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
+          <div className="space-y-4">
           {mode === "edit" ? (
             <Field label="Mã voucher (không thể chỉnh sửa)">
               <input
@@ -701,8 +800,9 @@ function VoucherFormDialog({
             </Field>
           ) : (
             <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              Mã voucher sẽ được hệ thống tự tạo sau khi lưu. Voucher mới sẽ ở trạng thái{" "}
-              <strong>Chờ duyệt</strong> — admin xét duyệt trước khi kích hoạt cho khách hàng.
+              Mã voucher sẽ được hệ thống tự tạo sau khi lưu. Khi tạo mới, hệ thống không gửi
+              trạng thái lên backend; backend sẽ tự set trạng thái ban đầu. Sau khi tạo xong,
+              bạn có thể dùng nút <strong>Kích hoạt / Tạm ngưng</strong> trên card voucher.
             </p>
           )}
 
@@ -824,8 +924,7 @@ function VoucherFormDialog({
             </p>
           ) : null}
 
-          {/* Tạo mới: backend luôn ép status = PENDING, ô chọn trạng thái không
-              có ý nghĩa nên ẩn đi. Sửa: cho chọn lại trạng thái thật. */}
+          {/* Khi tạo mới không truyền status. Khi sửa mới cho chọn trạng thái để PUT cập nhật voucher. */}
           {mode === "edit" ? (
             <Field label="Trạng thái">
               <select
@@ -926,9 +1025,10 @@ function VoucherFormDialog({
           </div>
 
           {formError ? <p className="text-sm font-medium text-red-600">{formError}</p> : null}
+          </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="shrink-0 flex justify-end gap-3 border-t border-slate-100 p-6">
           <button
             type="button"
             onClick={onCancel}

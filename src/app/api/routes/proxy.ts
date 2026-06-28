@@ -8,53 +8,75 @@ const BACKEND_API_BASE_URL =
 
 const ACCESS_TOKEN_COOKIE_KEY = "culture-quest-access-token";
 
-type RouteMethod = "GET" | "POST" | "PUT" | "DELETE";
+type RouteMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export async function forwardRouteRequest(
   request: NextRequest,
   method: RouteMethod,
   routePath: string[] = [],
 ) {
-  const headers = buildBackendHeaders(request);
-  const requestBody = method === "POST" || method === "PUT" ? await request.arrayBuffer() : undefined;
+  try {
+    const headers = buildBackendHeaders(request);
+    const requestBody = shouldForwardBody(method)
+      ? await request.arrayBuffer()
+      : undefined;
 
-  const response = await fetch(buildBackendUrl(request, routePath), {
-    method,
-    headers,
-    cache: "no-store",
-    body: requestBody && requestBody.byteLength > 0 ? requestBody : undefined,
-  });
+    const backendUrl = buildBackendUrl(request, routePath);
+    const response = await fetch(backendUrl, {
+      method,
+      headers,
+      cache: "no-store",
+      body: requestBody && requestBody.byteLength > 0 ? requestBody : undefined,
+    });
 
-  const responseBody = await response.arrayBuffer();
-  const nextResponse = new NextResponse(
-    responseBody.byteLength > 0 ? responseBody : null,
-    { status: response.status },
-  );
+    const responseBody = await response.arrayBuffer();
+    const nextResponse = new NextResponse(
+      responseBody.byteLength > 0 ? responseBody : null,
+      { status: response.status },
+    );
 
-  const contentType = response.headers.get("content-type");
-  if (contentType) {
-    nextResponse.headers.set("content-type", contentType);
+    copyResponseHeader(response, nextResponse, "content-type");
+    nextResponse.headers.set("cache-control", "no-store");
+    return nextResponse;
+  } catch (error) {
+    console.error("[route proxy] Backend route request failed", error);
+
+    return NextResponse.json(
+      {
+        message: "Không thể kết nối Route API backend.",
+        detail: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 502 },
+    );
   }
+}
 
-  nextResponse.headers.set("cache-control", "no-store");
-  return nextResponse;
+function shouldForwardBody(method: RouteMethod) {
+  return method === "POST" || method === "PUT" || method === "PATCH";
 }
 
 function buildBackendUrl(request: NextRequest, routePath: string[]) {
   const normalizedBaseUrl = BACKEND_API_BASE_URL.endsWith("/")
     ? BACKEND_API_BASE_URL.slice(0, -1)
     : BACKEND_API_BASE_URL;
-  const joinedPath = routePath.length > 0 ? `/${routePath.map(encodeURIComponent).join("/")}` : "";
+
+  const joinedPath =
+    routePath.length > 0
+      ? `/${routePath.map((segment) => encodeURIComponent(segment)).join("/")}`
+      : "";
 
   return `${normalizedBaseUrl}/api/v1/routes${joinedPath}${request.nextUrl.search}`;
 }
 
 function buildBackendHeaders(request: NextRequest) {
   const headers = new Headers();
+
   const authorization = request.headers.get("authorization");
   const contentType = request.headers.get("content-type");
 
   headers.set("accept", request.headers.get("accept") ?? "application/json");
+
+  // Giữ nguyên boundary khi frontend gửi FormData/multipart.
   if (contentType) {
     headers.set("content-type", contentType);
   }
@@ -70,4 +92,15 @@ function buildBackendHeaders(request: NextRequest) {
   }
 
   return headers;
+}
+
+function copyResponseHeader(
+  source: Response,
+  target: NextResponse,
+  headerName: string,
+) {
+  const value = source.headers.get(headerName);
+  if (value) {
+    target.headers.set(headerName, value);
+  }
 }

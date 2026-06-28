@@ -9,7 +9,9 @@ async function getPathSegments(params: RouteParams["params"]) {
   const resolved = await params;
   return resolved.routePath ?? [];
 }
-
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  return forwardRouteRequest(request, "PATCH", await getPathSegments(params));
+}
 export async function GET(request: NextRequest, { params }: RouteParams) {
   return forwardRouteRequest(request, "GET", await getPathSegments(params));
 }
