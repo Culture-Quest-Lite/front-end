@@ -5,7 +5,7 @@ import Link from "next/link";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { CuratorPagination } from "@/components/curator/CuratorPagination";
-import { routeApi, type RouteResponse } from "@/services/api/routeApi";
+import { routeApi, type RouteMediaResponse, type RouteResponse } from "@/services/api/routeApi";
 import { ChevronRight, Clock3, MapPin, Plus, Sparkles, Trash2, TrendingUp } from "lucide-react";
 
 const ROUTES_PER_PAGE = 8;
@@ -19,6 +19,7 @@ const difficultyLabels: Record<string, string> = {
 const statusLabels: Record<string, string> = {
   DRAFT: "Bản nháp",
   PENDING: "Chờ duyệt",
+  PUBLISHED: "Đã publish",
   APPROVED: "Đã duyệt",
   REJECTED: "Từ chối",
   DELETED: "Đã xoá",
@@ -27,6 +28,7 @@ const statusLabels: Record<string, string> = {
 const statusClasses: Record<string, string> = {
   DRAFT: "border-slate-200 bg-slate-50 text-slate-600",
   PENDING: "border-amber-200 bg-amber-50 text-amber-700",
+  PUBLISHED: "border-emerald-200 bg-emerald-50 text-emerald-700",
   APPROVED: "border-emerald-200 bg-emerald-50 text-emerald-700",
   REJECTED: "border-rose-200 bg-rose-50 text-rose-700",
   DELETED: "border-slate-200 bg-slate-50 text-slate-400",
@@ -42,6 +44,36 @@ function getStatusClass(status?: string) {
   return statusClasses[normalized] ?? "border-slate-200 bg-slate-50 text-slate-600";
 }
 
+function getRouteImage(route: RouteResponse) {
+  const medias = route.medias ?? route.media ?? [];
+  const imageMedia =
+    medias.find((media) => {
+      const mediaText = `${media.mediaType ?? ""} ${media.mimeType ?? ""}`.toLowerCase();
+      return mediaText.includes("image");
+    }) ?? medias[0];
+
+  return (
+    route.thumbnailUrl ||
+    route.coverImageUrl ||
+    route.imageUrl ||
+    getMediaUrl(imageMedia) ||
+    null
+  );
+}
+
+function getMediaUrl(media?: RouteMediaResponse) {
+  return media?.fileUrl || media?.mediaUrl || media?.url || null;
+}
+
+function getHotspotCount(route: RouteResponse) {
+  return route.totalStops ?? route.hotspots?.length ?? 0;
+}
+
+function isPublished(status?: string) {
+  const normalized = status?.trim().toUpperCase();
+  return normalized === "PUBLISHED" || normalized === "APPROVED";
+}
+
 function Metric({ icon: Icon, label, value }: { icon: typeof MapPin; label: string; value: string }) {
   return (
     <div className="rounded-[1.35rem] bg-[#F7F5EF] px-4 py-3 shadow-sm">
@@ -54,13 +86,34 @@ function Metric({ icon: Icon, label, value }: { icon: typeof MapPin; label: stri
   );
 }
 
-function RouteCard({ route, onDelete }: { route: RouteResponse; onDelete: (id: number) => void }) {
-  const hotspots = route.hotspots ?? [];
+function RouteCard({
+  route,
+  onDelete,
+  onPublish,
+}: {
+  route: RouteResponse;
+  onDelete: (id: number) => void;
+  onPublish: (id: number) => void;
+}) {
   const tags = route.tags ?? [];
+  const imageUrl = getRouteImage(route);
+  const hotspotCount = getHotspotCount(route);
+  const normalizedStatus = route.status?.trim().toUpperCase() || "DRAFT";
+  const canPublish = normalizedStatus !== "PUBLISHED" && normalizedStatus !== "APPROVED" && normalizedStatus !== "DELETED";
 
   return (
-    <article className="rounded-[1.75rem] border border-slate-200/80 bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
-      <div className="flex flex-col gap-4">
+    <article className="overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+      <div className="h-44 w-full bg-[#F7F5EF]">
+        {imageUrl ? (
+          <img src={imageUrl} alt={route.routeName} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">
+            Chưa có hình ảnh
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-4 p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-base font-semibold text-slate-950">{route.routeName}</h2>
@@ -87,7 +140,7 @@ function RouteCard({ route, onDelete }: { route: RouteResponse; onDelete: (id: n
         </div>
 
         <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
-          <span>{hotspots.length} hotspot</span>
+          <span>{hotspotCount} hotspot</span>
           <span>XP: {route.xp ?? 0}</span>
           <span>Point: {route.point ?? 0}</span>
         </div>
@@ -101,13 +154,33 @@ function RouteCard({ route, onDelete }: { route: RouteResponse; onDelete: (id: n
             <Trash2 className="h-3.5 w-3.5" />
             Xoá
           </button>
-          <Link
-            href={`/curator/routes/${route.routeId}`}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-[#e35a48] transition hover:text-[#c74735]"
-          >
-            Mở tuyến
-            <ChevronRight className="h-4 w-4" />
-          </Link>
+
+          <div className="flex items-center gap-3">
+            {canPublish ? (
+              <button
+                type="button"
+                onClick={() => onPublish(route.routeId)}
+                className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
+              >
+                <TrendingUp className="h-3.5 w-3.5" />
+                Kích hoạt
+              </button>
+            ) : null}
+
+            {isPublished(route.status) ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                Đang hoạt động
+              </span>
+            ) : null}
+
+            <Link
+              href={`/curator/routes/${route.routeId}`}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-[#e35a48] transition hover:text-[#c74735]"
+            >
+              Mở tuyến
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
       </div>
     </article>
@@ -119,6 +192,7 @@ export default function CuratorRoutesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const [publishingRouteId, setPublishingRouteId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reloadVersion, setReloadVersion] = useState(0);
 
@@ -138,8 +212,18 @@ export default function CuratorRoutesPage() {
           sortDirection: "DESC",
         });
 
+        const detailedRoutes = await Promise.all(
+          response.content.map(async (route) => {
+            try {
+              return await routeApi.getRouteById(route.routeId);
+            } catch {
+              return route;
+            }
+          }),
+        );
+
         if (cancelled) return;
-        setRoutes(response.content);
+        setRoutes(detailedRoutes);
         setTotalPages(Math.max(1, response.page.totalPages || 1));
       } catch (err) {
         if (cancelled) return;
@@ -167,6 +251,23 @@ export default function CuratorRoutesPage() {
       setReloadVersion((value) => value + 1);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Không thể xoá tuyến.");
+    }
+  }
+
+  async function handlePublish(routeId: number) {
+    const ok = window.confirm("Bạn có chắc muốn kích hoạt tuyến này không?");
+    if (!ok) return;
+
+    setPublishingRouteId(routeId);
+
+    try {
+      await routeApi.publishRoute(routeId);
+      toast.success("Đã kích hoạt tuyến.");
+      setReloadVersion((value) => value + 1);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không thể kích hoạt tuyến.");
+    } finally {
+      setPublishingRouteId(null);
     }
   }
 
@@ -203,7 +304,9 @@ export default function CuratorRoutesPage() {
         ) : (
           <div className="mt-7 grid gap-4 xl:grid-cols-2">
             {routes.map((route) => (
-              <RouteCard key={route.routeId} route={route} onDelete={handleDelete} />
+              <div key={route.routeId} className={publishingRouteId === route.routeId ? "pointer-events-none opacity-70" : undefined}>
+                <RouteCard route={route} onDelete={handleDelete} onPublish={handlePublish} />
+              </div>
             ))}
           </div>
         )}
