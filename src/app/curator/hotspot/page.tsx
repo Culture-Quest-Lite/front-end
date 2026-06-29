@@ -1201,6 +1201,8 @@ export default function Page() {
   const [publishingHotspotId, setPublishingHotspotId] = useState<number | null>(
     null,
   );
+  const [pendingDeleteHotspot, setPendingDeleteHotspot] =
+    useState<HotspotViewItem | null>(null);
   const [deletingHotspotId, setDeletingHotspotId] = useState<number | null>(
     null,
   );
@@ -1517,23 +1519,35 @@ export default function Page() {
     setIsFilterOpen((open) => !open);
   }
 
-  async function handleDeleteHotspot(item: HotspotViewItem) {
+  function handleDeleteRequest(item: HotspotViewItem) {
     if (!item.hotspotId) {
       setOpenMenuKey(null);
       toast.error("Hotspot này chưa có ID backend nên chưa thể xóa.");
       return;
     }
 
-    setDeletingHotspotId(item.hotspotId);
+    setOpenMenuKey(null);
+    setPendingDeleteHotspot(item);
+  }
+
+  async function handleConfirmDeleteHotspot() {
+    if (!pendingDeleteHotspot?.hotspotId) {
+      setPendingDeleteHotspot(null);
+      return;
+    }
+
+    const hotspotId = pendingDeleteHotspot.hotspotId;
+
+    setDeletingHotspotId(hotspotId);
     try {
-      const message = await hotspotApi.deleteHotspot(item.hotspotId);
+      const message = await hotspotApi.deleteHotspot(hotspotId);
 
       setHotspots((currentHotspots) =>
         currentHotspots.filter(
-          (hotspot) => hotspot.hotspotId !== item.hotspotId,
+          (hotspot) => hotspot.hotspotId !== hotspotId,
         ),
       );
-      setOpenMenuKey(null);
+      setPendingDeleteHotspot(null);
       toast.success(message);
     } catch (error) {
       toast.error(
@@ -1659,8 +1673,9 @@ export default function Page() {
   }
 
   return (
-    <div className="flex min-h-full flex-col gap-6">
-      <section className="space-y-4">
+    <>
+      <div className="flex min-h-full flex-col gap-6">
+        <section className="space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">
             <div>
@@ -1943,29 +1958,29 @@ export default function Page() {
             {loadError}
           </div>
         ) : null}
-      </section>
+        </section>
 
-      <section className="flex flex-1 flex-col gap-4">
-        {displayedHotspots.length > 0 ? (
-          <div className="grid gap-4 xl:grid-cols-4 lg:grid-cols-3 sm:grid-cols-2">
-            {paginatedHotspots.map((item) => {
-              const menuKey = String(item.hotspotId ?? item.slug);
-              const isMenuOpen = openMenuKey === menuKey;
-              const detailHref = item.hotspotId
-                ? `/curator/hotspot/${item.hotspotId}`
-                : `/curator/hotspot/${item.slug}`;
-              const editHref = item.hotspotId
-                ? `/curator/hotspot/create?id=${item.hotspotId}`
-                : null;
-              const isDeleting = deletingHotspotId === item.hotspotId;
-              const isPublishing = publishingHotspotId === item.hotspotId;
-              const isBusy = isDeleting || isPublishing;
+        <section className="flex flex-1 flex-col gap-4">
+          {displayedHotspots.length > 0 ? (
+            <div className="grid gap-4 xl:grid-cols-4 lg:grid-cols-3 sm:grid-cols-2">
+              {paginatedHotspots.map((item) => {
+                const menuKey = String(item.hotspotId ?? item.slug);
+                const isMenuOpen = openMenuKey === menuKey;
+                const detailHref = item.hotspotId
+                  ? `/curator/hotspot/${item.hotspotId}`
+                  : `/curator/hotspot/${item.slug}`;
+                const editHref = item.hotspotId
+                  ? `/curator/hotspot/create?id=${item.hotspotId}`
+                  : null;
+                const isDeleting = deletingHotspotId === item.hotspotId;
+                const isPublishing = publishingHotspotId === item.hotspotId;
+                const isBusy = isDeleting || isPublishing;
 
-              return (
-                <article
-                  key={item.hotspotId ?? item.slug}
-                  className={`group relative flex h-full flex-col overflow-visible rounded-[1.75rem] border border-slate-200/80 bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${isMenuOpen ? "z-20" : ""}`}
-                >
+                return (
+                  <article
+                    key={item.hotspotId ?? item.slug}
+                    className={`group relative flex h-full flex-col overflow-visible rounded-[1.75rem] border border-slate-200/80 bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${isMenuOpen ? "z-20" : ""}`}
+                  >
                   <Link
                     href={detailHref}
                     className="relative block h-40 overflow-hidden rounded-t-[1.75rem] bg-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -1987,11 +2002,6 @@ export default function Page() {
                     >
                       {item.badge}
                     </div>
-                    {item.gps ? (
-                      <div className="absolute right-3 top-3 rounded-full bg-slate-950/80 px-3 py-1 text-xs font-semibold text-white shadow-sm">
-                        {item.gps}
-                      </div>
-                    ) : null}
                     <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
                       <h2 className="text-base font-semibold line-clamp-1">
                         {item.title}
@@ -2121,27 +2131,25 @@ export default function Page() {
                                     </span>
                                   </button>
                                 ) : action.key === "archive" ? (
-                                  <button
-                                    key={action.label}
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={() =>
-                                      void handleDeleteHotspot(item)
-                                    }
-                                    disabled={isBusy}
-                                    className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-slate-100 px-3 py-2.5 pt-3 text-left text-sm font-medium text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                                  >
-                                    {isDeleting ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <ActionIcon className="h-4 w-4" />
-                                    )}
-                                    <span>
-                                      {isDeleting
-                                        ? "Đang xóa..."
-                                        : action.label}
-                                    </span>
-                                  </button>
+                                    <button
+                                      key={action.label}
+                                      type="button"
+                                      role="menuitem"
+                                      onClick={() => handleDeleteRequest(item)}
+                                      disabled={isBusy}
+                                      className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-slate-100 px-3 py-2.5 pt-3 text-left text-sm font-medium text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      {isDeleting ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <ActionIcon className="h-4 w-4" />
+                                      )}
+                                      <span>
+                                        {isDeleting
+                                          ? "Đang xóa..."
+                                          : action.label}
+                                      </span>
+                                    </button>
                                 ) : (
                                   <button
                                     key={action.label}
@@ -2182,68 +2190,122 @@ export default function Page() {
                       ))}
                     </div>
                   </div>
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-[#faf9f6] px-6 py-10 text-center text-sm text-slate-500">
-            {quickSearch.value.trim() || appliedFilterSummary.length > 0
-              ? "Không có hotspot phù hợp với từ khóa hoặc bộ lọc hiện tại."
-              : "Chưa có hotspot để hiển thị."}
-          </div>
-        )}
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-[#faf9f6] px-6 py-10 text-center text-sm text-slate-500">
+              {quickSearch.value.trim() || appliedFilterSummary.length > 0
+                ? "Không có hotspot phù hợp với từ khóa hoặc bộ lọc hiện tại."
+                : "Chưa có hotspot để hiển thị."}
+            </div>
+          )}
 
-        {displayedHotspots.length > 0 ? (
-          <div className="mt-auto flex justify-end pt-6">
-            <div className="inline-flex items-end justify-center gap-1 sm:gap-2">
-              <button
-                type="button"
-                aria-label="Trang trước"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition hover:text-[rgb(var(--primary))] disabled:pointer-events-none disabled:opacity-40"
-                onClick={() => {
-                  setOpenMenuKey(null);
-                  setCurrentPage((page) => Math.max(1, page - 1));
-                }}
-                disabled={safeCurrentPage === 1}
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-
-              {pageNumbers.map((pageNumber) => (
+          {displayedHotspots.length > 0 ? (
+            <div className="mt-auto flex justify-end pt-6">
+              <div className="inline-flex items-end justify-center gap-1 sm:gap-2">
                 <button
-                  key={pageNumber}
                   type="button"
+                  aria-label="Trang trước"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition hover:text-[rgb(var(--primary))] disabled:pointer-events-none disabled:opacity-40"
                   onClick={() => {
                     setOpenMenuKey(null);
-                    setCurrentPage(pageNumber);
+                    setCurrentPage((page) => Math.max(1, page - 1));
                   }}
-                  className={`relative inline-flex h-9 min-w-[2.25rem] items-center justify-center px-3 pb-2 text-lg font-medium transition ${
-                    safeCurrentPage === pageNumber
-                      ? "font-semibold text-[rgb(var(--primary))] after:absolute after:bottom-0 after:left-1/2 after:h-0.5 after:w-6 after:-translate-x-1/2 after:rounded-full after:bg-[rgb(var(--primary))]"
-                      : "text-slate-400 hover:text-slate-700"
-                  }`}
+                  disabled={safeCurrentPage === 1}
                 >
-                  {pageNumber}
+                  <ChevronLeft className="h-5 w-5" />
                 </button>
-              ))}
 
-              <button
+                {pageNumbers.map((pageNumber) => (
+                  <button
+                    key={pageNumber}
+                    type="button"
+                    onClick={() => {
+                      setOpenMenuKey(null);
+                      setCurrentPage(pageNumber);
+                    }}
+                    className={`relative inline-flex h-9 min-w-[2.25rem] items-center justify-center px-3 pb-2 text-lg font-medium transition ${
+                      safeCurrentPage === pageNumber
+                        ? "font-semibold text-[rgb(var(--primary))] after:absolute after:bottom-0 after:left-1/2 after:h-0.5 after:w-6 after:-translate-x-1/2 after:rounded-full after:bg-[rgb(var(--primary))]"
+                        : "text-slate-400 hover:text-slate-700"
+                    }`}
+                  >
+                    {pageNumber}
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  aria-label="Trang sau"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition hover:text-[rgb(var(--primary))] disabled:pointer-events-none disabled:opacity-40"
+                  onClick={() => {
+                    setOpenMenuKey(null);
+                    setCurrentPage((page) => Math.min(totalPages, page + 1));
+                  }}
+                  disabled={safeCurrentPage === totalPages}
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </section>
+      </div>
+
+      {pendingDeleteHotspot ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 px-4 py-6 backdrop-blur-sm">
+          <div
+            className="absolute inset-0"
+            onClick={() => setPendingDeleteHotspot(null)}
+            aria-hidden="true"
+          />
+
+          <div className="relative z-10 w-full max-w-[22rem] rounded-[1.75rem] border border-slate-200 bg-white px-5 py-7 text-center shadow-[0_24px_60px_rgba(15,23,42,0.18)] sm:px-6 sm:py-8">
+            <div className="space-y-3">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#FFF1F0] text-[#CF3F34]">
+                <Trash2 className="h-10 w-10" />
+              </div>
+              <h2 className="text-[1.125rem] font-semibold leading-tight tracking-[-0.02em] text-slate-900 sm:text-[1.25rem]">
+                Bạn có chắc muốn xóa?
+              </h2>
+              <p className="mx-auto max-w-[16.5rem] text-[0.8125rem] leading-5 text-slate-500 sm:text-[0.875rem]">
+                Hành động này không thể hoàn tác. Hotspot{" "}
+                <span className="font-semibold text-slate-900">
+                  {pendingDeleteHotspot.title}
+                </span>{" "}
+                sẽ bị xóa khỏi danh sách hiện tại.
+              </p>
+            </div>
+
+            <div className="mt-7 grid grid-cols-2 gap-3">
+              <Button
                 type="button"
-                aria-label="Trang sau"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition hover:text-[rgb(var(--primary))] disabled:pointer-events-none disabled:opacity-40"
-                onClick={() => {
-                  setOpenMenuKey(null);
-                  setCurrentPage((page) => Math.min(totalPages, page + 1));
-                }}
-                disabled={safeCurrentPage === totalPages}
+                variant="outline"
+                size="lg"
+                onClick={() => setPendingDeleteHotspot(null)}
+                disabled={deletingHotspotId === pendingDeleteHotspot.hotspotId}
+                className="h-11 rounded-2xl border-slate-200 bg-slate-100 text-[0.8125rem] font-semibold text-slate-600 shadow-none hover:bg-slate-200 hover:text-slate-700 sm:text-sm"
               >
-                <ChevronRight className="h-5 w-5" />
-              </button>
+                Hủy
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={() => void handleConfirmDeleteHotspot()}
+                disabled={deletingHotspotId === pendingDeleteHotspot.hotspotId}
+                className="h-11 rounded-2xl border-[#CF3F34] bg-[#CF3F34] text-[0.8125rem] font-semibold text-white shadow-none hover:border-[#B9342A] hover:bg-[#B9342A] sm:text-sm"
+              >
+                {deletingHotspotId === pendingDeleteHotspot.hotspotId
+                  ? "Đang xóa..."
+                  : "Xóa hotspot"}
+              </Button>
             </div>
           </div>
-        ) : null}
-      </section>
-    </div>
+        </div>
+      ) : null}
+    </>
   );
 }

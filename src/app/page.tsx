@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState, useEffect, useRef, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import { loginByGoogle, loginByFacebook } from "@/lib/api";
 import { clearAuthSession, createSessionFromToken, saveAccessToken } from "@/lib/auth";
 import { authApi } from "@/services/api";
@@ -77,6 +78,7 @@ export default function TravelLogin() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(() => hasOAuthCallbackCode());
   const loginRequestInFlight = useRef(false);
@@ -268,19 +270,31 @@ export default function TravelLogin() {
                 />
               </div>
 
-              <div>
+              <div className="relative">
                 <label className="sr-only" htmlFor="password">
                   Password
                 </label>
                 <input
                   id="password"
-                  className="h-[3rem] w-full rounded-full bg-[#f1f6fb] px-5 text-[11px] text-slate-700 outline-none transition placeholder:text-slate-400 focus:bg-white focus:shadow-[0_0_0_4px_rgba(255,103,154,0.08)]"
+                  className="h-[3rem] w-full rounded-full bg-[#f1f6fb] px-5 pr-12 text-[11px] text-slate-700 outline-none transition placeholder:text-slate-400 focus:bg-white focus:shadow-[0_0_0_4px_rgba(255,103,154,0.08)]"
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="Nhập mật khẩu của bạn"
                   required
-                  type="password"
+                  type={isPasswordVisible ? "text" : "password"}
                   value={password}
                 />
+                <button
+                  type="button"
+                  onClick={() => setIsPasswordVisible((visible) => !visible)}
+                  aria-label={isPasswordVisible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                  className="absolute right-4 top-1/2 inline-flex -translate-y-1/2 items-center justify-center text-slate-400 transition hover:text-[#dd4a8d]"
+                >
+                  {isPasswordVisible ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
               </div>
 
               <div className="pr-2 text-right">
