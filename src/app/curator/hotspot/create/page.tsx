@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { buildTagToken, type TagRecord } from "@/lib/tags";
 import { cn } from "@/lib/utils";
+import { GoongMapPreview } from "./GoongMapPreview";
 import {
   goongApi,
   hotspotApi,
@@ -25,7 +26,6 @@ import {
   MapPin,
   Save,
   Search,
-  Send,
   Video,
 } from "lucide-react";
 
@@ -307,6 +307,17 @@ function HotspotCreatePageContent() {
     );
   }
 
+  function handleMapCoordinateChange(next: {
+    latitude: string;
+    longitude: string;
+  }) {
+    setFormState((current) => ({
+      ...current,
+      latitude: next.latitude,
+      longitude: next.longitude,
+    }));
+  }
+
   function handleAddressInputChange(value: string) {
     const shouldSearch = value.trim().length >= 3;
 
@@ -400,7 +411,7 @@ function HotspotCreatePageContent() {
     }
   }
 
-  async function handleSubmitHotspot(intent: "draft" | "review") {
+  async function handleSubmitHotspot() {
     setSubmitError(null);
     setSubmitMessage(null);
 
@@ -474,12 +485,9 @@ function HotspotCreatePageContent() {
       );
       setFormState((current) => syncFormStateWithResponse(current, response));
 
-      const normalizedStatus = response.status?.trim().toUpperCase();
       const successMessage = isEditMode
         ? "Hotspot đã được cập nhật thành công."
-        : intent === "review" && normalizedStatus === "DRAFT"
-          ? "Hotspot đã được tạo thành công. Vui lòng chờ admin duyệt!"
-          : "Hotspot đã được tạo thành công.";
+        : "Hotspot đã được tạo thành công.";
 
       toast.success(successMessage);
       await router.push("/curator/hotspot");
@@ -522,10 +530,10 @@ function HotspotCreatePageContent() {
         <div className="flex flex-wrap items-center gap-3">
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="sm"
-            className="rounded-full px-4"
-            onClick={() => void handleSubmitHotspot("draft")}
+            className="rounded-full text-white"
+            onClick={() => void handleSubmitHotspot()}
             disabled={
               isSubmitting ||
               isLoadingHotspot ||
@@ -534,35 +542,7 @@ function HotspotCreatePageContent() {
             }
           >
             <Save className="mr-2 h-4 w-4" />
-            {isSubmitting
-              ? isEditMode
-                ? "Đang cập nhật..."
-                : "Đang lưu..."
-              : isEditMode
-                ? "Lưu cập nhật"
-                : "Lưu nháp"}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="rounded-full text-white"
-            onClick={() => void handleSubmitHotspot("review")}
-            disabled={
-              isSubmitting ||
-              isLoadingHotspot ||
-              isResolvingPlace ||
-              !!loadHotspotError
-            }
-          >
-            <Send className="mr-2 h-4 w-4" />
-            {isSubmitting
-              ? isEditMode
-                ? "Đang cập nhật..."
-                : "Đang gửi..."
-              : isEditMode
-                ? "Cập nhật địa điểm"
-                : "Gửi duyệt"}
+            {isSubmitting ? "Đang lưu..." : "Lưu nháp"}
           </Button>
         </div>
       </div>
@@ -733,9 +713,15 @@ function HotspotCreatePageContent() {
                   {formState.latitude && formState.longitude ? (
                     <p className="mt-2 inline-flex items-center gap-2 text-xs font-medium text-emerald-700">
                       <MapPin className="h-3.5 w-3.5" />
-                      Đã đồng bộ kinh độ và vĩ độ.
+                      Đã đồng bộ vĩ độ và kinh độ.
                     </p>
                   ) : null}
+                  <GoongMapPreview
+                    address={formState.address}
+                    latitude={formState.latitude}
+                    longitude={formState.longitude}
+                    onCoordinateChange={handleMapCoordinateChange}
+                  />
                   {addressSearchError && !showAddressSuggestions ? (
                     <p className="mt-2 text-xs font-medium text-rose-700">
                       {addressSearchError}
@@ -952,7 +938,7 @@ function HotspotCreatePageContent() {
               <div className="mt-5 grid gap-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="cq-label mb-2 block">Kinh độ</label>
+                    <label className="cq-label mb-2 block">Vĩ độ</label>
                     <Input
                       type="number"
                       step="any"
@@ -965,7 +951,7 @@ function HotspotCreatePageContent() {
                     />
                   </div>
                   <div>
-                    <label className="cq-label mb-2 block">Vĩ độ</label>
+                    <label className="cq-label mb-2 block">Kinh độ</label>
                     <Input
                       type="number"
                       step="any"
@@ -1558,11 +1544,11 @@ function isSameCoordinate(
 
 function validateCoordinateRange(latitude: number, longitude: number) {
   if (latitude < -90 || latitude > 90) {
-    throw new Error("Kinh độ phải nằm trong khoảng từ -90 đến 90.");
+    throw new Error("Vĩ độ phải nằm trong khoảng từ -90 đến 90.");
   }
 
   if (longitude < -180 || longitude > 180) {
-    throw new Error("Vĩ độ phải nằm trong khoảng từ -180 đến 180.");
+    throw new Error("Kinh độ phải nằm trong khoảng từ -180 đến 180.");
   }
 }
 

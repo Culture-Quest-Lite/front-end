@@ -212,12 +212,12 @@ export async function renderHotspotDetailPage({
             ) : null}
           </div>
 
-          <div className="flex flex-col gap-3 xl:items-end">
+          <div className="flex w-full flex-col gap-3 xl:w-auto xl:items-end">
             {hotspot.badge || googleMapsUrl ? (
-              <div className="flex items-center gap-2 xl:justify-end">
+              <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start xl:justify-end">
                 {hotspot.badge ? (
                   <span
-                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm ${hotspot.statusStyle}`}
+                    className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm ${hotspot.statusStyle}`}
                   >
                     <ShieldCheck className="h-3.5 w-3.5" />
                     {hotspot.badge}
@@ -228,7 +228,7 @@ export async function renderHotspotDetailPage({
                     href={googleMapsUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center justify-center gap-1.5 rounded-full bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800"
+                    className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800"
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                     Xem bản đồ
@@ -477,8 +477,7 @@ async function getHotspotFromBackend(hotspotId: number) {
       {
         method: "GET",
         headers,
-        cache: "force-cache",
-        next: { revalidate: 300 }, // cache 5 min
+        cache: "no-store",
         signal: controller.signal,
       },
     );
