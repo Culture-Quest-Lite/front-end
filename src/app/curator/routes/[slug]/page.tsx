@@ -116,8 +116,10 @@ export default function CuratorRouteDetailPage() {
   }, [routeId]);
 
   const sortedStops = useMemo(() => {
-    return [...(route?.hotspots ?? [])].sort((a, b) => a.index - b.index);
-  }, [route]);
+  return [...(route?.hotspots ?? [])].sort(
+    (a, b) => (a.index ?? Number.MAX_SAFE_INTEGER) - (b.index ?? Number.MAX_SAFE_INTEGER),
+  );
+}, [route]);
 
   const addableHotspots = useMemo(() => {
     const currentIds = new Set(sortedStops.map((stop) => stop.hotspotId));

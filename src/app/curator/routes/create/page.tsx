@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
@@ -45,10 +46,10 @@ const difficultyOptions: Array<{
   label: string;
   value: RouteDifficulty;
 }> = [
-  { label: "Dễ", value: "EASY" },
-  { label: "Vừa", value: "MEDIUM" },
-  { label: "Khó", value: "HARD" },
-];
+    { label: "Dễ", value: "EASY" },
+    { label: "Vừa", value: "MEDIUM" },
+    { label: "Khó", value: "HARD" },
+  ];
 
 function getHotspotCover(hotspot: BackendHotspot) {
   return (
@@ -57,7 +58,17 @@ function getHotspotCover(hotspot: BackendHotspot) {
     ""
   );
 }
-
+const RouteHotspotMap = dynamic(
+  () => import("@/components/map/map").then((mod) => mod.RouteHotspotMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid h-[420px] place-items-center rounded-[1.5rem] border border-slate-200 bg-slate-50 text-sm text-slate-500">
+        Đang tải bản đồ...
+      </div>
+    ),
+  },
+);
 function BuilderStep({
   id,
   label,
@@ -600,7 +611,18 @@ export default function CuratorRouteCreatePage() {
     if (!Number.isInteger(point) || point < 0) {
       throw new Error("Point phải là số nguyên >= 0.");
     }
+    console.log("========== CREATE ROUTE ==========");
+    console.log("selectedFiles:", selectedFiles);
 
+    selectedFiles.forEach((file, index) => {
+      console.log(`File ${index}:`, {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+      });
+    });
+
+    console.log("==================================");
     return {
       routeName,
       description,
@@ -1009,42 +1031,19 @@ export default function CuratorRouteCreatePage() {
           </h2>
 
           <div className="overflow-hidden rounded-[1.75rem] border border-[#d8d2ca] bg-[#f9f8f3] shadow-sm">
-            <div className="relative h-[19rem] bg-[radial-gradient(circle_at_top_left,#ffffff_0%,#faf8f1_42%,#f5f2ea_100%)] sm:h-[20rem]">
-              {previewHotspots.length > 1 ? (
-                <svg
-                  viewBox="0 0 100 100"
-                  preserveAspectRatio="none"
-                  className="absolute inset-0 h-full w-full"
-                >
-                  <polyline
-                    points={previewPolylinePoints}
-                    fill="none"
-                    stroke="#cf3d37"
-                    strokeWidth="0.9"
-                    strokeDasharray="2.4 1.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              ) : null}
-
-              {previewHotspots.map(({ item, index, position }) => (
-                <div
-                  key={item.hotspotId}
-                  className="absolute -translate-x-1/2 -translate-y-1/2"
-                  style={{ left: `${position.x}%`, top: `${position.y}%` }}
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#cf3d37] text-base font-semibold text-white shadow-[0_10px_24px_rgba(207,61,55,0.22)]">
-                    {index + 1}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <RouteHotspotMap
+              hotspots={selectedHotspots}
+              selectedIds={selectedHotspotIds}
+              onToggle={handleToggleHotspot}
+            />
 
             <div className="border-t border-[#e9e3da] bg-white/80 px-5 py-4">
               <div className="space-y-3">
                 {selectedHotspots.map((item, index) => (
-                  <div key={item.hotspotId} className="flex items-center gap-3 text-sm">
+                  <div
+                    key={item.hotspotId}
+                    className="flex items-center gap-3 text-sm"
+                  >
                     <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#fff2ef] text-xs font-semibold text-[#cf3d37]">
                       {index + 1}
                     </span>
@@ -1057,7 +1056,6 @@ export default function CuratorRouteCreatePage() {
         </div>
       );
     }
-
     return (
       <div className="space-y-4">
         <div className="flex min-h-[13rem] flex-col items-center justify-center px-6 py-8 text-center">

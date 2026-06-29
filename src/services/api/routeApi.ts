@@ -6,6 +6,7 @@ export type RouteDifficulty = "EASY" | "MEDIUM" | "HARD";
 export type RouteStatus =
   | "DRAFT"
   | "PENDING"
+  | "PUBLISHED"
   | "APPROVED"
   | "REJECTED"
   | "DELETED"
@@ -31,14 +32,24 @@ export interface RoutePayload {
 }
 
 export interface RouteHotspotResponse {
-  routeHotspotId: number;
-  routeId: number;
+  routeHotspotId?: number;
+  routeId?: number;
   hotspotId: number;
-  hotspotName: string;
-  address: string;
-  xp: number;
-  index: number;
+  hotspotName?: string;
+  address?: string;
+  xp?: number;
+  index?: number;
+  orderIndex?: number;
   distanceToNext?: number | null;
+}
+
+export interface RouteMediaResponse {
+  mediaId?: number;
+  mediaType?: string;
+  mimeType?: string;
+  fileUrl?: string;
+  mediaUrl?: string;
+  url?: string;
 }
 
 export interface RouteResponse {
@@ -51,8 +62,14 @@ export interface RouteResponse {
   status: RouteStatus;
   xp: number;
   point: number;
+  totalStops?: number | null;
   tags?: BackendHotspotTag[];
   hotspots?: RouteHotspotResponse[];
+  medias?: RouteMediaResponse[];
+  media?: RouteMediaResponse[];
+  thumbnailUrl?: string | null;
+  imageUrl?: string | null;
+  coverImageUrl?: string | null;
 }
 
 export type RouteSearchOperator =
@@ -119,20 +136,6 @@ function normalizePage<T>(raw: RawPageMaybeNested<T>): PageResponse<T> {
   };
 }
 
-function buildQuery(params?: Record<string, string | number | undefined>) {
-  if (!params) return "";
-
-  const searchParams = new URLSearchParams();
-
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === "") continue;
-    searchParams.set(key, String(value));
-  }
-
-  const query = searchParams.toString();
-  return query ? `?${query}` : "";
-}
-
 /**
  * Backend create:
  *
@@ -182,7 +185,21 @@ function buildRouteFormData(payload: RoutePayload) {
   if (payload.status) {
     formData.append("status", payload.status);
   }
+ console.log("========== FORM DATA ==========");
 
+  for (const [key, value] of formData.entries()) {
+    if (value instanceof File) {
+      console.log(key, {
+        name: value.name,
+        size: value.size,
+        type: value.type,
+      });
+    } else {
+      console.log(key, value);
+    }
+  }
+
+  console.log("===============================");
   return formData;
 }
 
@@ -217,6 +234,24 @@ function buildSearchQuery(payload: RouteSearchRequest) {
 
   const query = searchParams.toString();
   return query ? `?${query}` : "";
+}
+
+function toRoutePayload(route: RouteResponse, status?: RouteStatus): RoutePayload {
+  return {
+    routeName: route.routeName,
+    description: route.description ?? "",
+    difficulty: route.difficulty,
+    estimateTime: route.estimateTime ?? 0,
+    totalDistance: route.totalDistance ?? 0,
+    hotspots: (route.hotspots ?? []).map((hotspot, index) => ({
+      hotspotId: hotspot.hotspotId,
+      index: hotspot.index ?? hotspot.orderIndex ?? index,
+    })),
+    tagIds: (route.tags ?? []).map((tag) => tag.tagId),
+    xp: route.xp ?? 0,
+    point: route.point ?? 0,
+    status: status ?? route.status,
+  };
 }
 
 export const routeApi = {
@@ -256,7 +291,6 @@ export const routeApi = {
     });
   },
 
-
   updateRoute: async (routeId: number, payload: RoutePayload) => {
     const { files: _files, ...jsonPayload } = payload;
 
@@ -265,6 +299,12 @@ export const routeApi = {
       body: jsonPayload,
       sameOrigin: true,
     });
+  },
+
+  publishRoute: async (routeId: number) => {
+    const route = await routeApi.getRouteById(routeId);
+
+    return routeApi.updateRoute(routeId, toRoutePayload(route, "PUBLISHED"));
   },
 
   addHotspotToRoute: async (routeId: number, hotspotId: number) => {
