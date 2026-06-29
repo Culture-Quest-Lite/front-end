@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { RouteHotspotMap } from "@/components/map/map";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
@@ -58,7 +58,17 @@ function getHotspotCover(hotspot: BackendHotspot) {
     ""
   );
 }
-
+const RouteHotspotMap = dynamic(
+  () => import("@/components/map/map").then((mod) => mod.RouteHotspotMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid h-[420px] place-items-center rounded-[1.5rem] border border-slate-200 bg-slate-50 text-sm text-slate-500">
+        Đang tải bản đồ...
+      </div>
+    ),
+  },
+);
 function BuilderStep({
   id,
   label,
