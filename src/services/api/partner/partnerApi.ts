@@ -76,6 +76,11 @@ export interface VoucherRequest {
   files?: File[];
 }
 
+export type CreateVoucherRequest = Omit<VoucherRequest, "voucherCode"> & {
+  status?: VoucherStatus;
+  files?: File[];
+};
+
 export interface VoucherFilterParams {
   search?: string;
   status?: VoucherStatus;
@@ -232,7 +237,7 @@ export const partnerApi = {
   /**
    * POST /api/partner/vouchers — multipart/form-data.
    */
-  createVoucher: async (payload: Omit<VoucherRequest, "voucherCode">) => {
+  createVoucher: async (payload: CreateVoucherRequest) => {
     const formData = new FormData();
 
     formData.append("voucherName", payload.voucherName);
@@ -254,7 +259,9 @@ export const partnerApi = {
 
     formData.append("pointsRequired", String(payload.pointsRequired));
     formData.append("quantityTotal", String(payload.quantityTotal));
-    formData.append("status", payload.status);
+    if (payload.status !== undefined) {
+      formData.append("status", payload.status);
+    }
     formData.append("startDate", payload.startDate);
     formData.append("endDate", payload.endDate);
 

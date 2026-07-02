@@ -900,7 +900,8 @@ export default function CuratorRouteCreatePage() {
           <Input
             value={routeTitle}
             onChange={(event) => setRouteTitle(event.target.value)}
-            placeholder="Tên tuyến"
+            placeholder="Nhập tên tuyến"
+            aria-label="Tên tuyến"
             className="h-12 rounded-[1.05rem] border border-[#e6ddd2] bg-[#fcfbf8]"
           />
 
