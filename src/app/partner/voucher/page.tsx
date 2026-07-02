@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { apiFetch } from "@/lib/api";
 import { PageHeader } from "@/components/app/ui-bits";
 import {
   partnerApi,
   type VoucherResponse,
   type VoucherRequest,
+  type CreateVoucherRequest,
   type VoucherMedia,
   type VoucherDiscountType,
   type VoucherStatus,
@@ -31,32 +31,6 @@ import {
 } from "lucide-react";
 
 const PAGE_SIZE = 8;
-
-interface CurrentUserResponse {
-  userId: number;
-  username?: string;
-  email?: string;
-  displayName?: string | null;
-  role?: string;
-}
-
-/**
- * Backend user có endpoint GET /api/users/me.
- * Endpoint này đọc token hiện tại, lấy Keycloak subject rồi map ra userId nội bộ.
- * Dùng userId này truyền vào partnerId để chỉ load voucher của partner/user đang đăng nhập.
- */
-async function getCurrentUserId() {
-  const me = await apiFetch<CurrentUserResponse>("/api/users/me", {
-    method: "GET",
-    sameOrigin: true,
-  });
-
-  if (!me.userId) {
-    throw new Error("Không tìm thấy userId của tài khoản đang đăng nhập.");
-  }
-
-  return me.userId;
-}
 
 const STATUS_FILTERS: { value: VoucherStatus | "all"; label: string }[] = [
   { value: "all", label: "Tất cả" },
@@ -84,6 +58,72 @@ const statusClasses: Record<VoucherStatus, string> = {
   EXPIRED: "bg-red-100 text-red-700",
   DELETED: "bg-slate-100 text-slate-400",
 };
+
+const DEMO_VOUCHERS: VoucherResponse[] = [
+  {
+    voucherId: 1001,
+    medias: [],
+    partnerId: 501,
+    partnerName: "Đối tác demo",
+    voucherCode: "DEMO2026",
+    voucherName: "Giảm giá mùa hè",
+    description: "Dữ liệu demo giúp bạn nhìn giao diện quản lý voucher.",
+    discountType: "PERCENTAGE",
+    discountValue: 20,
+    maxDiscountAmount: 100000,
+    minOrderAmount: 200000,
+    pointsRequired: 120,
+    quantityTotal: 120,
+    quantityRemaining: 54,
+    status: "ACTIVE",
+    startDate: "2026-07-01T00:00:00",
+    endDate: "2026-07-31T23:59:59",
+    createdAt: "2026-06-20T10:00:00",
+    updatedAt: "2026-06-20T10:00:00",
+  },
+  {
+    voucherId: 1002,
+    medias: [],
+    partnerId: 501,
+    partnerName: "Đối tác demo",
+    voucherCode: "WELCOME50",
+    voucherName: "Voucher chào mừng",
+    description: "Giảm 50k cho đơn hàng đầu tiên.",
+    discountType: "FIXED_AMOUNT",
+    discountValue: 50000,
+    maxDiscountAmount: null,
+    minOrderAmount: 150000,
+    pointsRequired: 80,
+    quantityTotal: 80,
+    quantityRemaining: 12,
+    status: "INACTIVE",
+    startDate: "2026-06-15T00:00:00",
+    endDate: "2026-08-15T23:59:59",
+    createdAt: "2026-06-18T08:30:00",
+    updatedAt: "2026-06-18T08:30:00",
+  },
+  {
+    voucherId: 1003,
+    medias: [],
+    partnerId: 501,
+    partnerName: "Đối tác demo",
+    voucherCode: "HOTDEAL10",
+    voucherName: "Giảm trực tiếp 10%",
+    description: "Voucher mẫu dùng để minh họa giao diện quản lý.",
+    discountType: "PERCENTAGE",
+    discountValue: 10,
+    maxDiscountAmount: 50000,
+    minOrderAmount: 100000,
+    pointsRequired: 60,
+    quantityTotal: 60,
+    quantityRemaining: 0,
+    status: "EXPIRED",
+    startDate: "2026-05-01T00:00:00",
+    endDate: "2026-06-01T23:59:59",
+    createdAt: "2026-04-20T11:45:00",
+    updatedAt: "2026-06-01T23:59:59",
+  },
+];
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(value);
@@ -150,41 +190,6 @@ type SaveVoucherPayload = VoucherRequest | CreateVoucherPayload;
  * Tạo voucher KHÔNG truyền status. Backend sẽ tự quyết định trạng thái ban đầu
  * thường là PENDING. Sau khi tạo xong, card voucher vẫn có nút cập nhật status.
  */
-async function createVoucherWithoutStatus(payload: CreateVoucherPayload) {
-  const formData = new FormData();
-
-  formData.append("voucherName", payload.voucherName);
-
-  if (payload.description) {
-    formData.append("description", payload.description);
-  }
-
-  formData.append("discountType", payload.discountType);
-  formData.append("discountValue", String(payload.discountValue));
-
-  if (payload.maxDiscountAmount !== undefined) {
-    formData.append("maxDiscountAmount", String(payload.maxDiscountAmount));
-  }
-
-  if (payload.minOrderAmount !== undefined) {
-    formData.append("minOrderAmount", String(payload.minOrderAmount));
-  }
-
-  formData.append("pointsRequired", String(payload.pointsRequired));
-  formData.append("quantityTotal", String(payload.quantityTotal));
-  formData.append("startDate", payload.startDate);
-  formData.append("endDate", payload.endDate);
-
-  payload.files?.forEach((file) => {
-    formData.append("files", file);
-  });
-
-  return apiFetch<VoucherResponse>("/api/partner/vouchers", {
-    method: "POST",
-    body: formData,
-    sameOrigin: true,
-  });
-}
 
 type FormState = {
   code: string; // chỉ hiển thị/dùng khi sửa — KHÔNG cho phép chỉnh sửa
@@ -237,6 +242,12 @@ export default function PartnerVouchersPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const isDemoMode = !isLoading && vouchers.length === 0;
+  const visibleVouchers = isDemoMode ? DEMO_VOUCHERS : vouchers.filter((voucher) => voucher.status !== "DELETED");
+  const displayVouchers = visibleVouchers;
+  const displayTotalItems = visibleVouchers.length;
+  const displayTotalPages = isDemoMode ? 1 : totalPages;
+
   // Ảnh chọn để upload khi TẠO MỚI (chỉ áp dụng cho create, vì updateVoucher
   // hiện vẫn là JSON thường, chưa hỗ trợ đổi ảnh).
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -258,9 +269,9 @@ export default function PartnerVouchersPage() {
         setIsLoading(true);
         setLoadError(null);
 
-        const userId = await getCurrentUserId();
+        const userId = await partnerApi.getCurrentUserId();
 
-        const response = await partnerApi.getVouchers({
+        const response = await partnerApi.getVouchersByUserId(userId, {
           page: page - 1,
           size: PAGE_SIZE,
           search: query.trim() || undefined,
@@ -307,6 +318,8 @@ export default function PartnerVouchersPage() {
   }
 
   function openCreate() {
+    setPendingDeleteId(null);
+    setUseDialogOpen(false);
     setForm(emptyForm);
     setSelectedFiles([]);
     setExistingMedias([]);
@@ -316,6 +329,8 @@ export default function PartnerVouchersPage() {
   }
 
   function openEdit(voucher: VoucherResponse) {
+    setPendingDeleteId(null);
+    setUseDialogOpen(false);
     setForm({
       code: voucher.voucherCode,
       title: voucher.voucherName,
@@ -427,9 +442,8 @@ export default function PartnerVouchersPage() {
 
     try {
       if (dialog === "create") {
-        // Tạo mới KHÔNG truyền status; backend tự set trạng thái ban đầu.
-        await createVoucherWithoutStatus({
-          ...(payload as CreateVoucherPayload),
+        await partnerApi.createVoucher({
+          ...(payload as CreateVoucherRequest),
           files: selectedFiles,
         });
       } else if (editingId) {
@@ -489,7 +503,11 @@ export default function PartnerVouchersPage() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => setUseDialogOpen(true)}
+              onClick={() => {
+                setDialog(null);
+                setPendingDeleteId(null);
+                setUseDialogOpen(true);
+              }}
               className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100"
             >
               <ScanLine className="h-4 w-4" /> Xác nhận sử dụng
@@ -549,29 +567,66 @@ export default function PartnerVouchersPage() {
         <div className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-12 text-sm text-slate-500">
           <Loader2 className="h-4 w-4 animate-spin" /> Đang tải dữ liệu...
         </div>
-      ) : vouchers.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center text-sm text-slate-500">
-          Chưa có voucher nào phù hợp. Bấm &quot;Tạo voucher mới&quot; để bắt đầu.
-        </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {vouchers.map((voucher) => (
-            <VoucherCard
-              key={voucher.voucherId}
-              voucher={voucher}
-              isStatusLoading={statusLoadingId === voucher.voucherId}
-              onEdit={() => openEdit(voucher)}
-              onDelete={() => setPendingDeleteId(voucher.voucherId)}
-              onToggleStatus={() => void handleToggleStatus(voucher)}
-            />
-          ))}
-        </div>
+        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-5 py-4 sm:flex sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">Bảng quản lý voucher</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {isDemoMode
+                  ? "Hiển thị dữ liệu demo khi danh sách voucher thực tế đang trống."
+                  : "Duyệt và quản lý voucher hiện có của cửa hàng."
+                }
+              </p>
+            </div>
+            {isDemoMode ? (
+              <span className="mt-3 inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 sm:mt-0">
+                Dữ liệu demo
+              </span>
+            ) : null}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Mã</th>
+                  <th className="px-4 py-3 font-semibold">Ảnh</th>
+                  <th className="px-4 py-3 font-semibold">Tên voucher</th>
+                  <th className="px-4 py-3 font-semibold">Giảm</th>
+                  <th className="px-4 py-3 font-semibold">Trạng thái</th>
+                  <th className="px-4 py-3 font-semibold">Còn / Tổng</th>
+                  <th className="px-4 py-3 font-semibold">Hết hạn</th>
+                  <th className="px-4 py-3 font-semibold">Hành động</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 bg-white">
+                {displayVouchers.map((voucher) => {
+                  const used = Math.max(0, voucher.quantityTotal - voucher.quantityRemaining);
+                  const isDemoRow = isDemoMode;
+                  return (
+                    <VoucherTableRow
+                      key={voucher.voucherId}
+                      voucher={voucher}
+                      used={used}
+                      isDemo={isDemoRow}
+                      isStatusLoading={statusLoadingId === voucher.voucherId}
+                      onEdit={() => (isDemoRow ? undefined : openEdit(voucher))}
+                      onDelete={() => (isDemoRow ? undefined : setPendingDeleteId(voucher.voucherId))}
+                      onToggleStatus={() => (isDemoRow ? undefined : void handleToggleStatus(voucher))}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
 
       <PaginationBar
         page={page}
-        totalPages={totalPages}
-        totalItems={totalItems}
+        totalPages={displayTotalPages}
+        totalItems={displayTotalItems}
         pageSize={PAGE_SIZE}
         onPageChange={setPage}
       />
@@ -625,86 +680,71 @@ export default function PartnerVouchersPage() {
   );
 }
 
-function VoucherCard({
+function VoucherTableRow({
   voucher,
+  used,
+  isDemo,
   isStatusLoading,
   onEdit,
   onDelete,
   onToggleStatus,
 }: {
   voucher: VoucherResponse;
+  used: number;
+  isDemo: boolean;
   isStatusLoading: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
-  onToggleStatus: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onToggleStatus?: () => void;
 }) {
-  const coverMedia = voucher.medias?.[0];
-
   return (
-    <div className="flex overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
-      <div className="relative flex w-28 shrink-0 flex-col items-center justify-center gap-2 overflow-hidden border-r border-dashed border-amber-200 bg-amber-50 px-3 py-5 text-center">
-        {coverMedia ? (
+    <tr>
+      <td className="whitespace-nowrap px-4 py-4 font-medium text-slate-900">
+        {voucher.voucherCode}
+      </td>
+      <td className="px-4 py-4">
+        {voucher.medias?.[0]?.fileUrl ? (
           <img
-            src={coverMedia.fileUrl}
+            src={voucher.medias[0].fileUrl}
             alt={voucher.voucherName}
-            className="absolute inset-0 h-full w-full object-cover"
+            loading="lazy"
+            className="h-14 w-14 rounded-xl border border-slate-200 object-cover"
           />
-        ) : null}
-        <div
-          className={`relative z-10 flex flex-col items-center gap-1.5 rounded-lg px-2 py-1.5 ${coverMedia ? "bg-white/85 backdrop-blur-sm" : ""
-            }`}
-        >
-          <Ticket className="h-4 w-4 text-amber-600" />
-          <span className="break-all font-mono text-[11px] font-bold tracking-wide text-amber-700">
-            {voucher.voucherCode}
-          </span>
-        </div>
-      </div>
-
-      <div className="flex-1 p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h3 className="text-base font-semibold text-slate-900">{voucher.voucherName}</h3>
-            <p className="mt-0.5 text-sm font-medium text-amber-700">{formatDiscount(voucher)}</p>
+        ) : (
+          <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-slate-400">
+            <ImageOff className="h-5 w-5" />
           </div>
-          <span
-            className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${statusClasses[voucher.status]}`}
-          >
-            {statusLabels[voucher.status]}
-          </span>
-        </div>
-
-        {voucher.description ? (
-          <p className="mt-2 line-clamp-2 text-sm text-slate-500">{voucher.description}</p>
-        ) : null}
-
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-          <span>
-            Hiệu lực: {formatDate(voucher.startDate)} – {formatDate(voucher.endDate)}
-          </span>
-          <span>
-            Còn lại: {voucher.quantityRemaining}/{voucher.quantityTotal}
-          </span>
-          <span className="font-medium text-amber-600">{voucher.pointsRequired} điểm để đổi</span>
-          {voucher.minOrderAmount ? (
-            <span>Đơn tối thiểu: {formatCurrency(voucher.minOrderAmount)}</span>
-          ) : null}
-        </div>
-
-        <div className="mt-4 flex items-center gap-2">
+        )}
+      </td>
+      <td className="px-4 py-4">
+        <div className="font-semibold text-slate-900">{voucher.voucherName}</div>
+        <div className="mt-1 text-xs text-slate-500">{voucher.description ?? "-"}</div>
+      </td>
+      <td className="whitespace-nowrap px-4 py-4 text-slate-700">{formatDiscount(voucher)}</td>
+      <td className="whitespace-nowrap px-4 py-4">
+        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClasses[voucher.status]}`}>
+          {statusLabels[voucher.status]}
+        </span>
+      </td>
+      <td className="whitespace-nowrap px-4 py-4 text-slate-700">
+        {voucher.quantityRemaining}/{voucher.quantityTotal}
+      </td>
+      <td className="whitespace-nowrap px-4 py-4 text-slate-700">{formatDate(voucher.endDate)}</td>
+      <td className="whitespace-nowrap px-4 py-4">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={onEdit}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+            disabled={isDemo}
+            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Pencil className="h-3.5 w-3.5" /> Sửa
           </button>
           <button
             type="button"
             onClick={onToggleStatus}
-            disabled={isStatusLoading || voucher.status === "EXPIRED" || voucher.status === "DELETED"}
-            title={voucher.status === "EXPIRED" ? "Voucher đã hết hạn" : undefined}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isDemo || isStatusLoading || voucher.status === "EXPIRED" || voucher.status === "DELETED"}
+            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isStatusLoading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -722,13 +762,14 @@ function VoucherCard({
           <button
             type="button"
             onClick={onDelete}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50"
+            disabled={isDemo}
+            className="inline-flex items-center gap-1 rounded-xl border border-red-200 px-2.5 py-1 text-[11px] font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Trash2 className="h-3.5 w-3.5" /> Xoá
           </button>
         </div>
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }
 
@@ -859,6 +900,7 @@ function VoucherFormDialog({
                 max={form.discountType === "PERCENTAGE" ? 100 : undefined}
                 value={form.discountValue}
                 onChange={(e) => setForm({ ...form, discountValue: e.target.value })}
+                placeholder={form.discountType === "PERCENTAGE" ? "10" : "10000"}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
               />
             </Field>
@@ -869,6 +911,7 @@ function VoucherFormDialog({
                   min={0}
                   value={form.maxDiscountAmount}
                   onChange={(e) => setForm({ ...form, maxDiscountAmount: e.target.value })}
+                  placeholder="100000"
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
                 />
               </Field>
@@ -879,23 +922,12 @@ function VoucherFormDialog({
                   min={0}
                   value={form.minOrderAmount}
                   onChange={(e) => setForm({ ...form, minOrderAmount: e.target.value })}
+                  placeholder="25000"
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
                 />
               </Field>
             )}
           </div>
-
-          {form.discountType === "PERCENTAGE" ? (
-            <Field label="Đơn tối thiểu (VNĐ, tuỳ chọn)">
-              <input
-                type="number"
-                min={0}
-                value={form.minOrderAmount}
-                onChange={(e) => setForm({ ...form, minOrderAmount: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
-              />
-            </Field>
-          ) : null}
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Điểm yêu cầu để đổi">

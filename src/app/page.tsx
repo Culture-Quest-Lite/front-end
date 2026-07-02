@@ -150,6 +150,12 @@ export default function TravelLogin() {
     event.preventDefault();
     if (loading || loginRequestInFlight.current) return;
 
+    const normalizedUsername = username.trim();
+    if (!normalizedUsername || !password) {
+      setError("Vui lòng nhập tên đăng nhập và mật khẩu.");
+      return;
+    }
+
     loginRequestInFlight.current = true;
     setError("");
     setLoading(true);
@@ -157,7 +163,6 @@ export default function TravelLogin() {
     try {
       clearAuthSession();
 
-      const normalizedUsername = username.trim();
       console.log("Attempting login with username:", normalizedUsername);
       const response = await authApi.login(normalizedUsername, password);
       console.log("Login response received:", { 
