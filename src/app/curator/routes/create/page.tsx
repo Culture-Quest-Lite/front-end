@@ -283,6 +283,7 @@ export default function CuratorRouteCreatePage() {
   const [tags, setTags] = useState<TagRecord[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [selectedHotspotIds, setSelectedHotspotIds] = useState<number[]>([]);
+  const [focusedHotspotId, setFocusedHotspotId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("Mọi trạng thái");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -1035,21 +1036,57 @@ export default function CuratorRouteCreatePage() {
             <RouteHotspotMap
               hotspots={selectedHotspots}
               selectedIds={selectedHotspotIds}
+              focusedHotspotId={focusedHotspotId}
               onToggle={handleToggleHotspot}
             />
 
             <div className="border-t border-[#e9e3da] bg-white/80 px-5 py-4">
-              <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 {selectedHotspots.map((item, index) => (
-                  <div
+                  <button
                     key={item.hotspotId}
-                    className="flex items-center gap-3 text-sm"
+                    type="button"
+                    onClick={() => setFocusedHotspotId(item.hotspotId)}
+                    className={cn(
+                      "group w-full rounded-[1.35rem] border bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg",
+                      focusedHotspotId === item.hotspotId
+                        ? "border-[#cf3d37] ring-1 ring-[#cf3d37]/20"
+                        : "border-slate-200"
+                    )}
                   >
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#fff2ef] text-xs font-semibold text-[#cf3d37]">
-                      {index + 1}
-                    </span>
-                    <span className="text-slate-900">{item.hotspotName}</span>
-                  </div>
+                    <div className="flex gap-3">
+                      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#fff2ef] text-sm font-semibold text-[#cf3d37]">
+                        {index + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm font-semibold text-slate-900">
+                          {item.hotspotName}
+                        </h3>
+                        {item.address ? (
+                          <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+                            {item.address}
+                          </p>
+                        ) : null}
+                        {item.description ? (
+                          <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+                            {item.description}
+                          </p>
+                        ) : null}
+                        <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600">
+                          {item.xp != null ? (
+                            <span className="rounded-full bg-slate-100 px-2 py-1">
+                              XP {item.xp}
+                            </span>
+                          ) : null}
+                          {item.point != null ? (
+                            <span className="rounded-full bg-slate-100 px-2 py-1">
+                              Point {item.point}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
                 ))}
               </div>
             </div>
