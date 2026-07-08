@@ -2,7 +2,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
@@ -48,8 +47,8 @@ const menuGroups: Array<{
       { title: "Chủ đề tuyến", href: "/curator/themes", icon: Tags },
       { title: "Tuyến hành trình", href: "/curator/routes", icon: Map },
       {
-        title: "Danh mục",
-        href: "/curator/categories",
+        title: "Cấp bậc",
+        href: "/curator/levels",
         icon: LayoutGrid,
       },
       {
@@ -66,24 +65,16 @@ const cn = (...classes: Array<string | false | null | undefined>) =>
 
 export function CuratorSidebar() {
   const pathname = usePathname();
-  const [currentPathname, setCurrentPathname] = useState<string>("");
   const { logout } = useAuth();
   //   const { setTokens } = useAppContext();
 
-  useEffect(() => {
-    setCurrentPathname(pathname || "");
-  }, [pathname]);
-
   const isActive = (href: string) => {
-    if (href === "/") return currentPathname === "/";
-    if (href === "/curator") return currentPathname === "/curator";
+    if (href === "/") return pathname === "/";
+    if (href === "/curator") return pathname === "/curator";
     if (href === "/curator/hotspot") {
-      return (
-        currentPathname === href ||
-        currentPathname.startsWith("/curator/hotspot/")
-      );
+      return pathname === href || pathname.startsWith("/curator/hotspot/");
     }
-    return currentPathname === href || currentPathname.startsWith(`${href}/`);
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   return (

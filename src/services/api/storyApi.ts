@@ -99,10 +99,30 @@ export const storyApi = {
   },
 
   deleteStory: async (storyId: number) => {
-    return apiFetch<void>(`/api/stories/${storyId}`, {
+    const response = await fetch(`/api/stories/${storyId}`, {
       method: "DELETE",
-      sameOrigin: true,
+      credentials: "include",
+      headers: {
+        accept: "text/plain, application/json",
+      },
     });
+    const contentType = response.headers.get("content-type") ?? "";
+    const responseText = await response.text();
+    const parsedBody = contentType.includes("application/json")
+      ? safeParseStoryResponse(responseText)
+      : null;
+    const message =
+      typeof parsedBody?.message === "string"
+        ? parsedBody.message
+        : typeof parsedBody?.error === "string"
+          ? parsedBody.error
+          : responseText.trim();
+
+    if (!response.ok) {
+      throw new Error(message || "Không thể xóa story.");
+    }
+
+    return message || "Story deleted successfully";
   },
 
   getStoryById: async (storyId: number) => {
@@ -123,4 +143,24 @@ export const storyApi = {
       sameOrigin: true,
     });
   },
+
+  updateStoryStatus: async (storyId: number, status: string) => {
+    const searchParams = new URLSearchParams({ status });
+
+    return apiFetch<BackendStory | string>(
+      `/api/stories/${storyId}/status?${searchParams.toString()}`,
+      {
+        method: "PUT",
+        sameOrigin: true,
+      },
+    );
+  },
 };
+
+function safeParseStoryResponse(value: string) {
+  try {
+    return JSON.parse(value) as { message?: unknown; error?: unknown };
+  } catch {
+    return null;
+  }
+}
