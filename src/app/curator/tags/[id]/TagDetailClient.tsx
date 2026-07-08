@@ -116,7 +116,7 @@ function PageHeader() {
       <div>
         <h1 className="cq-page-title">Chi tiết thẻ</h1>
         <p className="cq-page-subtitle">
-          Thông tin thẻ và các hotspot đang sử dụng.
+          Thông tin thẻ và các địa điểm đang sử dụng.
         </p>
       </div>
     </div>
@@ -182,9 +182,7 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
         setBackendTag(null);
         setAllBackendHotspots([]);
         setLoadError(
-          error instanceof Error
-            ? error.message
-            : "Không thể tải dữ liệu thẻ từ API chi tiết.",
+          error instanceof Error ? error.message : "Không thể tải dữ liệu thẻ.",
         );
       } finally {
         if (!cancelled) {
@@ -233,11 +231,7 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
 
         <section className="rounded-[1.75rem] border border-dashed border-slate-300 bg-white px-5 py-10 text-center shadow-sm sm:px-6">
           <p className="cq-card-title sm:text-base">Đang tải chi tiết thẻ</p>
-          <p className="cq-page-subtitle mt-2">
-            Trình duyệt đang gọi{" "}
-            <span className="font-mono">{`GET /api/tags/${tagId}`}</span> để lấy
-            dữ liệu.
-          </p>
+          <p className="cq-page-subtitle mt-2">Đang lấy dữ liệu</p>
         </section>
       </div>
     );
@@ -253,8 +247,7 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
             Không tải được chi tiết thẻ
           </p>
           <p className="cq-page-subtitle mt-2">
-            Kiểm tra lại phản hồi từ API{" "}
-            <span className="font-mono">{`GET /api/tags/${tagId}`}</span>.
+            Kiểm tra lại phản hồi từ máy chủ hoặc thử tải lại trang.
           </p>
           {loadError ? (
             <p className="mt-3 text-sm font-medium text-[#CF3F34]">
@@ -307,9 +300,6 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
                 {backendTag.tagName}
               </h2>
             </div>
-            <p className="mt-2 text-sm font-medium text-slate-500">
-              Những hotspot đang dùng cùng nhóm nội dung này.
-            </p>
           </div>
         </div>
 
@@ -324,8 +314,8 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
               </span>
             }
           />
-          <DetailRow label="Số hotspot" value={backendTag.hotspotCount} />
-          <DetailRow label="Cập nhật tag" value={updatedAtLabel} />
+          <DetailRow label="Số địa điểm" value={backendTag.hotspotCount} />
+          <DetailRow label="Cập nhật thẻ" value={updatedAtLabel} />
           <DetailRow label="Ngày tạo" value={createdAtLabel} />
         </div>
       </section>
@@ -333,15 +323,15 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
       <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="cq-section-title">Hotspot đang sử dụng thẻ</h2>
+            <h2 className="cq-section-title">Địa điểm đang sử dụng thẻ</h2>
             <p className="cq-page-subtitle">
-              Cung cấp danh sách các hotspot liên kết với thẻ, bao gồm ảnh đại
+              Cung cấp danh sách các địa điểm liên kết với thẻ, bao gồm ảnh đại
               diện, năm và các tùy chọn thao tác.
             </p>
           </div>
 
           <span className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-600">
-            {hotspotsUsingTag.length} hotspot
+            {hotspotsUsingTag.length} địa điểm
           </span>
         </div>
 
@@ -452,10 +442,10 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
         ) : (
           <div className="mt-5 rounded-[1.5rem] border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center">
             <p className="cq-card-title sm:text-base">
-              Chưa có hotspot nào dùng thẻ này
+              Chưa có địa điểm nào dùng thẻ này
             </p>
             <p className="cq-page-subtitle mt-2">
-              Khi có hotspot được gắn thẻ, chúng sẽ hiển thị ở đây.
+              Khi có địa điểm được gắn thẻ, chúng sẽ hiển thị ở đây.
             </p>
           </div>
         )}
