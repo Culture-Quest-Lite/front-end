@@ -7,6 +7,11 @@ import { AppToastProvider } from "@/components/providers/AppToastProvider";
 export const metadata: Metadata = {
   title: "Culture Quest Lite | Đăng nhập",
   description: "Trang đăng nhập cho Culture Quest Lite",
+  icons: {
+    icon: "/favicon-logo3.png",
+    shortcut: "/favicon-logo3.png",
+    apple: "/favicon-logo3.png",
+  },
 };
 
 export default function RootLayout({

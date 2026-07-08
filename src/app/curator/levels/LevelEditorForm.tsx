@@ -107,6 +107,7 @@ export function LevelEditorForm({
       return;
     }
 
+    const currentLevelId = levelId;
     let cancelled = false;
 
     async function loadLevel() {
@@ -114,7 +115,7 @@ export function LevelEditorForm({
         setIsLoadingLevel(true);
         setLoadError(null);
 
-        const response = await levelApi.getLevelById(levelId);
+        const response = await levelApi.getLevelById(currentLevelId);
         if (cancelled) {
           return;
         }

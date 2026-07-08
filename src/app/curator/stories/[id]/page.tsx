@@ -196,10 +196,10 @@ export default function StoryDetailPage() {
             </Link>
             <div>
               <h1 className="text-lg font-semibold tracking-[-0.03em] text-foreground sm:text-xl">
-                Chi tiết story
+                Chi tiết câu chuyện
               </h1>
               <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground sm:text-xs">
-                Xem nội dung, trạng thái và media đính kèm của story.
+                Xem nội dung, trạng thái và media đính kèm của câu chuyện.
               </p>
             </div>
           </div>
@@ -233,7 +233,7 @@ export default function StoryDetailPage() {
           <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
             <div className="max-w-4xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                Tổng quan story
+                Tổng quan câu chuyện
               </p>
               <h2 className="mt-3 text-xl font-semibold tracking-[-0.03em] text-slate-900 sm:text-2xl">
                 {story.title}
@@ -244,7 +244,8 @@ export default function StoryDetailPage() {
               <span
                 className={cn(
                   "inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]",
-                  statusBadgeClasses[story.status] ?? "bg-slate-100 text-slate-700",
+                  statusBadgeClasses[story.status] ??
+                    "bg-slate-100 text-slate-700",
                 )}
               >
                 {statusLabelMap[story.status] ?? story.status}
@@ -363,7 +364,9 @@ export default function StoryDetailPage() {
                           onClick={() => setActiveImageIndex(index)}
                           className={cn(
                             "h-2 w-7 rounded-full transition",
-                            index === activeImageIndex ? "bg-slate-700" : "bg-slate-300",
+                            index === activeImageIndex
+                              ? "bg-slate-700"
+                              : "bg-slate-300",
                           )}
                         />
                       ))}
@@ -417,28 +420,32 @@ export default function StoryDetailPage() {
 
           <div className="mt-6 border-t border-dashed border-slate-200 pt-6">
             <div className="rounded-[1.5rem] bg-slate-50/80 p-4 sm:p-5">
-            <div className="flex items-center gap-2">
-              <Volume2 className="h-4 w-4 text-slate-600" />
-              <p className="cq-label">Audio story</p>
-            </div>
-            {audioMedias.length > 0 ? (
-              <div className="mt-3 space-y-4">
-                {audioMedias.map((media) => (
-                  <div key={media.mediaId}>
-                    <p className="text-xs font-medium text-slate-700">
-                      {media.fileName ?? "Audio đính kèm"}
-                    </p>
-                    <audio controls className="mt-2 w-full" src={media.fileUrl}>
-                      Trình duyệt của bạn không hỗ trợ audio.
-                    </audio>
-                  </div>
-                ))}
+              <div className="flex items-center gap-2">
+                <Volume2 className="h-4 w-4 text-slate-600" />
+                <p className="cq-label">Audio story</p>
               </div>
-            ) : (
-              <p className="mt-3 text-sm text-slate-500">
-                Không có audio đính kèm.
-              </p>
-            )}
+              {audioMedias.length > 0 ? (
+                <div className="mt-3 space-y-4">
+                  {audioMedias.map((media) => (
+                    <div key={media.mediaId}>
+                      <p className="text-xs font-medium text-slate-700">
+                        {media.fileName ?? "Audio đính kèm"}
+                      </p>
+                      <audio
+                        controls
+                        className="mt-2 w-full"
+                        src={media.fileUrl}
+                      >
+                        Trình duyệt của bạn không hỗ trợ audio.
+                      </audio>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-slate-500">
+                  Không có audio đính kèm.
+                </p>
+              )}
             </div>
           </div>
         </section>
