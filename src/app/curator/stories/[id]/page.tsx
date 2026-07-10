@@ -75,7 +75,7 @@ function isAudioMedia(media?: BackendStoryMedia) {
 function TagChip({ tagName, tagId }: { tagName?: string; tagId?: number }) {
   if (!tagName) {
     return (
-      <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-semibold text-slate-700">
+      <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">
         Chưa chọn
       </span>
     );
@@ -86,7 +86,7 @@ function TagChip({ tagName, tagId }: { tagName?: string; tagId?: number }) {
 
   return (
     <span
-      className="rounded-full border px-3 py-1 text-sm font-semibold"
+      className="rounded-full border px-3 py-1 text-xs font-medium"
       style={{
         backgroundColor: chipBg,
         borderColor: chipBorder,
@@ -180,36 +180,40 @@ export default function StoryDetailPage() {
         ? (index - 1 + imageUrls.length) % imageUrls.length
         : 0,
     );
+  const mediaViewportClassName =
+    "relative h-[320px] w-full overflow-hidden rounded-[1.5rem] bg-slate-100 sm:h-[360px] lg:h-[420px]";
 
   return (
-    <div className="flex min-h-full flex-col gap-6">
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-3">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-2 text-slate-700">
           <div className="flex items-center gap-3">
             <Link
               href="/curator/stories"
-              className="inline-flex items-center gap-2 text-slate-600 transition hover:text-slate-900"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
             >
-              <ArrowLeft className="h-4 w-4" />
-              Quay lại
+              <ArrowLeft className="h-2.5 w-2.5" />
             </Link>
+            <div>
+              <h1 className="text-lg font-semibold tracking-[-0.03em] text-foreground sm:text-xl">
+                Chi tiết câu chuyện
+              </h1>
+              <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground sm:text-xs">
+                Xem nội dung, trạng thái và media đính kèm của câu chuyện.
+              </p>
+            </div>
           </div>
-          {storyId && (
-            <Link
-              href={`/curator/stories/${storyId}/edit`}
-              className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
-            >
-              <Pencil className="h-4 w-4" />
-              Chỉnh sửa
-            </Link>
-          )}
         </div>
-        <div className="space-y-2">
-          <h1 className="cq-page-title">Chi tiết story</h1>
-          <p className="cq-page-subtitle max-w-2xl">
-            Xem nội dung, trạng thái và media đính kèm của story.
-          </p>
-        </div>
+
+        {storyId ? (
+          <Link
+            href={`/curator/stories/${storyId}/edit`}
+            className="inline-flex items-center gap-2 self-start rounded-full bg-blue-50 px-3.5 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 sm:text-sm"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Chỉnh sửa
+          </Link>
+        ) : null}
       </div>
 
       {isLoading ? (
@@ -225,62 +229,80 @@ export default function StoryDetailPage() {
           Story không có dữ liệu.
         </div>
       ) : (
-        <div className="flex flex-col gap-6">
-          <section className="space-y-6 rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="grid gap-6 lg:grid-cols-[1.7fr_0.9fr]">
-              <div className="space-y-4">
-                <h2 className="text-3xl font-normal tracking-tight text-slate-900 sm:text-4xl">
-                  {story.title}
-                </h2>
-              </div>
-
-              <div className="flex flex-col items-start gap-3 sm:items-end">
-                <div className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm">
-                  <span
-                    className={cn(
-                      "rounded-full px-2 py-1 text-xs font-semibold uppercase tracking-[0.18em]",
-                      statusBadgeClasses[story.status] ??
-                        "bg-slate-100 text-slate-700",
-                    )}
-                  >
-                    {statusLabelMap[story.status] ?? story.status}
-                  </span>
-                  <TagChip
-                    tagName={story.tag?.tagName}
-                    tagId={story.tag?.tagId}
-                  />
-                </div>
-              </div>
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+            <div className="max-w-4xl">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                Tổng quan câu chuyện
+              </p>
+              <h2 className="mt-3 text-xl font-semibold tracking-[-0.03em] text-slate-900 sm:text-2xl">
+                {story.title}
+              </h2>
             </div>
 
-            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 w-full">
-              <p className="cq-label text-slate-500">Hotspot</p>
-              <p className="mt-2 text-base font-semibold text-slate-900">
+            <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:justify-end">
+              <span
+                className={cn(
+                  "inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]",
+                  statusBadgeClasses[story.status] ??
+                    "bg-slate-100 text-slate-700",
+                )}
+              >
+                {statusLabelMap[story.status] ?? story.status}
+              </span>
+              <TagChip tagName={story.tag?.tagName} tagId={story.tag?.tagId} />
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4 border-t border-dashed border-slate-200 pt-6 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="space-y-1">
+              <p className="cq-label">Hotspot</p>
+              <p className="text-sm font-normal text-slate-900">
                 {hotspotName ?? `#${story.hotspotId}`}
               </p>
             </div>
+            <div className="space-y-1">
+              <p className="cq-label">Ảnh story</p>
+              <p className="text-sm font-normal text-slate-900">
+                {imageMedias.length} ảnh
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="cq-label">Video story</p>
+              <p className="text-sm font-normal text-slate-900">
+                {videoMedias.length} video
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="cq-label">Audio story</p>
+              <p className="text-sm font-normal text-slate-900">
+                {audioMedias.length} audio
+              </p>
+            </div>
+          </div>
 
-            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
-              <p className="cq-label mb-3">Nội dung</p>
-              <div className="whitespace-pre-wrap text-sm leading-7 text-slate-700">
+          <div className="mt-6 border-t border-dashed border-slate-200 pt-6">
+            <div className="rounded-[1.5rem] bg-slate-50/80 px-4 py-4 sm:px-5">
+              <p className="cq-label">Nội dung</p>
+              <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
                 {typeof story.content === "string" && story.content.trim()
                   ? story.content
                   : "Story không có nội dung."}
               </div>
             </div>
-          </section>
+          </div>
 
-          <section className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-[1.4fr_0.9fr]">
-              <div className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mt-6 border-t border-dashed border-slate-200 pt-6">
+            <div className="grid gap-6 xl:grid-cols-[1.35fr_0.85fr]">
+              <div className="rounded-[1.5rem] bg-slate-50/80 p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="cq-label">Ảnh story</p>
-                    <p className="text-sm text-slate-500">
+                    <p className="mt-1 text-xs text-slate-500">
                       {imageMedias.length} ảnh
                     </p>
                   </div>
-                  <div className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">
+                  <div className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
                     {imageUrls.length > 1
                       ? `Ảnh ${activeImageIndex + 1} / ${imageUrls.length}`
                       : imageUrls.length === 1
@@ -289,11 +311,11 @@ export default function StoryDetailPage() {
                   </div>
                 </div>
 
-                <div className="mt-6 rounded-[1.5rem] border border-slate-200 bg-white p-0 text-slate-900">
-                  <div className="relative overflow-hidden rounded-[1.5rem] bg-slate-50">
+                <div className="mt-4 overflow-hidden rounded-[1.5rem] bg-white text-slate-900 shadow-sm">
+                  <div className={mediaViewportClassName}>
                     {imageUrls.length > 0 ? (
                       <>
-                        <div className="relative h-80 sm:h-96 w-full">
+                        <div className="relative h-full w-full">
                           <Image
                             src={currentImageUrl}
                             alt={`Ảnh ${activeImageIndex + 1}`}
@@ -308,25 +330,25 @@ export default function StoryDetailPage() {
                               type="button"
                               onClick={prevImage}
                               aria-label="Ảnh trước"
-                              className="absolute left-3 top-1/2 -translate-y-1/2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/50"
+                              className="absolute left-3 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/50"
                             >
-                              <ChevronLeft className="h-5 w-5" />
+                              <ChevronLeft className="h-4 w-4" />
                             </button>
                             <button
                               type="button"
                               onClick={nextImage}
                               aria-label="Ảnh sau"
-                              className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/50"
+                              className="absolute right-3 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/50"
                             >
-                              <ChevronRight className="h-5 w-5" />
+                              <ChevronRight className="h-4 w-4" />
                             </button>
                           </>
                         ) : null}
                       </>
                     ) : (
-                      <div className="flex min-h-65 items-center justify-center bg-slate-950/80 p-8 text-center text-sm text-slate-300">
+                      <div className="flex h-full items-center justify-center bg-slate-950/80 p-8 text-center text-xs text-slate-300">
                         <div>
-                          <ImageIcon className="mx-auto mb-3 h-8 w-8" />
+                          <ImageIcon className="mx-auto mb-3 h-7 w-7" />
                           Không có ảnh đính kèm.
                         </div>
                       </div>
@@ -334,17 +356,17 @@ export default function StoryDetailPage() {
                   </div>
 
                   {imageUrls.length > 1 ? (
-                    <div className="mt-3 flex items-center justify-center gap-2">
+                    <div className="mt-3 flex items-center justify-center gap-2 pb-1">
                       {imageUrls.map((_, index) => (
                         <button
                           key={index}
                           type="button"
                           onClick={() => setActiveImageIndex(index)}
                           className={cn(
-                            "h-2.5 w-8 rounded-full transition",
+                            "h-2 w-7 rounded-full transition",
                             index === activeImageIndex
-                              ? "bg-white"
-                              : "bg-white/30",
+                              ? "bg-slate-700"
+                              : "bg-slate-300",
                           )}
                         />
                       ))}
@@ -353,22 +375,22 @@ export default function StoryDetailPage() {
                 </div>
               </div>
 
-              <div className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="rounded-[1.5rem] bg-slate-50/80 p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="cq-label">Video story</p>
-                    <p className="text-sm text-slate-500">
+                    <p className="mt-1 text-xs text-slate-500">
                       {videoMedias.length} video
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-6 space-y-4">
+                <div className="mt-4 space-y-4">
                   {videoMedias.length > 0 ? (
                     videoMedias.map((media, index) => (
                       <div key={media.mediaId} className="space-y-2">
                         {index === 0 ? null : (
-                          <p className="text-sm font-semibold text-slate-700">
+                          <p className="text-xs font-medium text-slate-700">
                             {media.fileName ?? `Video ${index + 1}`}
                           </p>
                         )}
@@ -376,7 +398,7 @@ export default function StoryDetailPage() {
                           controls
                           playsInline
                           preload="metadata"
-                          className="w-full rounded-[1.25rem] bg-black"
+                          className="h-[320px] w-full rounded-[1.5rem] bg-black object-contain sm:h-[360px] lg:h-[420px]"
                         >
                           <source
                             src={media.fileUrl}
@@ -387,32 +409,31 @@ export default function StoryDetailPage() {
                       </div>
                     ))
                   ) : (
-                    <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                    <div className="flex h-[320px] items-center justify-center rounded-[1.5rem] bg-white px-4 py-5 text-center text-xs text-slate-500 shadow-sm sm:h-[360px] lg:h-[420px]">
                       Không có video đính kèm.
                     </div>
                   )}
                 </div>
               </div>
             </div>
+          </div>
 
-            {audioMedias.length > 0 ? (
-              <div className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
-                <div className="flex items-center gap-2">
-                  <Volume2 className="h-4 w-4 text-slate-600" />
-                  <p className="cq-label">Audio story</p>
-                </div>
-                <div className="mt-4 space-y-4">
+          <div className="mt-6 border-t border-dashed border-slate-200 pt-6">
+            <div className="rounded-[1.5rem] bg-slate-50/80 p-4 sm:p-5">
+              <div className="flex items-center gap-2">
+                <Volume2 className="h-4 w-4 text-slate-600" />
+                <p className="cq-label">Audio story</p>
+              </div>
+              {audioMedias.length > 0 ? (
+                <div className="mt-3 space-y-4">
                   {audioMedias.map((media) => (
-                    <div
-                      key={media.mediaId}
-                      className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4"
-                    >
-                      <p className="text-sm font-semibold text-slate-900">
+                    <div key={media.mediaId}>
+                      <p className="text-xs font-medium text-slate-700">
                         {media.fileName ?? "Audio đính kèm"}
                       </p>
                       <audio
                         controls
-                        className="mt-3 w-full"
+                        className="mt-2 w-full"
                         src={media.fileUrl}
                       >
                         Trình duyệt của bạn không hỗ trợ audio.
@@ -420,16 +441,14 @@ export default function StoryDetailPage() {
                     </div>
                   ))}
                 </div>
-              </div>
-            ) : (
-              <div className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
-                <p className="text-sm text-slate-500">
+              ) : (
+                <p className="mt-3 text-sm text-slate-500">
                   Không có audio đính kèm.
                 </p>
-              </div>
-            )}
-          </section>
-        </div>
+              )}
+            </div>
+          </div>
+        </section>
       )}
     </div>
   );

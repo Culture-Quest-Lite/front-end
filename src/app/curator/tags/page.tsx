@@ -380,7 +380,9 @@ export default function CuratorTagsPage() {
 
           <section className="rounded-[1.75rem] border border-slate-200/80 bg-card p-4 shadow-sm sm:p-5">
             <div className="rounded-[1.5rem] border border-slate-200 bg-white p-4">
-              <h3 className="cq-card-title">Thống kê sử dụng thẻ</h3>
+              <h3 className="cq-card-title">
+                Thống kê sử dụng thẻ ở địa điểm trong hệ thống
+              </h3>
 
               <div className="mt-4 space-y-4">
                 {isLoadingTags ? (
@@ -472,7 +474,7 @@ export default function CuratorTagsPage() {
                           Trạng thái
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 sm:text-sm">
-                          Cập nhật lần cuối
+                          Ngày cập nhật
                         </th>
                         <th className="px-4 py-3 text-center text-xs font-semibold text-slate-700 sm:text-sm">
                           Hành động

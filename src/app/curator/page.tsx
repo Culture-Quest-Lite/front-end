@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { getRedirectPathForRole } from "@/lib/access-control";
 import { PageHeader, StatCard, StatusPill } from "@/components/app/ui-bits";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -52,14 +53,13 @@ export default function CuratorDashboardPage() {
       // Check if user has session
       if (!session) {
         console.warn("No session found, redirecting to login");
-        router.push("/");
+        router.replace("/");
         return;
       }
 
-      // Allow both admin and curator roles to access curator page
-      if (session.role !== "curator" && session.role !== "admin") {
+      if (session.role !== "curator") {
         console.warn("User role not authorized:", session.role, "redirecting to login");
-        router.push("/");
+        router.replace(getRedirectPathForRole(session.role) ?? "/");
         return;
       }
 
@@ -79,6 +79,14 @@ export default function CuratorDashboardPage() {
     return (
       <div className="cq-page-subtitle p-8">
         Bạn cần đăng nhập để truy cập trang Curator.
+      </div>
+    );
+  }
+
+  if (session.role !== "curator") {
+    return (
+      <div className="cq-page-subtitle p-8">
+        Đang chuyển hướng...
       </div>
     );
   }

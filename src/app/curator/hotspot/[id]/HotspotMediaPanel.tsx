@@ -33,6 +33,8 @@ export function HotspotMediaPanel({
   const prev = () =>
     setActiveIndex((i) => (i - 1 + images.length) % images.length);
   const next = () => setActiveIndex((i) => (i + 1) % images.length);
+  const mediaViewportClassName =
+    "relative h-[300px] w-full overflow-hidden bg-slate-100 sm:h-[340px] lg:h-[420px]";
 
   return (
     <div className="space-y-4">
@@ -41,27 +43,27 @@ export function HotspotMediaPanel({
           isActive={activeView === "image"}
           onClick={() => setActiveView("image")}
           icon={ImageIcon}
-          label="Ảnh hotspot"
+          label="Ảnh địa điểm"
         />
         <MediaToggleButton
           isActive={activeView === "video"}
           onClick={() => setActiveView("video")}
           icon={Video}
-          label="Video hotspot"
+          label="Video địa điểm"
         />
       </div>
 
       <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-slate-950 relative">
         {activeView === "image" ? (
-          <div className="bg-slate-100 relative">
+          <div className={mediaViewportClassName}>
             {images.length > 0 ? (
               <img
                 src={images[activeIndex]}
                 alt={`${title} ${activeIndex + 1}`}
-                className="h-[320px] w-full object-cover lg:h-[520px]"
+                className="h-full w-full object-cover"
               />
             ) : (
-              <div className="h-[320px] w-full lg:h-[520px] bg-slate-100" />
+              <div className="h-full w-full bg-slate-100" />
             )}
 
             {images.length > 1 ? (
@@ -97,18 +99,20 @@ export function HotspotMediaPanel({
             ) : null}
           </div>
         ) : videoUrl ? (
-          <video
-            controls
-            playsInline
-            preload="metadata"
-            poster={imageUrl}
-            className="h-[320px] w-full bg-black object-cover lg:h-[520px]"
-          >
-            <source src={videoUrl} type="video/mp4" />
-            Trình duyệt của bạn chưa hỗ trợ phát video.
-          </video>
+          <div className={mediaViewportClassName}>
+            <video
+              controls
+              playsInline
+              preload="metadata"
+              poster={imageUrl}
+              className="h-full w-full bg-black object-contain"
+            >
+              <source src={videoUrl} type="video/mp4" />
+              Trình duyệt của bạn chưa hỗ trợ phát video.
+            </video>
+          </div>
         ) : (
-          <div className="relative h-[320px] lg:h-[520px]">
+          <div className={mediaViewportClassName}>
             <img
               src={imageUrl}
               alt={`${title} preview`}
@@ -121,7 +125,7 @@ export function HotspotMediaPanel({
                   <Video className="h-6 w-6" />
                 </div>
                 <p className="mt-4 text-base font-normal">
-                  Hotspot này chưa có video giới thiệu
+                  Địa điểm này chưa có video giới thiệu
                 </p>
               </div>
             </div>

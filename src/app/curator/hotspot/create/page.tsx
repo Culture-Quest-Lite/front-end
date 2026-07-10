@@ -136,7 +136,7 @@ function HotspotCreatePageContent() {
         setTagError(
           error instanceof Error
             ? error.message
-            : "Không tải được danh sách thẻ từ API.",
+            : "Không tải được danh sách thẻ từ dữ liệu trả về.",
         );
       } finally {
         if (!isCancelled) {
@@ -182,7 +182,7 @@ function HotspotCreatePageContent() {
         setLoadHotspotError(
           error instanceof Error
             ? error.message
-            : "Không tải được dữ liệu hotspot cần chỉnh sửa.",
+            : "Không tải được dữ liệu địa điểm cần chỉnh sửa.",
         );
       } finally {
         if (!isCancelled) {
@@ -486,8 +486,8 @@ function HotspotCreatePageContent() {
       setFormState((current) => syncFormStateWithResponse(current, response));
 
       const successMessage = isEditMode
-        ? "Hotspot đã được cập nhật thành công."
-        : "Hotspot đã được tạo thành công.";
+        ? "Địa điểm đã được cập nhật thành công."
+        : "Địa điểm đã được tạo thành công.";
 
       toast.success(successMessage);
       await router.push("/curator/hotspot");
@@ -497,8 +497,8 @@ function HotspotCreatePageContent() {
         error instanceof Error
           ? error.message
           : isEditMode
-            ? "Không thể cập nhật hotspot."
-            : "Không thể tạo hotspot.",
+            ? "Không thể cập nhật địa điểm."
+            : "Không thể tạo địa điểm.",
       );
     } finally {
       setIsSubmitting(false);
@@ -787,7 +787,9 @@ function HotspotCreatePageContent() {
                   <div className="relative" ref={tagDropdownRef}>
                     <button
                       type="button"
-                      onClick={() => setIsTagDropdownOpen((current) => !current)}
+                      onClick={() =>
+                        setIsTagDropdownOpen((current) => !current)
+                      }
                       disabled={isLoadingTags || availableTags.length === 0}
                       aria-expanded={isTagDropdownOpen}
                       aria-haspopup="dialog"
@@ -825,7 +827,9 @@ function HotspotCreatePageContent() {
 
                         <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
                           {availableTags.map((tag) => {
-                            const isSelected = selectedTagIds.includes(tag.tagId);
+                            const isSelected = selectedTagIds.includes(
+                              tag.tagId,
+                            );
 
                             return (
                               <label
@@ -860,7 +864,7 @@ function HotspotCreatePageContent() {
                                     ) : null}
                                   </span>
                                   <span className="mt-1 block text-xs text-slate-500">
-                                    Chọn thẻ này cho hotspot
+                                    Chọn thẻ này cho địa điểm
                                   </span>
                                 </span>
                               </label>
@@ -909,8 +913,8 @@ function HotspotCreatePageContent() {
                     </button>
                   ) : null}
                   <p className="mt-2 text-xs text-slate-500">
-                    Bấm vào ô chọn để xổ danh sách checkbox và chọn nhiều thẻ cho
-                    hotspot này.
+                    Bấm vào ô chọn để xổ danh sách checkbox và chọn nhiều thẻ
+                    cho hotspot này.
                   </p>
                   {tagError ? (
                     <p className="mt-2 text-xs font-medium text-rose-700">
@@ -1124,9 +1128,9 @@ function HotspotCreatePageContent() {
               <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="cq-card-title">Kết quả từ API</p>
+                    <p className="cq-card-title">Kết quả từ dữ liệu trả về</p>
                     <p className="text-xs text-slate-500">
-                      Đồng bộ các field backend vừa trả về sau khi tạo hotspot.
+                      Đồng bộ các field backend vừa trả về sau khi tạo địa điểm.
                     </p>
                   </div>
                   <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -1134,7 +1138,7 @@ function HotspotCreatePageContent() {
 
                 <div className="mt-4 grid gap-3 text-sm text-slate-700">
                   <ResultRow
-                    label="Hotspot ID"
+                    label="Địa điểm ID"
                     value={
                       createdHotspot.hotspotId
                         ? String(createdHotspot.hotspotId)
@@ -1179,7 +1183,7 @@ function HotspotCreatePageContent() {
                   />
                   <div className="rounded-2xl bg-slate-50 px-4 py-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Tags trả về
+                      Thẻ trả về
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {createdHotspot.tags && createdHotspot.tags.length > 0 ? (
@@ -1193,7 +1197,7 @@ function HotspotCreatePageContent() {
                         ))
                       ) : (
                         <span className="text-sm text-slate-500">
-                          Chưa có dữ liệu tags.
+                          Chưa có dữ liệu thẻ.
                         </span>
                       )}
                     </div>
@@ -1211,7 +1215,7 @@ function HotspotCreatePageContent() {
 function HotspotCreatePageFallback() {
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-      Đang tải trình tạo hotspot...
+      Đang tải trình tạo địa điểm...
     </div>
   );
 }
@@ -1232,7 +1236,7 @@ function buildCreatePayload(
   selectedTagIds: number[],
 ): CreateHotspotPayload {
   if (selectedTagIds.length === 0) {
-    throw new Error("Vui lòng chọn ít nhất một thẻ trước khi lưu hotspot.");
+    throw new Error("Vui lòng chọn ít nhất một thẻ trước khi lưu địa điểm.");
   }
 
   const hotspotName = formState.hotspotName.trim();
@@ -1241,15 +1245,15 @@ function buildCreatePayload(
   const historyInformation = formState.historyInformation.trim();
 
   if (!hotspotName) {
-    throw new Error("Vui lòng nhập tên hotspot.");
+    throw new Error("Vui lòng nhập tên địa điểm.");
   }
 
   if (!address) {
-    throw new Error("Vui lòng nhập địa chỉ hotspot.");
+    throw new Error("Vui lòng nhập địa chỉ địa điểm.");
   }
 
   if (!description) {
-    throw new Error("Vui lòng nhập mô tả hotspot.");
+    throw new Error("Vui lòng nhập mô tả địa điểm.");
   }
 
   if (!historyInformation) {
@@ -1280,7 +1284,7 @@ function buildCreatePayload(
     latitude: parseDecimalField("latitude", formState.latitude),
     longitude: parseDecimalField("longitude", formState.longitude),
     xp: parseIntegerField("XP thưởng", formState.xp),
-    point: parseIntegerField("point thưởng", formState.point),
+    point: parseIntegerField("điểm thưởng", formState.point),
     estimatedDurationMin,
     estimatedDurationMax,
     startTime: normalizeTimeForApi("thời gian bắt đầu", formState.startTime),
@@ -1356,7 +1360,7 @@ async function validateHotspotPayload(
 
   if (duplicateHotspot) {
     throw new Error(
-      `Hotspot có vẻ đã tồn tại trên hệ thống: ${duplicateHotspot.hotspotName ?? `#${duplicateHotspot.hotspotId}`}. Vui lòng kiểm tra lại tên, địa chỉ hoặc tọa độ trước khi tạo mới.`,
+      `Địa điểm có vẻ đã tồn tại trên hệ thống: ${duplicateHotspot.hotspotName ?? `#${duplicateHotspot.hotspotId}`}. Vui lòng kiểm tra lại tên, địa chỉ hoặc tọa độ trước khi tạo mới.`,
     );
   }
 }

@@ -23,6 +23,8 @@ export type {
   BackendStoryMedia,
   StoryPageResponse,
 } from "./storyApi";
+export { levelApi } from "./levelApi";
+export type { BackendLevelRecord, CreateLevelPayload } from "./levelApi";
 export { goongApi } from "./goongApi";
 export type {
   GoongAutocompleteResult,

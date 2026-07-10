@@ -11,6 +11,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Send,
   Trash2,
 } from "lucide-react";
 
@@ -123,6 +124,14 @@ export default function CuratorStoriesPage() {
   const [isLoadingStories, setIsLoadingStories] = useState(false);
   const [loadStoriesError, setLoadStoriesError] = useState<string | null>(null);
   const [totalPages, setTotalPages] = useState(1);
+  const [pendingPublishStory, setPendingPublishStory] =
+    useState<StoryItem | null>(null);
+  const [publishingStoryId, setPublishingStoryId] = useState<string | null>(
+    null,
+  );
+  const [pendingDeleteStory, setPendingDeleteStory] =
+    useState<StoryItem | null>(null);
+  const [deletingStoryId, setDeletingStoryId] = useState<string | null>(null);
   const draftInputRef = useRef<HTMLInputElement>(null);
   const createSectionRef = useRef<HTMLDivElement>(null);
   const deferredSearch = useDeferredValue(searchQuery);
@@ -281,12 +290,28 @@ export default function CuratorStoriesPage() {
   async function handleDeleteStory(storyId: string) {
     setOpenMenuStoryId(null);
 
+    const story = stories.find((s) => s.id === storyId);
+    if (story) {
+      setPendingDeleteStory(story);
+    }
+  }
+
+  async function handleConfirmDeleteStory() {
+    if (!pendingDeleteStory) {
+      setPendingDeleteStory(null);
+      return;
+    }
+
+    const storyId = pendingDeleteStory.id;
+    setDeletingStoryId(storyId);
+
     try {
       await storyApi.deleteStory(Number(storyId));
       setStories((current) => current.filter((story) => story.id !== storyId));
       if (editingStoryId === storyId) {
         resetForm();
       }
+      setPendingDeleteStory(null);
       toast.success("Xóa story thành công.");
     } catch (error) {
       toast.error(
@@ -294,6 +319,55 @@ export default function CuratorStoriesPage() {
           ? error.message
           : "Không thể xóa story. Vui lòng thử lại.",
       );
+    } finally {
+      setDeletingStoryId(null);
+    }
+  }
+
+  function handlePublishStory(story: StoryItem) {
+    setOpenMenuStoryId(null);
+
+    if (story.status === "Đã xuất bản") {
+      toast.info("Story này đã ở trạng thái xuất bản.");
+      return;
+    }
+
+    setPendingPublishStory(story);
+  }
+
+  async function handleConfirmPublishStory() {
+    if (!pendingPublishStory) {
+      setPendingPublishStory(null);
+      return;
+    }
+
+    const storyId = pendingPublishStory.id;
+    setPublishingStoryId(storyId);
+
+    try {
+      await storyApi.updateStoryStatus(Number(storyId), "PUBLISHED");
+
+      setStories((currentStories) =>
+        currentStories.map((story) =>
+          story.id === storyId
+            ? {
+                ...story,
+                status: "Đã xuất bản",
+              }
+            : story,
+        ),
+      );
+
+      setPendingPublishStory(null);
+      toast.success("Duyệt bài story thành công.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Không thể duyệt bài story. Vui lòng thử lại.",
+      );
+    } finally {
+      setPublishingStoryId(null);
     }
   }
 
@@ -608,6 +682,16 @@ export default function CuratorStoriesPage() {
                                   <button
                                     type="button"
                                     role="menuitem"
+                                    onClick={() => handlePublishStory(story)}
+                                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-emerald-600 transition hover:bg-emerald-50"
+                                  >
+                                    <Send className="h-4 w-4" />
+                                    <span>Duyệt bài</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    role="menuitem"
                                     onClick={() => handleDeleteStory(story.id)}
                                     className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-slate-100 px-3 pt-3 pb-2.5 text-left text-sm font-medium text-red-500 transition hover:bg-red-50"
                                   >
@@ -648,6 +732,112 @@ export default function CuratorStoriesPage() {
             </div>
           ) : null}
         </section>
+
+        {pendingPublishStory ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 px-4 py-6 backdrop-blur-sm">
+            <div
+              className="absolute inset-0"
+              onClick={() => setPendingPublishStory(null)}
+              aria-hidden="true"
+            />
+
+            <div className="relative z-10 w-full max-w-[22rem] rounded-[1.75rem] border border-slate-200 bg-white px-5 py-7 text-center shadow-[0_24px_60px_rgba(15,23,42,0.18)] sm:px-6 sm:py-8">
+              <div className="space-y-3">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                  <Send className="h-10 w-10" />
+                </div>
+                <h2 className="text-[1.125rem] font-semibold leading-tight tracking-[-0.02em] text-slate-900 sm:text-[1.25rem]">
+                  Bạn có chắc muốn duyệt bài?
+                </h2>
+                <p className="mx-auto max-w-[16.5rem] text-[0.8125rem] leading-5 text-slate-500 sm:text-[0.875rem]">
+                  Story{" "}
+                  <span className="font-semibold text-slate-900">
+                    {pendingPublishStory.title}
+                  </span>{" "}
+                  sẽ được xuất bản ngay lập tức.
+                </p>
+              </div>
+
+              <div className="mt-7 grid grid-cols-2 gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setPendingPublishStory(null)}
+                  disabled={publishingStoryId === pendingPublishStory.id}
+                  className="h-11 rounded-2xl border-slate-200 bg-slate-100 text-[0.8125rem] font-semibold text-slate-600 shadow-none hover:bg-slate-200 hover:text-slate-700 sm:text-sm"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  onClick={() => void handleConfirmPublishStory()}
+                  disabled={publishingStoryId === pendingPublishStory.id}
+                  className="h-11 rounded-2xl border-[#0066CC] bg-[#0066CC] text-[0.8125rem] font-semibold text-white shadow-none hover:border-[#0052A3] hover:bg-[#0052A3] sm:text-sm"
+                >
+                  {publishingStoryId === pendingPublishStory.id
+                    ? "Đang duyệt..."
+                    : "Duyệt bài"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {pendingDeleteStory ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 px-4 py-6 backdrop-blur-sm">
+            <div
+              className="absolute inset-0"
+              onClick={() => setPendingDeleteStory(null)}
+              aria-hidden="true"
+            />
+
+            <div className="relative z-10 w-full max-w-[22rem] rounded-[1.75rem] border border-slate-200 bg-white px-5 py-7 text-center shadow-[0_24px_60px_rgba(15,23,42,0.18)] sm:px-6 sm:py-8">
+              <div className="space-y-3">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+                  <Trash2 className="h-10 w-10" />
+                </div>
+                <h2 className="text-[1.125rem] font-semibold leading-tight tracking-[-0.02em] text-slate-900 sm:text-[1.25rem]">
+                  Bạn có chắc muốn xóa?
+                </h2>
+                <p className="mx-auto max-w-[16.5rem] text-[0.8125rem] leading-5 text-slate-500 sm:text-[0.875rem]">
+                  Hành động này không thể hoàn tác. Story{" "}
+                  <span className="font-semibold text-slate-900">
+                    {pendingDeleteStory.title}
+                  </span>{" "}
+                  sẽ bị xóa khỏi danh sách hiện tại.
+                </p>
+              </div>
+
+              <div className="mt-7 grid grid-cols-2 gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setPendingDeleteStory(null)}
+                  disabled={deletingStoryId === pendingDeleteStory.id}
+                  className="h-11 rounded-2xl border-slate-200 bg-slate-100 text-[0.8125rem] font-semibold text-slate-600 shadow-none hover:bg-slate-200 hover:text-slate-700 sm:text-sm"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  onClick={() => void handleConfirmDeleteStory()}
+                  disabled={deletingStoryId === pendingDeleteStory.id}
+                  className="h-11 rounded-2xl border-rose-600 bg-rose-600 text-[0.8125rem] font-semibold text-white shadow-none hover:border-rose-700 hover:bg-rose-700 sm:text-sm"
+                >
+                  {deletingStoryId === pendingDeleteStory.id
+                    ? "Đang xóa..."
+                    : "Xóa story"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </section>
     </div>
   );

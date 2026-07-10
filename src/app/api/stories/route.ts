@@ -13,3 +13,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   return forwardStoriesRequest(request, "PUT");
 }
+
+export async function DELETE(request: NextRequest) {
+  return forwardStoriesRequest(request, "DELETE");
+}
