@@ -1,7 +1,6 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 interface PaginationProps {
   page: number;
@@ -28,48 +27,49 @@ export function Pagination({
   );
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm text-slate-500">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <p className="text-xs text-slate-500">
         Hiển thị {start}–{end} / {totalItems} mục
       </p>
-      <div className="flex items-center gap-1">
-        <Button
-          variant="outline"
-          size="sm"
+      <div className="inline-flex items-end gap-1 sm:gap-2">
+        <button
+          type="button"
+          aria-label="Trang trước"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
-          className="h-8 w-8 p-0"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition hover:bg-white hover:text-[#D94A8D] hover:shadow-[0_6px_16px_rgba(15,23,42,0.06)] disabled:pointer-events-none disabled:opacity-40"
         >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
+          <ChevronLeft className="h-5 w-5" />
+        </button>
         {pages.map((p, i) => {
           const prev = pages[i - 1];
           const showEllipsis = prev !== undefined && p - prev > 1;
           return (
-            <span key={p} className="flex items-center gap-1">
-              {showEllipsis ? (
-                <span className="px-1 text-sm text-slate-400">…</span>
-              ) : null}
-              <Button
-                variant={p === page ? "default" : "outline"}
-                size="sm"
+            <span key={p} className="flex items-end gap-1">
+              {showEllipsis ? <span className="px-1 pb-2 text-sm text-slate-300">…</span> : null}
+              <button
+                type="button"
                 onClick={() => onPageChange(p)}
-                className="h-8 min-w-8 px-2 text-xs"
+                className={`relative inline-flex h-9 min-w-9 items-center justify-center px-3 pb-2 text-sm font-medium transition ${
+                  p === page
+                    ? "font-semibold text-[#D94A8D] after:absolute after:bottom-0 after:left-1/2 after:h-0.5 after:w-6 after:-translate-x-1/2 after:rounded-full after:bg-[#D94A8D]"
+                    : "text-slate-400 hover:text-slate-700"
+                }`}
               >
                 {p}
-              </Button>
+              </button>
             </span>
           );
         })}
-        <Button
-          variant="outline"
-          size="sm"
+        <button
+          type="button"
+          aria-label="Trang sau"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
-          className="h-8 w-8 p-0"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition hover:bg-white hover:text-[#D94A8D] hover:shadow-[0_6px_16px_rgba(15,23,42,0.06)] disabled:pointer-events-none disabled:opacity-40"
         >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+          <ChevronRight className="h-5 w-5" />
+        </button>
       </div>
     </div>
   );

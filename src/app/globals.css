@@ -392,3 +392,151 @@
     color: #dd4a8d;
   }
 }
+
+@layer components {
+  .cq-admin-compact {
+    @apply text-[13px];
+    --primary: 235 72 155;
+    --secondary: 245 135 82;
+    --accent: 255 201 60;
+    --muted: 241 246 251;
+    --muted-foreground: 112 122 138;
+    --card: 252 252 253;
+    --popover: 252 252 253;
+    --border: 231 235 242;
+    --input: 241 246 251;
+    --ring: 255 103 154;
+  }
+
+  .cq-admin-compact .cq-page-title {
+    @apply text-[1.5rem] tracking-[-0.02em] sm:text-[1.7rem];
+  }
+
+  .cq-admin-compact .cq-page-subtitle {
+    @apply text-[12px] leading-5 text-slate-500;
+  }
+
+  .cq-admin-compact .cq-section-title { @apply text-[0.95rem]; }
+  .cq-admin-compact .cq-card-title { @apply text-[0.875rem]; }
+  .cq-admin-compact .cq-body-copy { @apply text-[0.875rem] leading-6; }
+  .cq-admin-compact .cq-card-copy { @apply text-[12px] leading-5; }
+  .cq-admin-compact .cq-label { @apply text-[10px] tracking-[0.14em]; }
+
+  .cq-admin-compact .bg-white { background-color: #fcfcfd; }
+  .cq-admin-compact .bg-slate-50 { background-color: #f6f8fb; }
+  .cq-admin-compact .border-slate-200,
+  .cq-admin-compact .border-border { border-color: #edf0f5; }
+
+  .cq-admin-compact [data-slot="button"] { @apply text-[12px]; }
+  .cq-admin-compact [data-slot="button"][data-variant="outline"] {
+    border-color: #e7ebf2;
+    background: rgba(252, 252, 253, 0.96);
+    color: #596579;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
+  }
+  .cq-admin-compact [data-slot="button"][data-variant="outline"]:hover {
+    border-color: #ffd6e4;
+    background: #fff8fb;
+    color: #d94a8d;
+  }
+  .cq-admin-compact [data-slot="button"][data-variant="default"] {
+    background: linear-gradient(90deg, #eb489b 0%, #f58752 100%);
+    border-color: transparent;
+    color: white;
+    box-shadow: 0 10px 22px rgba(235, 72, 155, 0.16);
+  }
+
+  .cq-admin-compact input,
+  .cq-admin-compact select,
+  .cq-admin-compact textarea {
+    background-color: #f4f7fa;
+    border-color: #e7ebf2;
+  }
+  .cq-admin-compact input:focus,
+  .cq-admin-compact select:focus,
+  .cq-admin-compact textarea:focus {
+    border-color: #ffc1d8;
+    box-shadow: 0 0 0 4px rgba(255, 103, 154, 0.08);
+    outline: none;
+  }
+
+  /* Admin content cards: use one soft surface instead of many heavy nested frames. */
+  .cq-admin-compact .shadow-sm {
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.045);
+  }
+  .cq-admin-compact .rounded-3xl.border.bg-white,
+  .cq-admin-compact .rounded-2xl.border.bg-white {
+    border-color: #edf0f5;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  }
+}
+
+
+/* Admin buttons use the same visual language as Curator. */
+.cq-admin-compact [data-slot="button"][data-variant="default"],
+.cq-admin-compact [data-slot="button"][data-variant="secondary"] {
+  background: linear-gradient(90deg, #eb489b 0%, #f58752 58%, #ffc93c 100%);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 10px 22px rgba(235, 72, 155, 0.16);
+}
+.cq-admin-compact [data-slot="button"][data-variant="default"]:hover,
+.cq-admin-compact [data-slot="button"][data-variant="secondary"]:hover {
+  background: linear-gradient(90deg, #e23f93 0%, #ee7d4a 58%, #f6bf34 100%);
+  box-shadow: 0 14px 28px rgba(235, 72, 155, 0.21);
+}
+.cq-admin-compact [data-slot="button"][data-variant="outline"] {
+  border-color: #e7ebf2;
+  background: rgba(252, 252, 253, 0.96);
+  color: #596579;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
+}
+.cq-admin-compact [data-slot="button"][data-variant="outline"]:hover {
+  border-color: #ffd6e4;
+  background: #fff8fb;
+  color: #d94a8d;
+}
+.cq-admin-compact [data-slot="button"][data-variant="ghost"]:hover {
+  background: #fff3f8;
+  color: #d94a8d;
+}
+.cq-admin-compact [data-slot="button"][data-variant="destructive"] {
+  background: #fff1f5;
+  border: 1px solid #ffd4e2;
+  color: #d94a6f;
+  box-shadow: 0 5px 14px rgba(217, 74, 111, 0.06);
+}
+.cq-admin-compact [data-slot="button"][data-variant="destructive"]:hover {
+  background: #ffe7ef;
+  border-color: #ffc3d5;
+  color: #c83f65;
+}
+
+/* Raw buttons used by Admin pages (filters, tabs and custom actions). */
+.cq-admin-compact button.bg-blue-600,
+.cq-admin-compact button.bg-blue-500,
+.cq-admin-compact button.bg-primary {
+  background: linear-gradient(90deg, #eb489b 0%, #f58752 58%, #ffc93c 100%) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  box-shadow: 0 8px 18px rgba(235, 72, 155, 0.14);
+}
+.cq-admin-compact button.bg-blue-600:hover,
+.cq-admin-compact button.bg-blue-500:hover,
+.cq-admin-compact button.bg-primary:hover {
+  background: linear-gradient(90deg, #e23f93 0%, #ee7d4a 58%, #f6bf34 100%) !important;
+}
+.cq-admin-compact button.text-blue-600,
+.cq-admin-compact button.text-blue-700,
+.cq-admin-compact button.text-primary {
+  color: #d94a8d !important;
+}
+.cq-admin-compact button.hover\:bg-blue-50:hover,
+.cq-admin-compact button.hover\:bg-slate-50:hover {
+  background: #fff3f8 !important;
+  color: #d94a8d !important;
+}
+.cq-admin-compact button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(255, 103, 154, 0.10);
+}

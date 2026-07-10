@@ -481,11 +481,32 @@ function PostReviewCard({
   const tags = getPostTags(post);
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-border bg-white shadow-sm dark:bg-zinc-950">
-      <button type="button" onClick={onView} className="block w-full text-left">
-        <div className="flex gap-3 p-3">
+    <div
+      className="
+        overflow-hidden
+        rounded-[28px]
+        border border-slate-200/60
+        bg-white
+        shadow-[0_2px_10px_rgba(15,23,42,0.04)]
+        transition-all duration-200
+        hover:border-slate-200/80
+        hover:shadow-[0_6px_20px_rgba(15,23,42,0.06)]
+        dark:border-zinc-800/60
+        dark:bg-zinc-950
+      "
+    >
+      <button
+        type="button"
+        onClick={onView}
+        className="block w-full text-left"
+      >
+        <div className="flex gap-4 p-4">
           {image ? (
-            <img src={image} alt="Ảnh bài đăng" className="h-24 w-24 flex-none rounded-2xl object-cover" />
+            <img
+              src={image}
+              alt="Ảnh bài đăng"
+              className="h-24 w-24 flex-none rounded-2xl object-cover"
+            />
           ) : (
             <div className="grid h-24 w-24 flex-none place-items-center rounded-2xl bg-blue-50 text-blue-600">
               <MessageSquare className="h-8 w-8" />
@@ -495,8 +516,13 @@ function PostReviewCard({
           <div className="min-w-0 flex-1">
             <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
               <span>Bài post</span>
+
               <Clock className="h-3 w-3" />
-              <span>Gửi lúc {getCreatedText(post.createdAt)}</span>
+
+              <span>
+                Gửi lúc {getCreatedText(post.createdAt)}
+              </span>
+
               {isDemoPost(post) ? (
                 <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
                   Demo
@@ -504,17 +530,23 @@ function PostReviewCard({
               ) : null}
             </div>
 
-            <div className="line-clamp-2 text-base font-semibold text-slate-950 dark:text-slate-50">
+            <div className="line-clamp-2 text-base font-semibold leading-6 text-slate-950 dark:text-slate-50">
               {post.content || "Bài đăng không có nội dung"}
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <div className="grid h-5 w-5 place-items-center rounded-full bg-primary-soft text-primary text-[10px] font-bold">
+              <div className="grid h-5 w-5 place-items-center rounded-full bg-primary-soft text-[10px] font-bold text-primary">
                 {getAuthorName(post).charAt(0).toUpperCase()}
               </div>
-              <span className="text-xs text-slate-700 dark:text-slate-300">{getAuthorName(post)}</span>
+
+              <span className="text-xs text-slate-700 dark:text-slate-300">
+                {getAuthorName(post)}
+              </span>
+
               <span
-                className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${getPostStatusClass(post.status)}`}
+                className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${getPostStatusClass(
+                  post.status
+                )}`}
               >
                 {getPostStatusLabel(post.status)}
               </span>
@@ -535,32 +567,61 @@ function PostReviewCard({
         </div>
       </button>
 
-      <div className="grid grid-cols-4 border-t border-border">
+      <div className="mx-4 h-px bg-slate-100 dark:bg-zinc-800/70" />
+
+      <div className="grid grid-cols-4 px-2 py-2">
         <button
           type="button"
           disabled={submitting}
           onClick={onView}
-          className="flex items-center justify-center gap-1.5 border-r border-border py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+          className="
+            flex items-center justify-center gap-1.5
+            rounded-xl py-2.5
+            text-sm font-medium text-slate-600
+            transition-colors
+            hover:bg-slate-50
+            disabled:opacity-50
+          "
         >
-          <Eye className="h-4 w-4" /> Xem
+          <Eye className="h-4 w-4" />
+          Xem
         </button>
 
         <button
           type="button"
           disabled={submitting || !isPending}
           onClick={onReject}
-          className="flex items-center justify-center gap-1.5 border-r border-border py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
+          className="
+            flex items-center justify-center gap-1.5
+            rounded-xl py-2.5
+            text-sm font-medium text-red-600
+            transition-colors
+            hover:bg-red-50
+            disabled:opacity-40
+          "
         >
-          <X className="h-4 w-4" /> Từ chối
+          <X className="h-4 w-4" />
+          Từ chối
         </button>
 
         <button
           type="button"
           disabled={submitting || !isPending}
           onClick={onApprove}
-          className="flex items-center justify-center gap-1.5 border-r border-border py-2.5 text-sm font-medium text-emerald-600 hover:bg-emerald-50 disabled:opacity-40"
+          className="
+            flex items-center justify-center gap-1.5
+            rounded-xl py-2.5
+            text-sm font-medium text-emerald-600
+            transition-colors
+            hover:bg-emerald-50
+            disabled:opacity-40
+          "
         >
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+          {submitting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Check className="h-4 w-4" />
+          )}
           Duyệt
         </button>
 
@@ -568,9 +629,20 @@ function PostReviewCard({
           type="button"
           disabled={submitting}
           onClick={onSoftDelete}
-          className="flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+          className="
+            flex items-center justify-center gap-1.5
+            rounded-xl py-2.5
+            text-sm font-medium text-slate-500
+            transition-colors
+            hover:bg-slate-50
+            disabled:opacity-50
+          "
         >
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+          {submitting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Trash2 className="h-4 w-4" />
+          )}
           Xoá
         </button>
       </div>
