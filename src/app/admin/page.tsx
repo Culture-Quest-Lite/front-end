@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import { getRedirectPathForRole } from "@/lib/access-control";
 import { PageHeader, StatCard, StatusPill } from "@/components/app/ui-bits";
 import {
   audit,
@@ -59,14 +60,13 @@ export default function AdminDashboardPage() {
       // Check if user has session
       if (!session) {
         console.warn("No session found, redirecting to login");
-        router.push("/");
+        router.replace("/");
         return;
       }
 
-      // Allow both admin and curator to access admin page (tạm thời)
-      if (session.role !== "admin" && session.role !== "curator") {
+      if (session.role !== "admin") {
         console.warn("User role not authorized:", session.role, "redirecting to login");
-        router.push("/");
+        router.replace(getRedirectPathForRole(session.role) ?? "/");
         return;
       }
 
@@ -75,7 +75,7 @@ export default function AdminDashboardPage() {
   }, [loading, router, session]);
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || session.role !== "admin") return;
 
     void (async () => {
       try {
@@ -106,6 +106,14 @@ export default function AdminDashboardPage() {
     return (
       <div className="cq-page-subtitle p-8">
         Bạn cần đăng nhập để truy cập trang Admin.
+      </div>
+    );
+  }
+
+  if (session.role !== "admin") {
+    return (
+      <div className="cq-page-subtitle p-8">
+        Đang chuyển hướng...
       </div>
     );
   }

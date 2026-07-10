@@ -43,13 +43,13 @@ export function HotspotMediaPanel({
           isActive={activeView === "image"}
           onClick={() => setActiveView("image")}
           icon={ImageIcon}
-          label="Ảnh hotspot"
+          label="Ảnh địa điểm"
         />
         <MediaToggleButton
           isActive={activeView === "video"}
           onClick={() => setActiveView("video")}
           icon={Video}
-          label="Video hotspot"
+          label="Video địa điểm"
         />
       </div>
 
@@ -125,7 +125,7 @@ export function HotspotMediaPanel({
                   <Video className="h-6 w-6" />
                 </div>
                 <p className="mt-4 text-base font-normal">
-                  Hotspot này chưa có video giới thiệu
+                  Địa điểm này chưa có video giới thiệu
                 </p>
               </div>
             </div>

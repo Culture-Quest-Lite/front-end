@@ -42,7 +42,7 @@ const menuGroups: Array<{
   {
     items: [
       { title: "Tổng quan", href: "/curator", icon: LayoutDashboard },
-      { title: "Hotspot", href: "/curator/hotspot", icon: MapPin },
+      { title: "Địa điểm", href: "/curator/hotspot", icon: MapPin },
       { title: "Câu chuyện", href: "/curator/stories", icon: BookOpen },
       { title: "Chủ đề tuyến", href: "/curator/themes", icon: Tags },
       { title: "Tuyến hành trình", href: "/curator/routes", icon: Map },
