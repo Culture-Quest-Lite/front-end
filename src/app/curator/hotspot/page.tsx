@@ -123,12 +123,12 @@ const VISIBLE_HOTSPOT_STATUSES = ["DRAFT", "PUBLISHED"] as const;
 const searchFieldOptions: SearchFieldOption[] = [
   {
     value: "hotspotName",
-    label: "Tên hotspot",
+    label: "Tên địa điểm",
     kind: "text",
     operators: ["LIKE", "EQUALS", "NOT_EQUALS"],
     defaultOperator: "LIKE",
-    placeholder: "Tìm theo tên hotspot...",
-    description: "Tìm theo tên hotspot.",
+    placeholder: "Tìm theo tên địa điểm...",
+    description: "Tìm theo tên địa điểm.",
   },
   {
     value: "status",
@@ -137,7 +137,7 @@ const searchFieldOptions: SearchFieldOption[] = [
     operators: ["EQUALS", "NOT_EQUALS"],
     defaultOperator: "EQUALS",
     placeholder: "",
-    description: "Lọc theo trạng thái DRAFT hoặc PUBLISHED.",
+    description: "Lọc theo trạng thái nháp hoặc cộng đồng.",
   },
   {
     value: "tags.tagName",
@@ -146,7 +146,7 @@ const searchFieldOptions: SearchFieldOption[] = [
     operators: ["LIKE", "EQUALS"],
     defaultOperator: "LIKE",
     placeholder: "Ví dụ: Lịch sử",
-    description: "Tìm theo tên tag liên kết với hotspot.",
+    description: "Tìm theo tên thẻ liên kết với địa điểm.",
   },
   {
     value: "xp",
@@ -170,7 +170,7 @@ const searchFieldOptions: SearchFieldOption[] = [
     operators: ["LIKE", "EQUALS"],
     defaultOperator: "LIKE",
     placeholder: "Ví dụ: Hà Nội",
-    description: "Tìm theo địa chỉ của hotspot.",
+    description: "Tìm theo địa chỉ của địa điểm.",
   },
   {
     value: "description",
@@ -188,7 +188,7 @@ const searchFieldOptions: SearchFieldOption[] = [
     operators: ["LIKE", "EQUALS"],
     defaultOperator: "LIKE",
     placeholder: "Ví dụ: thời Pháp thuộc",
-    description: "Tìm theo nội dung thông tin lịch sử của hotspot.",
+    description: "Tìm theo nội dung thông tin lịch sử của địa điểm.",
   },
   {
     value: "point",
@@ -203,7 +203,7 @@ const searchFieldOptions: SearchFieldOption[] = [
     ],
     defaultOperator: "GREATER_THAN",
     placeholder: "Ví dụ: 50",
-    description: "Lọc theo số point thưởng.",
+    description: "Lọc theo số điểm thưởng.",
   },
   {
     value: "checkInRadius",
@@ -235,7 +235,7 @@ const searchFieldOptions: SearchFieldOption[] = [
     ],
     defaultOperator: "GREATER_THAN",
     placeholder: "",
-    description: "Lọc theo thời điểm tạo hotspot.",
+    description: "Lọc theo thời điểm tạo địa điểm.",
     warning:
       "Backend live ngày 24/06/2026 hiện có thể trả lỗi 500 với field này. Payload vẫn sẽ được gửi đúng format.",
   },
@@ -246,7 +246,7 @@ const searchFieldOptions: SearchFieldOption[] = [
     operators: ["LIKE", "EQUALS"],
     defaultOperator: "LIKE",
     placeholder: "Ví dụ: admin",
-    description: "Tìm hotspot theo username của người tạo.",
+    description: "Tìm địa điểm theo username của người tạo.",
   },
 ];
 
@@ -678,7 +678,9 @@ function buildHotspotSearchFilters(
   quickSearch: QuickSearchState,
   filters: AdvancedFilterState,
 ) {
-  const builtFilters: HotspotSearchFilter[] = [createVisibleHotspotStatusFilter()];
+  const builtFilters: HotspotSearchFilter[] = [
+    createVisibleHotspotStatusFilter(),
+  ];
   const quickFilter = buildFilterFromState(quickSearch);
 
   if (quickFilter) {
@@ -926,11 +928,7 @@ function matchesHotspotFilter(
     case "status":
       if (filter.operator === "IN") {
         return (filter.values ?? []).some((value) =>
-          matchesTextOperator(
-            hotspot.rawStatus,
-            "EQUALS",
-            String(value ?? ""),
-          ),
+          matchesTextOperator(hotspot.rawStatus, "EQUALS", String(value ?? "")),
         );
       }
 
@@ -1373,7 +1371,7 @@ export default function Page() {
         setLoadError(
           error instanceof Error
             ? error.message
-            : "Không tải được danh sách hotspot từ API.",
+            : "Không tải được danh sách địa điểm từ dữ liệu trả về.",
         );
       } finally {
         if (!isCancelled) {
@@ -1522,7 +1520,7 @@ export default function Page() {
   function handleDeleteRequest(item: HotspotViewItem) {
     if (!item.hotspotId) {
       setOpenMenuKey(null);
-      toast.error("Hotspot này chưa có ID backend nên chưa thể xóa.");
+      toast.error("Địa điểm này chưa có ID backend nên chưa thể xóa.");
       return;
     }
 
@@ -1543,15 +1541,13 @@ export default function Page() {
       const message = await hotspotApi.deleteHotspot(hotspotId);
 
       setHotspots((currentHotspots) =>
-        currentHotspots.filter(
-          (hotspot) => hotspot.hotspotId !== hotspotId,
-        ),
+        currentHotspots.filter((hotspot) => hotspot.hotspotId !== hotspotId),
       );
       setPendingDeleteHotspot(null);
       toast.success(message);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Không thể xóa hotspot.",
+        error instanceof Error ? error.message : "Không thể xóa địa điểm.",
       );
     } finally {
       setDeletingHotspotId(null);
@@ -1561,7 +1557,7 @@ export default function Page() {
   async function handlePublishHotspot(item: HotspotViewItem) {
     if (!item.hotspotId) {
       setOpenMenuKey(null);
-      toast.error("Hotspot này chưa có ID backend nên chưa thể duyệt.");
+      toast.error("Địa điểm này chưa có ID backend nên chưa thể duyệt.");
       return;
     }
 
@@ -1573,13 +1569,13 @@ export default function Page() {
       normalizedStatus === "APPROVED"
     ) {
       setOpenMenuKey(null);
-      toast.info("Hotspot này đã ở trạng thái xuất bản.");
+      toast.info("Địa điểm này đã ở trạng thái xuất bản.");
       return;
     }
 
     if (normalizedStatus && normalizedStatus !== "DRAFT") {
       setOpenMenuKey(null);
-      toast.error("Chỉ có thể duyệt hotspot đang ở trạng thái bản nháp.");
+      toast.error("Chỉ có thể duyệt địa điểm đang ở trạng thái bản nháp.");
       return;
     }
 
@@ -1605,10 +1601,10 @@ export default function Page() {
       );
       setOpenMenuKey(null);
       setReloadVersion((currentVersion) => currentVersion + 1);
-      toast.success("Đã duyệt hotspot và chuyển sang trạng thái xuất bản.");
+      toast.success("Đã duyệt địa điểm và chuyển sang trạng thái xuất bản.");
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Không thể duyệt hotspot.",
+        error instanceof Error ? error.message : "Không thể duyệt địa điểm.",
       );
     } finally {
       setPublishingHotspotId(null);
@@ -1676,288 +1672,291 @@ export default function Page() {
     <>
       <div className="flex min-h-full flex-col gap-6">
         <section className="space-y-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div className="space-y-2">
-            <div>
-              <h1 className="cq-page-title">Quản lý Hotspot</h1>
-              <p className="cq-page-subtitle max-w-2xl">
-                Tạo, chỉnh sửa và phát hành các điểm di sản văn hóa TP.HCM.
-              </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-2">
+              <div>
+                <h1 className="cq-page-title">Quản lý địa điểm</h1>
+                <p className="cq-page-subtitle max-w-2xl">
+                  Tạo, chỉnh sửa và phát hành các điểm di sản văn hóa TP.HCM.
+                </p>
+              </div>
             </div>
-          </div>
 
-          <Button
-            asChild
-            variant="secondary"
-            size="lg"
-            className="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-white shadow-sm"
-          >
-            <Link href="/curator/hotspot/create">
-              <Plus className="h-4 w-4" />
-              Tạo Hotspot
-            </Link>
-          </Button>
-        </div>
-
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            {renderFilterValueControl(
-              quickSearch,
-              handleQuickSearchValueChange,
-              "h-11 rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400/70 focus:border-primary focus:ring-2 focus:ring-primary/20",
-            )}
-          </div>
-
-          <div data-hotspot-filter className="relative sm:justify-self-end">
-            <button
-              type="button"
-              onClick={handleToggleFilterPanel}
-              aria-expanded={isFilterOpen}
-              aria-haspopup="dialog"
-              className={`group relative inline-flex h-11 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 ${
-                isFilterOpen
-                  ? "border-[#F7DCE8] bg-[#FFF1F7] text-[#D94A8D] shadow-md"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-[#F7DCE8] hover:bg-[#FFF1F7] hover:text-[#D94A8D]"
-              }`}
+            <Button
+              asChild
+              variant="secondary"
+              size="lg"
+              className="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-white shadow-sm"
             >
-              <Filter className="h-4 w-4" />
-              Bộ lọc nâng cao
-              {activeFilterCount > 0 ? (
-                <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
-                  {activeFilterCount}
-                </span>
-              ) : null}
-              <ChevronDown
-                className={`h-4 w-4 text-slate-400 transition ${
+              <Link href="/curator/hotspot/create">
+                <Plus className="h-4 w-4" />
+                Tạo địa điểm mới
+              </Link>
+            </Button>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              {renderFilterValueControl(
+                quickSearch,
+                handleQuickSearchValueChange,
+                "h-11 rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400/70 focus:border-primary focus:ring-2 focus:ring-primary/20",
+              )}
+            </div>
+
+            <div data-hotspot-filter className="relative sm:justify-self-end">
+              <button
+                type="button"
+                onClick={handleToggleFilterPanel}
+                aria-expanded={isFilterOpen}
+                aria-haspopup="dialog"
+                className={`group relative inline-flex h-11 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 ${
                   isFilterOpen
-                    ? "rotate-180 text-[#D94A8D]"
-                    : "group-hover:text-[#D94A8D]"
+                    ? "border-[#F7DCE8] bg-[#FFF1F7] text-[#D94A8D] shadow-md"
+                    : "border-slate-200 bg-white text-slate-700 hover:border-[#F7DCE8] hover:bg-[#FFF1F7] hover:text-[#D94A8D]"
                 }`}
-              />
-            </button>
+              >
+                <Filter className="h-4 w-4" />
+                Bộ lọc nâng cao
+                {activeFilterCount > 0 ? (
+                  <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                    {activeFilterCount}
+                  </span>
+                ) : null}
+                <ChevronDown
+                  className={`h-4 w-4 text-slate-400 transition ${
+                    isFilterOpen
+                      ? "rotate-180 text-[#D94A8D]"
+                      : "group-hover:text-[#D94A8D]"
+                  }`}
+                />
+              </button>
 
-            {isFilterOpen ? (
-              <div className="absolute right-0 top-[calc(100%+0.75rem)] z-20 w-[min(40rem,calc(100vw-2rem))] rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-[0_20px_45px_rgba(15,23,42,0.12)]">
-                <div className="max-h-[75vh] space-y-3.5 overflow-y-auto pr-1">
-                  <div className="rounded-[1.1rem] border border-slate-200/80 bg-white p-3.5">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                        Điều kiện bổ sung
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => handleAddFilterRow()}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:border-primary/20 hover:text-primary"
-                      >
-                        <Plus className="h-3 w-3" />
-                        Thêm điều kiện
-                      </button>
-                    </div>
+              {isFilterOpen ? (
+                <div className="absolute right-0 top-[calc(100%+0.75rem)] z-20 w-[min(40rem,calc(100vw-2rem))] rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-[0_20px_45px_rgba(15,23,42,0.12)]">
+                  <div className="max-h-[75vh] space-y-3.5 overflow-y-auto pr-1">
+                    <div className="rounded-[1.1rem] border border-slate-200/80 bg-white p-3.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                          Điều kiện bổ sung
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => handleAddFilterRow()}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:border-primary/20 hover:text-primary"
+                        >
+                          <Plus className="h-3 w-3" />
+                          Thêm điều kiện
+                        </button>
+                      </div>
 
-                    {draftFilters.rows.length === 0 ? (
-                      <p className="mt-2.5 text-xs text-slate-500">
-                        Chưa có điều kiện bổ sung. Dùng các nút thêm nhanh ở
-                        trên để tạo filter mới.
-                      </p>
-                    ) : (
-                      <div className="mt-2.5 space-y-2.5">
-                        {draftFilters.rows.map((row) => {
-                          const rowFieldOption = getSearchFieldOption(
-                            row.field,
-                          );
-                          const usesAutoSyncField =
-                            isAutoSyncAdvancedFilterField(row.field);
+                      {draftFilters.rows.length === 0 ? (
+                        <p className="mt-2.5 text-xs text-slate-500">
+                          Chưa có điều kiện bổ sung. Dùng các nút thêm nhanh ở
+                          trên để tạo filter mới.
+                        </p>
+                      ) : (
+                        <div className="mt-2.5 space-y-2.5">
+                          {draftFilters.rows.map((row) => {
+                            const rowFieldOption = getSearchFieldOption(
+                              row.field,
+                            );
+                            const usesAutoSyncField =
+                              isAutoSyncAdvancedFilterField(row.field);
 
-                          return (
-                            <div
-                              key={row.id}
-                              className="rounded-[1rem] border border-slate-200 bg-slate-50/70 p-2.5"
-                            >
+                            return (
                               <div
-                                className={`grid gap-1.5 ${
-                                  usesAutoSyncField
-                                    ? "xl:grid-cols-[10.5rem_minmax(0,1fr)_auto]"
-                                    : "xl:grid-cols-[10.5rem_10.5rem_minmax(0,1fr)_auto]"
-                                }`}
+                                key={row.id}
+                                className="rounded-[1rem] border border-slate-200 bg-slate-50/70 p-2.5"
                               >
-                                <select
-                                  value={row.field}
-                                  onChange={(event) =>
-                                    handleDraftRowFieldChange(
-                                      row.id,
-                                      event.target.value as SearchField,
-                                    )
-                                  }
-                                  className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                <div
+                                  className={`grid gap-1.5 ${
+                                    usesAutoSyncField
+                                      ? "xl:grid-cols-[10.5rem_minmax(0,1fr)_auto]"
+                                      : "xl:grid-cols-[10.5rem_10.5rem_minmax(0,1fr)_auto]"
+                                  }`}
                                 >
-                                  {searchFieldOptions.map((option) => (
-                                    <option
-                                      key={option.value}
-                                      value={option.value}
-                                    >
-                                      {option.label}
-                                    </option>
-                                  ))}
-                                </select>
-
-                                {usesAutoSyncField ? null : (
                                   <select
-                                    value={row.operator}
+                                    value={row.field}
                                     onChange={(event) =>
-                                      handleDraftRowOperatorChange(
+                                      handleDraftRowFieldChange(
                                         row.id,
-                                        event.target
-                                          .value as HotspotSearchOperator,
+                                        event.target.value as SearchField,
                                       )
                                     }
                                     className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                                   >
-                                    {rowFieldOption.operators.map(
-                                      (operator) => (
-                                        <option key={operator} value={operator}>
-                                          {operatorLabelMap[operator]}
-                                        </option>
-                                      ),
-                                    )}
+                                    {searchFieldOptions.map((option) => (
+                                      <option
+                                        key={option.value}
+                                        value={option.value}
+                                      >
+                                        {option.label}
+                                      </option>
+                                    ))}
                                   </select>
-                                )}
 
-                                {renderFilterValueControl(
-                                  row,
-                                  (value) =>
-                                    handleDraftRowValueChange(row.id, value),
-                                  "h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 outline-none transition placeholder:text-slate-400/70 focus:border-primary focus:ring-2 focus:ring-primary/20",
-                                )}
+                                  {usesAutoSyncField ? null : (
+                                    <select
+                                      value={row.operator}
+                                      onChange={(event) =>
+                                        handleDraftRowOperatorChange(
+                                          row.id,
+                                          event.target
+                                            .value as HotspotSearchOperator,
+                                        )
+                                      }
+                                      className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                    >
+                                      {rowFieldOption.operators.map(
+                                        (operator) => (
+                                          <option
+                                            key={operator}
+                                            value={operator}
+                                          >
+                                            {operatorLabelMap[operator]}
+                                          </option>
+                                        ),
+                                      )}
+                                    </select>
+                                  )}
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveDraftRow(row.id)}
-                                  className="rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-500 transition hover:border-rose-200 hover:text-rose-600"
-                                >
-                                  Xóa
-                                </button>
-                              </div>
+                                  {renderFilterValueControl(
+                                    row,
+                                    (value) =>
+                                      handleDraftRowValueChange(row.id, value),
+                                    "h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 outline-none transition placeholder:text-slate-400/70 focus:border-primary focus:ring-2 focus:ring-primary/20",
+                                  )}
 
-                              <p className="mt-1.5 text-[11px] leading-5 text-slate-500">
-                                {rowFieldOption.description}
-                                {usesAutoSyncField
-                                  ? " Hệ thống sẽ tự lọc khi bạn nhập hoặc chọn giá trị."
-                                  : ""}
-                              </p>
-                              {rowFieldOption.warning ? (
-                                <p className="mt-1.5 text-[11px] font-medium text-amber-700">
-                                  {rowFieldOption.warning}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveDraftRow(row.id)}
+                                    className="rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-500 transition hover:border-rose-200 hover:text-rose-600"
+                                  >
+                                    Xóa
+                                  </button>
+                                </div>
+
+                                <p className="mt-1.5 text-[11px] leading-5 text-slate-500">
+                                  {rowFieldOption.description}
+                                  {usesAutoSyncField
+                                    ? " Hệ thống sẽ tự lọc khi bạn nhập hoặc chọn giá trị."
+                                    : ""}
                                 </p>
-                              ) : null}
-                            </div>
-                          );
-                        })}
+                                {rowFieldOption.warning ? (
+                                  <p className="mt-1.5 text-[11px] font-medium text-amber-700">
+                                    {rowFieldOption.warning}
+                                  </p>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="rounded-[1.1rem] border border-slate-200/80 bg-white p-3.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                        Sắp xếp kết quả
+                      </p>
+                      <div className="mt-2.5 grid gap-1.5 sm:grid-cols-2">
+                        <select
+                          value={draftFilters.sortBy}
+                          onChange={(event) =>
+                            updateDraftFilter(
+                              "sortBy",
+                              event.target.value as SortField,
+                            )
+                          }
+                          className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        >
+                          {sortFieldOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+
+                        <select
+                          value={draftFilters.sortDirection}
+                          onChange={(event) =>
+                            updateDraftFilter(
+                              "sortDirection",
+                              event.target.value as SortDirection,
+                            )
+                          }
+                          className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        >
+                          {sortDirectionOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                    )}
-                  </div>
+                    </div>
 
-                  <div className="rounded-[1.1rem] border border-slate-200/80 bg-white p-3.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                      Sắp xếp kết quả
-                    </p>
-                    <div className="mt-2.5 grid gap-1.5 sm:grid-cols-2">
-                      <select
-                        value={draftFilters.sortBy}
-                        onChange={(event) =>
-                          updateDraftFilter(
-                            "sortBy",
-                            event.target.value as SortField,
-                          )
-                        }
-                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-2.5">
+                      <button
+                        type="button"
+                        onClick={handleResetFilters}
+                        className="text-xs font-medium text-slate-500 transition hover:text-slate-900"
                       >
-                        {sortFieldOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-
-                      <select
-                        value={draftFilters.sortDirection}
-                        onChange={(event) =>
-                          updateDraftFilter(
-                            "sortDirection",
-                            event.target.value as SortDirection,
-                          )
-                        }
-                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        Đặt lại
+                      </button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="h-8 rounded-full px-3 text-[11px] text-white"
+                        onClick={handleApplyFilters}
                       >
-                        {sortDirectionOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
+                        Áp dụng bộ lọc
+                      </Button>
                     </div>
                   </div>
-
-                  <div className="flex items-center justify-between border-t border-slate-100 pt-2.5">
-                    <button
-                      type="button"
-                      onClick={handleResetFilters}
-                      className="text-xs font-medium text-slate-500 transition hover:text-slate-900"
-                    >
-                      Đặt lại
-                    </button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      className="h-8 rounded-full px-3 text-[11px] text-white"
-                      onClick={handleApplyFilters}
-                    >
-                      Áp dụng bộ lọc
-                    </Button>
-                  </div>
                 </div>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </div>
-        </div>
 
-        {appliedFilterSummary.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {appliedFilterSummary.map((item) => (
-              <span
-                key={item}
-                className="inline-flex rounded-full border border-[#F7DCE8] bg-[#FFF7FA] px-3 py-1 text-xs font-medium text-slate-700"
-              >
-                {item}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-slate-500">
-            Nhập tên hotspot ở thanh tìm kiếm phía trên. Hệ thống sẽ tự lọc theo
-            kiểu chứa nội dung bạn nhập. Nếu cần thêm điều kiện khác, mở `Bộ lọc
-            nâng cao`.
-          </p>
-        )}
+          {appliedFilterSummary.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {appliedFilterSummary.map((item) => (
+                <span
+                  key={item}
+                  className="inline-flex rounded-full border border-[#F7DCE8] bg-[#FFF7FA] px-3 py-1 text-xs font-medium text-slate-700"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">
+              Nhập tên địa điểm ở thanh tìm kiếm phía trên. Hệ thống sẽ tự lọc
+              theo kiểu chứa nội dung bạn nhập. Nếu cần thêm điều kiện khác, mở
+              `Bộ lọc nâng cao`.
+            </p>
+          )}
 
-        {quickSearchWarning ? (
-          <p className="text-xs font-medium text-amber-700">
-            {quickSearchWarning}
-          </p>
-        ) : null}
+          {quickSearchWarning ? (
+            <p className="text-xs font-medium text-amber-700">
+              {quickSearchWarning}
+            </p>
+          ) : null}
 
-        {isLoading ? (
-          <div className="rounded-[1.5rem] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
-            Đang tải danh sách hotspot...
-          </div>
-        ) : null}
+          {isLoading ? (
+            <div className="rounded-[1.5rem] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
+              Đang tải danh sách địa điểm...
+            </div>
+          ) : null}
 
-        {loadError ? (
-          <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-sm">
-            {loadError}
-          </div>
-        ) : null}
+          {loadError ? (
+            <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-sm">
+              {loadError}
+            </div>
+          ) : null}
         </section>
 
         <section className="flex flex-1 flex-col gap-4">
@@ -1981,85 +1980,121 @@ export default function Page() {
                     key={item.hotspotId ?? item.slug}
                     className={`group relative flex h-full flex-col overflow-visible rounded-[1.75rem] border border-slate-200/80 bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${isMenuOpen ? "z-20" : ""}`}
                   >
-                  <Link
-                    href={detailHref}
-                    className="relative block h-40 overflow-hidden rounded-t-[1.75rem] bg-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  >
-                    {item.image ? (
-                      <img
-                        src={item.image}
-                        alt={item.title}
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(253,224,71,0.35),_rgba(248,250,252,1)_60%)] px-4 text-center text-sm font-medium text-slate-500">
-                        Chưa có ảnh hotspot
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
-                    <div
-                      className={`absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-semibold shadow-lg ring-1 ring-white/30 backdrop-blur-sm ${item.statusStyle}`}
+                    <Link
+                      href={detailHref}
+                      className="relative block h-40 overflow-hidden rounded-t-[1.75rem] bg-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
-                      {item.badge}
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
-                      <h2 className="text-base font-semibold line-clamp-1">
-                        {item.title}
-                      </h2>
-                      <p className="text-xs text-white/80 line-clamp-1">
-                        {item.subtitle}
-                      </p>
-                    </div>
-                  </Link>
-                  <div className="flex flex-col gap-2 p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2.5">
-                          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-xs font-semibold text-orange-700">
-                            {(item.author.charAt(0) || "?").toUpperCase()}
-                          </span>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium leading-tight text-slate-900">
-                              {item.author}
-                            </p>
-                            <p className="mt-0.5 text-xs leading-tight text-slate-500">
-                              {item.date}
-                            </p>
+                      {item.image ? (
+                        <img
+                          src={item.image}
+                          alt={item.title}
+                          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(253,224,71,0.35),_rgba(248,250,252,1)_60%)] px-4 text-center text-sm font-medium text-slate-500">
+                          Chưa có ảnh địa điểm
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
+                      <div
+                        className={`absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-semibold shadow-lg ring-1 ring-white/30 backdrop-blur-sm ${item.statusStyle}`}
+                      >
+                        {item.badge}
+                      </div>
+                      <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
+                        <h2 className="text-base font-semibold line-clamp-1">
+                          {item.title}
+                        </h2>
+                        <p className="text-xs text-white/80 line-clamp-1">
+                          {item.subtitle}
+                        </p>
+                      </div>
+                    </Link>
+                    <div className="flex flex-col gap-2 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2.5">
+                            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-xs font-semibold text-orange-700">
+                              {(item.author.charAt(0) || "?").toUpperCase()}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium leading-tight text-slate-900">
+                                {item.author}
+                              </p>
+                              <p className="mt-0.5 text-xs leading-tight text-slate-500">
+                                {item.date}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {item.xp ? (
-                          <span className="inline-flex items-center whitespace-nowrap rounded-full bg-orange-100 px-3 py-1 text-[11px] font-semibold leading-none text-slate-700">
-                            {item.xp}
-                          </span>
-                        ) : null}
-                        <div className="relative" data-hotspot-actions>
-                          <button
-                            type="button"
-                            aria-haspopup="menu"
-                            aria-expanded={isMenuOpen}
-                            onClick={() =>
-                              setOpenMenuKey(isMenuOpen ? null : menuKey)
-                            }
-                            className={`rounded-full p-1.5 text-slate-600 transition hover:bg-slate-100 ${isMenuOpen ? "bg-slate-100" : "bg-white/90"}`}
-                          >
-                            <MoreHorizontal className="h-3.5 w-3.5" />
-                          </button>
-
-                          {isMenuOpen ? (
-                            <div
-                              role="menu"
-                              className="absolute right-0 top-[calc(100%+0.6rem)] w-40 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
+                        <div className="flex items-center gap-2">
+                          {item.xp ? (
+                            <span className="inline-flex items-center whitespace-nowrap rounded-full bg-orange-100 px-3 py-1 text-[11px] font-semibold leading-none text-slate-700">
+                              {item.xp}
+                            </span>
+                          ) : null}
+                          <div className="relative" data-hotspot-actions>
+                            <button
+                              type="button"
+                              aria-haspopup="menu"
+                              aria-expanded={isMenuOpen}
+                              onClick={() =>
+                                setOpenMenuKey(isMenuOpen ? null : menuKey)
+                              }
+                              className={`rounded-full p-1.5 text-slate-600 transition hover:bg-slate-100 ${isMenuOpen ? "bg-slate-100" : "bg-white/90"}`}
                             >
-                              {hotspotActions.map((action) => {
-                                const ActionIcon = action.icon;
+                              <MoreHorizontal className="h-3.5 w-3.5" />
+                            </button>
 
-                                return action.key === "edit" ? (
-                                  editHref ? (
+                            {isMenuOpen ? (
+                              <div
+                                role="menu"
+                                className="absolute right-0 top-[calc(100%+0.6rem)] w-40 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
+                              >
+                                {hotspotActions.map((action) => {
+                                  const ActionIcon = action.icon;
+
+                                  return action.key === "edit" ? (
+                                    editHref ? (
+                                      <Link
+                                        key={action.label}
+                                        href={editHref}
+                                        role="menuitem"
+                                        onClick={() => {
+                                          if (isBusy) {
+                                            return;
+                                          }
+                                          setOpenMenuKey(null);
+                                        }}
+                                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                                      >
+                                        <ActionIcon className="h-4 w-4" />
+                                        <span>{action.label}</span>
+                                      </Link>
+                                    ) : (
+                                      <button
+                                        key={action.label}
+                                        type="button"
+                                        role="menuitem"
+                                        onClick={() => {
+                                          if (isBusy) {
+                                            return;
+                                          }
+                                          setOpenMenuKey(null);
+                                          toast.error(
+                                            "Địa điểm này chưa có ID backend nên chưa thể chỉnh sửa.",
+                                          );
+                                        }}
+                                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-500 transition hover:bg-slate-100"
+                                      >
+                                        <ActionIcon className="h-4 w-4" />
+                                        <span>{action.label}</span>
+                                      </button>
+                                    )
+                                  ) : action.key === "detail" ? (
                                     <Link
                                       key={action.label}
-                                      href={editHref}
+                                      href={detailHref}
                                       role="menuitem"
                                       onClick={() => {
                                         if (isBusy) {
@@ -2072,65 +2107,29 @@ export default function Page() {
                                       <ActionIcon className="h-4 w-4" />
                                       <span>{action.label}</span>
                                     </Link>
-                                  ) : (
+                                  ) : action.key === "submit" ? (
                                     <button
                                       key={action.label}
                                       type="button"
                                       role="menuitem"
-                                      onClick={() => {
-                                        if (isBusy) {
-                                          return;
-                                        }
-                                        setOpenMenuKey(null);
-                                        toast.error(
-                                          "Hotspot này chưa có ID backend nên chưa thể chỉnh sửa.",
-                                        );
-                                      }}
-                                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-500 transition hover:bg-slate-100"
-                                    >
-                                      <ActionIcon className="h-4 w-4" />
-                                      <span>{action.label}</span>
-                                    </button>
-                                  )
-                                ) : action.key === "detail" ? (
-                                  <Link
-                                    key={action.label}
-                                    href={detailHref}
-                                    role="menuitem"
-                                    onClick={() => {
-                                      if (isBusy) {
-                                        return;
+                                      onClick={() =>
+                                        void handlePublishHotspot(item)
                                       }
-                                      setOpenMenuKey(null);
-                                    }}
-                                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-                                  >
-                                    <ActionIcon className="h-4 w-4" />
-                                    <span>{action.label}</span>
-                                  </Link>
-                                ) : action.key === "submit" ? (
-                                  <button
-                                    key={action.label}
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={() =>
-                                      void handlePublishHotspot(item)
-                                    }
-                                    disabled={isBusy}
-                                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                  >
-                                    {isPublishing ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <ActionIcon className="h-4 w-4" />
-                                    )}
-                                    <span>
-                                      {isPublishing
-                                        ? "Đang duyệt..."
-                                        : action.label}
-                                    </span>
-                                  </button>
-                                ) : action.key === "archive" ? (
+                                      disabled={isBusy}
+                                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      {isPublishing ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <ActionIcon className="h-4 w-4" />
+                                      )}
+                                      <span>
+                                        {isPublishing
+                                          ? "Đang duyệt..."
+                                          : action.label}
+                                      </span>
+                                    </button>
+                                  ) : action.key === "archive" ? (
                                     <button
                                       key={action.label}
                                       type="button"
@@ -2150,46 +2149,46 @@ export default function Page() {
                                           : action.label}
                                       </span>
                                     </button>
-                                ) : (
-                                  <button
-                                    key={action.label}
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={() => {
-                                      if (isBusy) {
-                                        return;
-                                      }
-                                      setOpenMenuKey(null);
-                                    }}
-                                    disabled={isBusy}
-                                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${
-                                      action.danger
-                                        ? "mt-1 border-t border-slate-100 pt-3 text-red-500 hover:bg-red-50"
-                                        : "text-slate-700 hover:bg-slate-100"
-                                    } disabled:cursor-not-allowed disabled:opacity-60`}
-                                  >
-                                    <ActionIcon className="h-4 w-4" />
-                                    <span>{action.label}</span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          ) : null}
+                                  ) : (
+                                    <button
+                                      key={action.label}
+                                      type="button"
+                                      role="menuitem"
+                                      onClick={() => {
+                                        if (isBusy) {
+                                          return;
+                                        }
+                                        setOpenMenuKey(null);
+                                      }}
+                                      disabled={isBusy}
+                                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${
+                                        action.danger
+                                          ? "mt-1 border-t border-slate-100 pt-3 text-red-500 hover:bg-red-50"
+                                          : "text-slate-700 hover:bg-slate-100"
+                                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                                    >
+                                      <ActionIcon className="h-4 w-4" />
+                                      <span>{action.label}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex flex-wrap gap-1.5">
-                      {item.tags.map((tag, index) => (
-                        <span
-                          key={`${item.hotspotId ?? item.slug}-${tag}-${index}`}
-                          className={`rounded-full border px-2 py-0.5 text-xs font-semibold shadow-sm ${tagColorClasses[index % tagColorClasses.length]}`}
-                        >
-                          {tag}
-                        </span>
-                      ))}
+                      <div className="flex flex-wrap gap-1.5">
+                        {item.tags.map((tag, index) => (
+                          <span
+                            key={`${item.hotspotId ?? item.slug}-${tag}-${index}`}
+                            className={`rounded-full border px-2 py-0.5 text-xs font-semibold shadow-sm ${tagColorClasses[index % tagColorClasses.length]}`}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
                   </article>
                 );
               })}
@@ -2197,8 +2196,8 @@ export default function Page() {
           ) : (
             <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-[#faf9f6] px-6 py-10 text-center text-sm text-slate-500">
               {quickSearch.value.trim() || appliedFilterSummary.length > 0
-                ? "Không có hotspot phù hợp với từ khóa hoặc bộ lọc hiện tại."
-                : "Chưa có hotspot để hiển thị."}
+                ? "Không có địa điểm phù hợp với từ khóa hoặc bộ lọc hiện tại."
+                : "Chưa có địa điểm để hiển thị."}
             </div>
           )}
 
@@ -2271,7 +2270,7 @@ export default function Page() {
                 Bạn có chắc muốn xóa?
               </h2>
               <p className="mx-auto max-w-[16.5rem] text-[0.8125rem] leading-5 text-slate-500 sm:text-[0.875rem]">
-                Hành động này không thể hoàn tác. Hotspot{" "}
+                Hành động này không thể hoàn tác. Địa điểm{" "}
                 <span className="font-semibold text-slate-900">
                   {pendingDeleteHotspot.title}
                 </span>{" "}
@@ -2300,7 +2299,7 @@ export default function Page() {
               >
                 {deletingHotspotId === pendingDeleteHotspot.hotspotId
                   ? "Đang xóa..."
-                  : "Xóa hotspot"}
+                  : "Xóa địa điểm"}
               </Button>
             </div>
           </div>
