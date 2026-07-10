@@ -216,7 +216,7 @@ export default function UsersManagerPage() {
         </div>
       ) : null}
 
-      <div className="rounded-[16px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl bg-white/90 p-5 shadow-[0_10px_30px_rgba(15,23,42,0.045)]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">
@@ -248,8 +248,8 @@ export default function UsersManagerPage() {
         </div>
       </div>
 
-      <div className="rounded-[16px] border border-slate-200 bg-slate-50 p-5 shadow-sm">
-        <div className="overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-2xl bg-white/90 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.045)]">
+        <div className="overflow-visible bg-transparent">
           <div className="hidden min-w-[760px] grid-cols-[3fr_1fr_1fr_0.7fr_1.4fr] gap-4 px-5 py-4 text-[11px] uppercase tracking-[0.18em] text-slate-500 md:grid">
             <div>Người dùng</div>
             <div>Vai trò</div>
@@ -416,7 +416,7 @@ function UserRow({
 
   return (
     <li
-      className={`rounded-[16px] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md md:shadow-none md:hover:shadow-sm ${
+      className={`rounded-2xl border border-[#EDF0F5] bg-[#FCFCFD] shadow-[0_6px_18px_rgba(15,23,42,0.035)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(15,23,42,0.06)] ${
         isMenuOpen
           ? "relative z-20 overflow-visible"
           : "relative z-0 overflow-hidden"
@@ -630,7 +630,7 @@ function PaginationBar({
   }, [safePage, safeTotalPages]);
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 px-1 py-2 sm:flex-row sm:items-end sm:justify-between">
       <p className="text-sm font-medium text-slate-600">
         Hiển thị <span className="font-semibold text-slate-900">{from}</span>
         {"–"}
@@ -644,7 +644,7 @@ function PaginationBar({
           type="button"
           onClick={() => onPageChange(Math.max(1, safePage - 1))}
           disabled={safePage <= 1}
-          className="inline-flex h-9 items-center gap-1 rounded-xl border border-slate-200 px-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-9 items-center gap-1 rounded-full px-3 text-sm font-medium text-slate-400 transition hover:bg-white hover:text-[#D94A8D] hover:shadow-[0_6px_16px_rgba(15,23,42,0.06)] disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ChevronLeft className="h-4 w-4" />
           Trước
@@ -660,10 +660,10 @@ function PaginationBar({
               type="button"
               onClick={() => onPageChange(p)}
               aria-current={p === safePage}
-              className={`inline-flex h-9 min-w-9 items-center justify-center rounded-xl px-2 text-sm font-semibold transition ${
+              className={`relative inline-flex h-9 min-w-9 items-center justify-center px-3 pb-2 text-sm font-medium transition ${
                 p === safePage
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-600 hover:bg-slate-100"
+                  ? "font-semibold text-[#D94A8D] after:absolute after:bottom-0 after:left-1/2 after:h-0.5 after:w-6 after:-translate-x-1/2 after:rounded-full after:bg-[#D94A8D]"
+                  : "text-slate-400 hover:text-slate-700"
               }`}
             >
               {p}
@@ -678,7 +678,7 @@ function PaginationBar({
           type="button"
           onClick={() => onPageChange(Math.min(safeTotalPages, safePage + 1))}
           disabled={safePage >= safeTotalPages}
-          className="inline-flex h-9 items-center gap-1 rounded-xl border border-slate-200 px-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-9 items-center gap-1 rounded-full px-3 text-sm font-medium text-slate-400 transition hover:bg-white hover:text-[#D94A8D] hover:shadow-[0_6px_16px_rgba(15,23,42,0.06)] disabled:cursor-not-allowed disabled:opacity-40"
         >
           Sau
           <ChevronRight className="h-4 w-4" />

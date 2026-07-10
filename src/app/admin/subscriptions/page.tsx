@@ -439,9 +439,9 @@ export default function SubscriptionsPage() {
       return "Key config không được trùng nhau.";
     }
 
-    const invalidKey = keys.find((key) => !/^[A-Za-z][A-Za-z0-9_]*$/.test(key));
+    const invalidKey = keys.find((key) => !/^[\p{L}\p{N}_ ]+$/u.test(key));
     if (invalidKey) {
-      return `Key "${invalidKey}" không hợp lệ. Key nên bắt đầu bằng chữ và chỉ gồm chữ, số, dấu _.`;
+      return `Key "${invalidKey}" không hợp lệ. Key chỉ được chứa chữ, số, dấu gạch dưới hoặc khoảng trắng.`;
     }
 
     return null;
@@ -590,7 +590,7 @@ export default function SubscriptionsPage() {
             return (
               <div
                 key={plan.subscriptionPlanId}
-                className={`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md ${planTypeBorderClasses[planType]}`}
+                className={`flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md ${planTypeBorderClasses[planType]}`}
               >
                 <div className="border-b border-slate-100 p-5">
                   <div className="flex items-start justify-between gap-3">
@@ -632,7 +632,7 @@ export default function SubscriptionsPage() {
                   </div>
                 </div>
 
-                <div className="p-5">
+                <div className="flex-1 p-5">
                   {visibleConfigs.length > 0 ? (
                     <>
                       <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -774,8 +774,7 @@ function SubscriptionFormDialog({
             {mode === "create" ? "Tạo gói đăng ký mới" : "Chỉnh sửa gói"}
           </h2>
           <p className="mt-1 text-sm text-slate-500">
-            Chọn loại gói, sau đó tự thêm các config động cho Premium hoặc
-            Partner.
+            Chọn loại gói, sau đó thêm quyền lợi và giới hạn cho gói bằng tiếng Việt.
           </p>
         </div>
 
@@ -818,7 +817,7 @@ function SubscriptionFormDialog({
                   setForm({ ...form, subscriptionPlanName: e.target.value })
                 }
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                placeholder="Ví dụ: Premium Basic, Partner Pro"
+                placeholder="Ví dụ: Gói Premium, Gói Partner"
               />
             </Field>
 
@@ -840,33 +839,43 @@ function SubscriptionFormDialog({
             <div className="grid grid-cols-2 gap-3">
               <Field label="Giá tháng (VND)">
                 <input
-                  type="number"
-                  min={0}
-                  value={form.priceMonthly}
-                  onChange={(e) =>
-                    setForm({ ...form, priceMonthly: Number(e.target.value) })
-                  }
+                  type="text"
+                  inputMode="decimal"
+                  value={form.priceMonthly === 0 ? "" : form.priceMonthly}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/[^0-9.,]/g, "");
+                    const normalized = raw.replace(/,/g, ".");
+                    setForm({
+                      ...form,
+                      priceMonthly: normalized === "" ? 0 : Number(normalized),
+                    });
+                  }}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </Field>
               <Field label="Giá năm (VND)">
                 <input
-                  type="number"
-                  min={0}
-                  value={form.priceYearly}
-                  onChange={(e) =>
-                    setForm({ ...form, priceYearly: Number(e.target.value) })
-                  }
+                  type="text"
+                  inputMode="decimal"
+                  value={form.priceYearly === 0 ? "" : form.priceYearly}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/[^0-9.,]/g, "");
+                    const normalized = raw.replace(/,/g, ".");
+                    setForm({
+                      ...form,
+                      priceYearly: normalized === "" ? 0 : Number(normalized),
+                    });
+                  }}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </Field>
             </div>
 
-            <Field label={`Config động (${planTypeLabels[form.planType]})`}>
+            <Field label={`Quyền lợi / Giới hạn (${planTypeLabels[form.planType]})`}>
               <div className="rounded-2xl border border-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 p-3">
                   <div className="text-sm text-slate-500">
-                    <p>Admin có thể tự thêm quyền lợi hoặc giới hạn mới cho gói.</p>
+                    <p>Thêm quyền lợi hoặc giới hạn cho gói ngay trong modal.</p>
                     <div className="mt-1 flex flex-wrap gap-1.5">
                       {configKeySuggestionsByType[form.planType].map((item) => (
                         <button
@@ -895,7 +904,7 @@ function SubscriptionFormDialog({
                       size="sm"
                       onClick={applySuggestedConfigs}
                     >
-                      Dùng mẫu
+                      Sử dụng mẫu
                     </Button>
                     <Button
                       type="button"
@@ -903,15 +912,14 @@ function SubscriptionFormDialog({
                       className="gap-1.5"
                       onClick={addConfigItem}
                     >
-                      <Plus className="h-4 w-4" /> Thêm config
+                      <Plus className="h-4 w-4" /> Thêm mục
                     </Button>
                   </div>
                 </div>
 
                 {form.configItems.length === 0 ? (
                   <div className="p-6 text-center text-sm text-slate-400">
-                    Chưa có config nào. Bấm “Thêm config” để tạo quyền lợi/giới
-                    hạn mới.
+                    Chưa có quyền lợi hoặc giới hạn nào. Dùng nút bên trên để thêm mục mới.
                   </div>
                 ) : (
                   <div className="space-y-3 p-3">
@@ -926,7 +934,7 @@ function SubscriptionFormDialog({
                             updateConfigItem(item.id, { key: e.target.value })
                           }
                           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                          placeholder="Mã config, ví dụ: maxVouchers"
+                          placeholder="Tên mục, ví dụ: Số voucher tối đa hoặc Không hiển thị quảng cáo"
                         />
 
                         <select
@@ -940,7 +948,7 @@ function SubscriptionFormDialog({
                         >
                           <option value="boolean">Có / Không</option>
                           <option value="number">Giá trị số</option>
-                          <option value="text">Nội dung chữ</option>
+                          <option value="text">Nội dung văn bản</option>
                         </select>
 
                         {item.type === "boolean" ? (
@@ -968,7 +976,7 @@ function SubscriptionFormDialog({
                               })
                             }
                             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                            placeholder="Nhập số lượng / giới hạn"
+                            placeholder="Nhập số lượng hoặc giới hạn"
                           />
                         ) : (
                           <input
@@ -979,7 +987,7 @@ function SubscriptionFormDialog({
                               })
                             }
                             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                            placeholder="Nội dung chữ"
+                            placeholder="Nhập nội dung văn bản"
                           />
                         )}
 
@@ -987,7 +995,7 @@ function SubscriptionFormDialog({
                           type="button"
                           onClick={() => removeConfigItem(item.id)}
                           className="grid h-9 w-9 place-items-center rounded-lg text-red-500 transition hover:bg-red-50"
-                          aria-label="Xóa config"
+                          aria-label="Xóa mục"
                         >
                           <X className="h-4 w-4" />
                         </button>
