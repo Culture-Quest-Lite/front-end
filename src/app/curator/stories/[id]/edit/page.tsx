@@ -15,13 +15,7 @@ import { ArrowLeft, ImagePlus, Save, Video, Volume2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import {
-  storyApi,
-  tagApi,
-  hotspotApi,
-  type BackendStory,
-} from "@/services/api";
+import { storyApi, tagApi } from "@/services/api";
 import { toast } from "react-toastify";
 
 type MediaType = "image" | "audio" | "video";
@@ -33,6 +27,7 @@ type MediaItem = {
   sizeLabel: string;
   type: MediaType;
   file?: File;
+  fileUrl?: string;
   isExisting?: boolean;
 };
 
@@ -41,11 +36,6 @@ type MediaTypeOption = {
   label: string;
   icon: LucideIcon;
   accept: string;
-};
-
-type HotspotOption = {
-  id: number;
-  label: string;
 };
 
 type TagOption = {
@@ -83,10 +73,6 @@ function countMediaItems(mediaByType: MediaCollection) {
   );
 }
 
-function getWordStatus(wordCount: number) {
-  return wordCount >= 100 && wordCount <= 300 ? "Đạt" : "Chưa đạt";
-}
-
 function getMediaSummary(type: MediaType, items: MediaItem[]) {
   if (items.length === 0) {
     return "Chưa tải lên";
@@ -100,6 +86,12 @@ function getMediaSummary(type: MediaType, items: MediaItem[]) {
   return `${items.length} video`;
 }
 
+function hasLocalMediaFiles(mediaByType: MediaCollection) {
+  return Object.values(mediaByType)
+    .flat()
+    .some((item) => item.file instanceof File);
+}
+
 function SectionCard({
   title,
   trailing,
@@ -110,7 +102,7 @@ function SectionCard({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="p-5 sm:p-6">
       <div className="flex items-center justify-between gap-3">
         <h2 className="cq-section-title">{title}</h2>
         {trailing}
@@ -148,14 +140,12 @@ export default function EditStoryPage() {
 
   const [title, setTitle] = useState("");
   const [tagId, setTagId] = useState("");
-  const [hotspotId, setHotspotId] = useState("");
   const [content, setContent] = useState("");
   const [mediaByType, setMediaByType] = useState<MediaCollection>({
     image: [],
     audio: [],
     video: [],
   });
-  const [hotspotOptions, setHotspotOptions] = useState<HotspotOption[]>([]);
   const [tagOptions, setTagOptions] = useState<TagOption[]>([]);
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [isLoadingStory, setIsLoadingStory] = useState(true);
@@ -165,7 +155,6 @@ export default function EditStoryPage() {
 
   const wordCount = countWords(content);
   const totalMediaCount = countMediaItems(mediaByType);
-  const wordStatus = getWordStatus(wordCount);
 
   function getInputRef(type: MediaType) {
     if (type === "audio") {
@@ -225,27 +214,18 @@ export default function EditStoryPage() {
     }));
   }
 
-  // Load hotspots, tags, and story data
+  // Load tags
   useEffect(() => {
     async function loadOptions() {
       setIsLoadingOptions(true);
       try {
-        const [hotspots, tags] = await Promise.all([
-          hotspotApi.getHotspots(),
-          tagApi.getTags({
-            page: 0,
-            size: 100,
-            sortBy: "tagName",
-            sortDir: "ASC",
-          }),
-        ]);
+        const tags = await tagApi.getTags({
+          page: 0,
+          size: 100,
+          sortBy: "tagName",
+          sortDir: "ASC",
+        });
 
-        setHotspotOptions(
-          hotspots.map((hotspot) => ({
-            id: hotspot.hotspotId,
-            label: hotspot.hotspotName ?? `Hotspot #${hotspot.hotspotId}`,
-          })),
-        );
         setTagOptions(
           tags.content.map((tag) => ({
             id: tag.tagId,
@@ -253,7 +233,7 @@ export default function EditStoryPage() {
           })),
         );
       } catch (error) {
-        console.error("Unable to load hotspot/tag options", error);
+        console.error("Unable to load tag options", error);
       } finally {
         setIsLoadingOptions(false);
       }
@@ -272,7 +252,6 @@ export default function EditStoryPage() {
         setTitle(story.title);
         setContent(story.content);
         setTagId(String(story.tag?.tagId ?? ""));
-        setHotspotId(String(story.hotspotId));
 
         // Populate existing media
         if (story.medias && story.medias.length > 0) {
@@ -308,6 +287,7 @@ export default function EditStoryPage() {
                 ? formatFileSize(media.fileSize)
                 : "N/A",
               type: mediaType,
+              fileUrl: media.fileUrl?.trim() || undefined,
               isExisting: true,
             });
           });
@@ -316,7 +296,7 @@ export default function EditStoryPage() {
         }
       } catch (error) {
         console.error("Unable to load story", error);
-        setSubmitError("Không thể tải dữ liệu story.");
+        setSubmitError("Không thể tải dữ liệu câu chuyện.");
       } finally {
         setIsLoadingStory(false);
       }
@@ -332,12 +312,16 @@ export default function EditStoryPage() {
 
     const trimmedTitle = title.trim();
     const trimmedContent = content.trim();
-    const parsedHotspotId = Number(hotspotId);
     const parsedTagId = Number(tagId);
 
-    if (!trimmedTitle || !trimmedContent || !parsedHotspotId || !parsedTagId) {
+    if (!trimmedTitle || !trimmedContent || !parsedTagId) {
+      setSubmitError("Vui lòng điền đầy đủ tiêu đề, thẻ và nội dung.");
+      return;
+    }
+
+    if (hasLocalMediaFiles(mediaByType)) {
       setSubmitError(
-        "Vui lòng điền đầy đủ tiêu đề, tagId, hotspotId và nội dung.",
+        "Media hiện chưa hỗ trợ cập nhật ở màn hình chỉnh sửa này.",
       );
       return;
     }
@@ -345,24 +329,23 @@ export default function EditStoryPage() {
     setIsSubmitting(true);
 
     try {
-      // Try JSON format first (without files)
       const payload = {
+        files: [],
         title: trimmedTitle,
         content: trimmedContent,
-        hotspotId: parsedHotspotId,
         tagId: parsedTagId,
       };
 
       console.log("[updateStory] Sending payload:", payload);
 
       const response = await storyApi.updateStory(storyId, payload);
-      setSubmitSuccess("Story đã được cập nhật thành công.");
-      toast.success("Story đã được cập nhật thành công.");
+      setSubmitSuccess("Câu chuyện đã được cập nhật thành công.");
+      toast.success("Câu chuyện đã được cập nhật thành công.");
       router.push(`/curator/stories/${storyId}`);
       return response;
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : "Lỗi khi cập nhật story.";
+        error instanceof Error ? error.message : "Lỗi khi cập nhật câu chuyện.";
       setSubmitError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -383,7 +366,9 @@ export default function EditStoryPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="cq-heading-1">Chỉnh sửa Story</h1>
+          <h1 className="cq-heading-1 text-[1.75rem] sm:text-[2rem]">
+            Chỉnh sửa câu chuyện
+          </h1>
         </div>
       </header>
 
@@ -405,214 +390,196 @@ export default function EditStoryPage() {
             </div>
           )}
 
-          {/* General Info Section */}
-          <SectionCard title="Thông tin chung">
-            <div className="flex flex-col gap-5">
-              <div>
-                <FieldLabel htmlFor="title" required>
-                  Tiêu đề
-                </FieldLabel>
-                <Input
-                  id="title"
-                  type="text"
-                  placeholder="Nhập tiêu đề story"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  disabled={isSubmitting}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="divide-y divide-slate-200">
+              <SectionCard title="Thông tin chung">
                 <div>
-                  <FieldLabel htmlFor="hotspotId" required>
-                    Hotspot
-                  </FieldLabel>
-                  <select
-                    id="hotspotId"
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                    value={hotspotId}
-                    onChange={(e) => setHotspotId(e.target.value)}
-                    disabled={isSubmitting}
-                  >
-                    <option value="">Chọn hotspot...</option>
-                    {hotspotOptions.map((option) => (
-                      <option key={option.id} value={String(option.id)}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <FieldLabel htmlFor="tagId" required>
-                    Tag
-                  </FieldLabel>
-                  <select
-                    id="tagId"
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                    value={tagId}
-                    onChange={(e) => setTagId(e.target.value)}
-                    disabled={isSubmitting}
-                  >
-                    <option value="">Chọn tag...</option>
-                    {tagOptions.map((option) => (
-                      <option key={option.id} value={String(option.id)}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-          </SectionCard>
-
-          {/* Content Section */}
-          <SectionCard
-            title="Nội dung"
-            trailing={
-              <div className="text-right">
-                <div className="text-xs font-semibold text-slate-600">
-                  {wordCount}/300
-                </div>
-                <div
-                  className={cn("text-xs font-semibold", {
-                    "text-emerald-600": wordStatus === "Đạt",
-                    "text-orange-600": wordStatus === "Chưa đạt",
-                  })}
-                >
-                  {wordStatus}
-                </div>
-              </div>
-            }
-          >
-            <textarea
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              rows={8}
-              placeholder="Nhập nội dung story (100-300 từ)"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              disabled={isSubmitting}
-            />
-          </SectionCard>
-
-          {/* Media Section */}
-          <SectionCard
-            title="Media"
-            trailing={
-              <div className="text-right">
-                <div className="text-xs font-semibold text-slate-600">
-                  {totalMediaCount}/{MAX_MEDIA_TOTAL}
-                </div>
-              </div>
-            }
-          >
-            <div className="flex flex-col gap-5">
-              {mediaTypeOptions.map((typeOption) => {
-                const Icon = typeOption.icon;
-                const items = mediaByType[typeOption.type];
-                const summary = getMediaSummary(typeOption.type, items);
-
-                return (
-                  <div key={typeOption.type}>
-                    <div className="mb-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Icon className="h-4 w-4 text-slate-600" />
-                        <span className="text-sm font-semibold text-slate-700">
-                          {typeOption.label}
-                        </span>
-                      </div>
-                      <span className="text-xs text-slate-500">{summary}</span>
+                  <div className="flex flex-col gap-5">
+                    <div>
+                      <FieldLabel htmlFor="title" required>
+                        Tiêu đề
+                      </FieldLabel>
+                      <Input
+                        id="title"
+                        type="text"
+                        placeholder="Nhập tiêu đề câu chuyện"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        disabled={isSubmitting}
+                      />
                     </div>
 
-                    <div className="flex flex-col gap-2">
-                      {items.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
-                        >
-                          <div className="flex-1">
-                            <div className="text-sm font-semibold text-slate-700">
-                              {item.name}
-                            </div>
-                            <div className="text-xs text-slate-500">
-                              {item.sizeLabel}
-                              {item.isExisting && " (hiện tại)"}
-                            </div>
+                    <div>
+                      <FieldLabel htmlFor="tagId" required>
+                        Thẻ
+                      </FieldLabel>
+                      <select
+                        id="tagId"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        value={tagId}
+                        onChange={(e) => setTagId(e.target.value)}
+                        disabled={isSubmitting}
+                      >
+                        <option value="">Chọn tag...</option>
+                        {tagOptions.map((option) => (
+                          <option key={option.id} value={String(option.id)}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </SectionCard>
+
+              <SectionCard
+                title="Nội dung"
+                trailing={
+                  <div className="text-right">
+                    <div className="text-sm font-semibold text-slate-600">
+                      {wordCount}/300
+                    </div>
+                  </div>
+                }
+              >
+                <textarea
+                  className="min-h-[18rem] w-full resize-y rounded-2xl border border-[#d7e3ef] bg-[#eef4fb] px-5 py-4 text-sm leading-7 text-slate-900 outline-none transition focus:border-[#bfd2e6] focus:ring-2 focus:ring-[#dce8f5]"
+                  rows={12}
+                  placeholder="Nhập nội dung story (100-300 từ)"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  disabled={isSubmitting}
+                />
+              </SectionCard>
+
+              <SectionCard
+                title="Media"
+                trailing={
+                  <div className="text-right">
+                    <div className="text-xs font-semibold text-slate-600">
+                      {totalMediaCount}/{MAX_MEDIA_TOTAL}
+                    </div>
+                  </div>
+                }
+              >
+                <div className="flex flex-col gap-5">
+                  <p className="text-xs text-slate-500">
+                    Media hiện chỉ hiển thị để tham chiếu. Khi lưu câu chuyện,
+                    hệ thống sẽ giữ nguyên media đang có.
+                  </p>
+                  {mediaTypeOptions.map((typeOption) => {
+                    const Icon = typeOption.icon;
+                    const items = mediaByType[typeOption.type];
+                    const summary = getMediaSummary(typeOption.type, items);
+
+                    return (
+                      <div key={typeOption.type}>
+                        <div className="mb-3 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4 text-slate-600" />
+                            <span className="text-sm font-semibold text-slate-700">
+                              {typeOption.label}
+                            </span>
                           </div>
+                          <span className="text-xs text-slate-500">
+                            {summary}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          {items.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+                            >
+                              <div className="flex-1">
+                                <div className="text-sm font-semibold text-slate-700">
+                                  {item.name}
+                                </div>
+                                <div className="text-xs text-slate-500">
+                                  {item.sizeLabel}
+                                  {item.isExisting && " (hiện tại)"}
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleRemoveMedia(typeOption.type, item.id)
+                                }
+                                className="rounded p-1 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+                                disabled={isSubmitting || item.isExisting}
+                              >
+                                <X className="h-4 w-4 text-red-600" />
+                              </button>
+                            </div>
+                          ))}
+
                           <button
                             type="button"
                             onClick={() =>
-                              handleRemoveMedia(typeOption.type, item.id)
+                              handleMediaButtonClick(typeOption.type)
                             }
-                            className="p-1 hover:bg-slate-200 rounded"
-                            disabled={isSubmitting}
+                            className="rounded-lg border border-dashed border-slate-300 px-3 py-2 text-center text-sm font-semibold text-slate-600 opacity-50"
+                            disabled
                           >
-                            <X className="h-4 w-4 text-red-600" />
+                            + Thêm {typeOption.label}
                           </button>
                         </div>
-                      ))}
+                      </div>
+                    );
+                  })}
 
-                      <button
-                        type="button"
-                        onClick={() => handleMediaButtonClick(typeOption.type)}
-                        className="rounded-lg border border-dashed border-slate-300 py-2 px-3 text-center text-sm font-semibold text-slate-600 hover:border-slate-400 hover:bg-slate-50"
-                        disabled={
-                          isSubmitting || totalMediaCount >= MAX_MEDIA_TOTAL
-                        }
-                      >
-                        + Thêm {typeOption.label}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept={
+                      mediaTypeOptions.find((m) => m.type === "image")?.accept
+                    }
+                    multiple
+                    onChange={handleMediaChange("image")}
+                    className="hidden"
+                  />
+                  <input
+                    ref={audioInputRef}
+                    type="file"
+                    accept={
+                      mediaTypeOptions.find((m) => m.type === "audio")?.accept
+                    }
+                    onChange={handleMediaChange("audio")}
+                    className="hidden"
+                  />
+                  <input
+                    ref={videoInputRef}
+                    type="file"
+                    accept={
+                      mediaTypeOptions.find((m) => m.type === "video")?.accept
+                    }
+                    onChange={handleMediaChange("video")}
+                    className="hidden"
+                  />
+                </div>
+              </SectionCard>
 
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept={
-                  mediaTypeOptions.find((m) => m.type === "image")?.accept
-                }
-                multiple
-                onChange={handleMediaChange("image")}
-                className="hidden"
-              />
-              <input
-                ref={audioInputRef}
-                type="file"
-                accept={
-                  mediaTypeOptions.find((m) => m.type === "audio")?.accept
-                }
-                onChange={handleMediaChange("audio")}
-                className="hidden"
-              />
-              <input
-                ref={videoInputRef}
-                type="file"
-                accept={
-                  mediaTypeOptions.find((m) => m.type === "video")?.accept
-                }
-                onChange={handleMediaChange("video")}
-                className="hidden"
-              />
+              <div className="flex gap-3 border-t border-slate-200 bg-white px-5 py-4 sm:px-6">
+                <Link href="/curator/stories" className="flex-1">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    disabled={isSubmitting}
+                  >
+                    Huỷ
+                  </Button>
+                </Link>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 border-emerald-600 bg-emerald-600 text-white hover:border-emerald-700 hover:bg-emerald-700"
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {isSubmitting ? "Đang lưu..." : "Lưu thay đổi"}
+                </Button>
+              </div>
             </div>
-          </SectionCard>
-
-          {/* Submit Button */}
-          <div className="sticky bottom-0 flex gap-3 border-t border-slate-200 bg-white px-5 py-4">
-            <Link href="/curator/stories" className="flex-1">
-              <Button
-                variant="outline"
-                className="w-full"
-                disabled={isSubmitting}
-              >
-                Huỷ
-              </Button>
-            </Link>
-            <Button type="submit" disabled={isSubmitting} className="flex-1">
-              <Save className="mr-2 h-4 w-4" />
-              {isSubmitting ? "Đang lưu..." : "Lưu thay đổi"}
-            </Button>
           </div>
         </form>
       )}

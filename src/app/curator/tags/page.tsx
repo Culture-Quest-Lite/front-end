@@ -434,67 +434,70 @@ export default function CuratorTagsPage() {
               </div>
             </div>
 
-            <div className="mt-6 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+            <div className="mt-6 flex flex-col gap-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h3 className="cq-card-title">Quản lý thẻ</h3>
+                  <h3 className="text-base font-semibold tracking-tight text-slate-900">
+                    Quản lý thẻ
+                  </h3>
                   <p className="cq-page-subtitle mt-1 text-xs sm:text-sm">
                     Tạo, chỉnh sửa và xóa thẻ trực tiếp trên cùng một trang.
                   </p>
                 </div>
 
-                <span className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-xs font-medium text-slate-600 shadow-sm sm:text-sm">
-                  {totalElements} kết quả
+                <span className="text-sm text-slate-500">
+                  {isLoadingTags
+                    ? "Đang tải dữ liệu..."
+                    : `${totalElements} kết quả`}
                 </span>
               </div>
 
-              <div className="mt-4 overflow-x-auto bg-white">
+              <div className="rounded-[1.5rem] border border-slate-200 bg-white">
                 {isLoadingTags ? (
-                  <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-white px-5 py-10 text-center">
-                    <p className="cq-card-title sm:text-base">
-                      Đang tải dữ liệu thẻ
-                    </p>
-                    <p className="cq-page-subtitle mt-2">
-                      Danh sách sẽ hiển thị ngay khi API phản hồi.
-                    </p>
+                  <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5">
+                    <div className="space-y-3 animate-pulse">
+                      <div className="h-5 w-48 rounded-full bg-slate-100" />
+                      <div className="h-16 rounded-2xl bg-slate-50" />
+                      <div className="h-16 rounded-2xl bg-slate-50" />
+                      <div className="h-16 rounded-2xl bg-slate-50" />
+                    </div>
                   </div>
                 ) : null}
 
                 {!isLoadingTags && tags.length > 0 ? (
-                  <table className="w-full">
+                  <table className="w-full table-fixed border-collapse">
                     <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50">
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 sm:text-sm">
+                      <tr className="bg-slate-50/90">
+                        <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                           Thẻ
                         </th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-slate-700 sm:text-sm">
+                        <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                           Số lượng
                         </th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-slate-700 sm:text-sm">
+                        <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                           Trạng thái
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 sm:text-sm">
+                        <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                           Ngày cập nhật
                         </th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-slate-700 sm:text-sm">
-                          Hành động
+                        <th className="px-4 py-4 text-center whitespace-nowrap text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                          Thao tác
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {tags.map((tag, index) => {
+                      {tags.map((tag) => {
                         const colorState = getTagColorState(tag.color);
 
                         return (
                           <tr
                             key={`${tag.id}-row`}
                             className={cn(
-                              "border-b border-slate-200 transition hover:bg-slate-50",
-                              index === tags.length - 1 && "border-b-0",
-                              openMenuTagId === tag.id && "bg-slate-50",
+                              "border-t border-slate-200 align-middle",
+                              openMenuTagId === tag.id && "relative z-20",
                             )}
                           >
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-4 text-left">
                               <Link
                                 href={buildTagDetailHref(
                                   tag.backendId ?? tag.id,
@@ -510,13 +513,13 @@ export default function CuratorTagsPage() {
                               </Link>
                             </td>
 
-                            <td className="px-4 py-3 text-center">
-                              <span className="text-xs text-slate-700 sm:text-sm font-medium">
+                            <td className="px-4 py-4 text-left">
+                              <span className="text-sm font-semibold text-slate-700">
                                 {tag.usageCount}
                               </span>
                             </td>
 
-                            <td className="px-4 py-3 text-center">
+                            <td className="px-4 py-4 text-left">
                               <span
                                 className={cn(
                                   "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium",
@@ -527,15 +530,13 @@ export default function CuratorTagsPage() {
                               </span>
                             </td>
 
-                            <td className="px-4 py-3">
-                              <span className="text-xs text-slate-500 sm:text-sm">
-                                {formatTagDateTime(tag.updatedAt)}
-                              </span>
+                            <td className="px-4 py-4 text-left text-sm text-slate-500">
+                              {formatTagDateTime(tag.updatedAt)}
                             </td>
 
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-4 text-center">
                               <div
-                                className="relative flex justify-center"
+                                className="relative flex justify-center overflow-visible"
                                 data-tag-actions
                               >
                                 <button
@@ -548,9 +549,8 @@ export default function CuratorTagsPage() {
                                     )
                                   }
                                   className={cn(
-                                    "inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-200 hover:text-slate-700",
-                                    openMenuTagId === tag.id &&
-                                      "bg-slate-200 text-slate-700",
+                                    "inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700",
+                                    openMenuTagId === tag.id && "bg-slate-100",
                                   )}
                                   aria-label={`Tác vụ cho ${tag.name}`}
                                 >
@@ -560,7 +560,7 @@ export default function CuratorTagsPage() {
                                 {openMenuTagId === tag.id ? (
                                   <div
                                     role="menu"
-                                    className="absolute right-0 top-[calc(100%+0.4rem)] w-40 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)] z-30"
+                                    className="absolute right-0 top-[calc(100%+0.6rem)] w-44 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)] z-30"
                                   >
                                     <Link
                                       href={buildTagDetailHref(
@@ -610,7 +610,7 @@ export default function CuratorTagsPage() {
                 ) : null}
 
                 {showEmptyState ? (
-                  <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-white px-5 py-10 text-center">
+                  <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-card px-5 py-10 text-center">
                     <p className="cq-card-title sm:text-base">
                       Không tìm thấy thẻ
                     </p>
@@ -622,7 +622,7 @@ export default function CuratorTagsPage() {
               </div>
 
               {tags.length > 0 ? (
-                <div className="mt-auto flex justify-end pt-6">
+                <div className="mt-auto flex justify-end pt-2">
                   <CuratorPagination
                     currentPage={safeCurrentPage}
                     totalPages={totalPages}

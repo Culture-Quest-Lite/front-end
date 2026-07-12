@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const BACKEND_API_BASE_URL =
+  process.env.STORY_API_BASE_URL ??
   process.env.API_BASE_URL ??
   process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://13.158.40.56:8080";
+  "http://3.113.215.65:8080";
 
 const ACCESS_TOKEN_COOKIE_KEY = "culture-quest-access-token";
 

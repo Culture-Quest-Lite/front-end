@@ -19,8 +19,10 @@ export type {
 export { storyApi } from "./storyApi";
 export type {
   BackendStory,
+  BackendStorySummary,
   BackendStoryTag,
   BackendStoryMedia,
+  CreateStoryResponse,
   StoryPageResponse,
 } from "./storyApi";
 export { levelApi } from "./levelApi";
