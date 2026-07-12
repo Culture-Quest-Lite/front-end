@@ -8,10 +8,16 @@ import type { BackendHotspot } from "@/services/api";
 type Props = {
   hotspots: BackendHotspot[];
   selectedIds: number[];
+  focusedHotspotId?: number | null;
   onToggle: (hotspotId: number) => void;
 };
 
-export function RouteHotspotMap({ hotspots, selectedIds, onToggle }: Props) {
+export function RouteHotspotMap({
+  hotspots,
+  selectedIds,
+  focusedHotspotId,
+  onToggle,
+}: Props) {
   const mapRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -63,7 +69,19 @@ export function RouteHotspotMap({ hotspots, selectedIds, onToggle }: Props) {
         .addTo(map);
     });
 
-    if (validHotspots.length > 1) {
+    if (focusedHotspotId != null) {
+      const focusHotspot = validHotspots.find(
+        (hotspot) => hotspot.hotspotId === focusedHotspotId,
+      );
+
+      if (focusHotspot) {
+        map.flyTo({
+          center: [focusHotspot.longitude!, focusHotspot.latitude!],
+          zoom: 15,
+          speed: 1.2,
+        });
+      }
+    } else if (validHotspots.length > 1) {
       const bounds = new goongjs.LngLatBounds();
 
       validHotspots.forEach((h) => {

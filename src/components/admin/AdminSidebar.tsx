@@ -122,8 +122,8 @@ export function AdminSidebar() {
                           className={cn(
                             "relative flex w-full items-center gap-2.5 rounded-xl text-[13px] transition-colors",
                             active
-                              ? "bg-[linear-gradient(90deg,_#f0f9ff_0%,_#f5fbff_100%)] text-blue-600 font-semibold shadow-[0_8px_20px_rgba(37,99,235,0.08)] ring-1 ring-blue-100"
-                              : "text-slate-600 hover:bg-blue-50 hover:text-blue-600",
+                              ? "bg-[linear-gradient(90deg,_#fff3f8_0%,_#fff9fb_100%)] text-[#D94A8D] font-semibold shadow-[0_8px_20px_rgba(217,74,141,0.08)] ring-1 ring-[#F7DCE8]"
+                              : "text-slate-600 hover:bg-[#FFF3F8] hover:text-[#D94A8D]",
                           )}
                           aria-current={active ? "page" : undefined}
                         >
@@ -143,7 +143,7 @@ export function AdminSidebar() {
       <SidebarFooter className="border-t border-[#E7EBF2] bg-[#FCFCFD] p-4">
         <button
           type="button"
-          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] text-slate-600 transition-colors hover:bg-blue-50 hover:text-blue-600"
+          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] text-slate-600 transition-colors hover:bg-[#FFF3F8] hover:text-[#D94A8D]"
           onClick={logout}
         >
           <LogOut className="h-4 w-4" />

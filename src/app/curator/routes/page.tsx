@@ -44,25 +44,50 @@ function getStatusClass(status?: string) {
   return statusClasses[normalized] ?? "border-slate-200 bg-slate-50 text-slate-600";
 }
 
-function getRouteImage(route: RouteResponse) {
-  const medias = route.medias ?? route.media ?? [];
-  const imageMedia =
-    medias.find((media) => {
-      const mediaText = `${media.mediaType ?? ""} ${media.mimeType ?? ""}`.toLowerCase();
-      return mediaText.includes("image");
-    }) ?? medias[0];
+function getMediaUrl(media?: RouteMediaResponse) {
+  return media?.fileUrl || media?.mediaUrl || media?.url || null;
+}
 
+function getMediaUrlFromArray(medias?: unknown[]) {
+  const mediaItems = Array.isArray(medias) ? medias : [];
+  const imageMedia = mediaItems.find((media) => {
+    if (!media || typeof media !== "object") return false;
+    const mediaType = String((media as any).mediaType ?? "");
+    const mimeType = String((media as any).mimeType ?? "");
+    return `${mediaType} ${mimeType}`.toLowerCase().includes("image");
+  }) ?? mediaItems[0];
+
+  return imageMedia && typeof imageMedia === "object"
+    ? getMediaUrl(imageMedia as RouteMediaResponse)
+    : null;
+}
+
+function getHotspotImage(hotspot?: unknown) {
+  if (!hotspot || typeof hotspot !== "object") {
+    return null;
+  }
+
+  const firstHotspot = hotspot as Record<string, unknown>;
+  const url =
+    (firstHotspot.thumbnailUrl as string) ||
+    (firstHotspot.coverImageUrl as string) ||
+    (firstHotspot.imageUrl as string) ||
+    (firstHotspot.fileUrl as string) ||
+    (firstHotspot.mediaUrl as string) ||
+    (firstHotspot.url as string);
+
+  return url?.trim() ? url : getMediaUrlFromArray(firstHotspot.medias as unknown[] ?? firstHotspot.media as unknown[]);
+}
+
+function getRouteImage(route: RouteResponse) {
   return (
     route.thumbnailUrl ||
     route.coverImageUrl ||
     route.imageUrl ||
-    getMediaUrl(imageMedia) ||
+    getMediaUrlFromArray(route.medias ?? route.media ?? []) ||
+    getHotspotImage(route.hotspots?.[0]) ||
     null
   );
-}
-
-function getMediaUrl(media?: RouteMediaResponse) {
-  return media?.fileUrl || media?.mediaUrl || media?.url || null;
 }
 
 function getHotspotCount(route: RouteResponse) {
