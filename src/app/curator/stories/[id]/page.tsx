@@ -13,10 +13,9 @@ import {
   Volume2,
 } from "lucide-react";
 
-import { cn } from "@/lib/utils";
 import { getTagColor, getTagColorState } from "@/lib/tags";
+import { cn } from "@/lib/utils";
 import {
-  hotspotApi,
   storyApi,
   type BackendStory,
   type BackendStoryMedia,
@@ -98,6 +97,24 @@ function TagChip({ tagName, tagId }: { tagName?: string; tagId?: number }) {
   );
 }
 
+function getOrderIndexLabel(orderIndex?: number | null) {
+  if (typeof orderIndex !== "number" || Number.isNaN(orderIndex)) {
+    return "Chưa sắp";
+  }
+
+  return String(orderIndex);
+}
+
+function getDistanceToNextLabel(distanceToNext?: number | null) {
+  if (typeof distanceToNext !== "number" || Number.isNaN(distanceToNext)) {
+    return "Chưa có";
+  }
+
+  return new Intl.NumberFormat("vi-VN", {
+    maximumFractionDigits: 2,
+  }).format(distanceToNext);
+}
+
 export default function StoryDetailPage() {
   const params = useParams();
   const storyId = useMemo(() => {
@@ -107,7 +124,6 @@ export default function StoryDetailPage() {
 
   const hasInvalidId = storyId === null;
   const [story, setStory] = useState<BackendStory | null>(null);
-  const [hotspotName, setHotspotName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(
     hasInvalidId ? "ID story không hợp lệ." : null,
   );
@@ -127,59 +143,62 @@ export default function StoryDetailPage() {
       .getStoryById(storyId as number)
       .then((response) => {
         setStory(response);
-        setHotspotName(null);
+        setError(null);
       })
       .catch((fetchError) => {
         setError(
           fetchError instanceof Error
             ? fetchError.message
-            : "Không thể tải story.",
+            : "Không thể tải câu chuyện.",
         );
       });
   }, [hasInvalidId, storyId]);
 
-  useEffect(() => {
-    if (!story) {
-      return;
-    }
+  const medias = useMemo(
+    () =>
+      [...(story?.medias ?? [])].sort((mediaA, mediaB) => {
+        const orderDiff =
+          (mediaA.displayOrder ?? Number.MAX_SAFE_INTEGER) -
+          (mediaB.displayOrder ?? Number.MAX_SAFE_INTEGER);
 
-    void hotspotApi
-      .getHotspotById(story.hotspotId)
-      .then((hotspot) => {
-        setHotspotName(hotspot.hotspotName ?? `#${story.hotspotId}`);
-      })
-      .catch(() => {
-        setHotspotName(`#${story.hotspotId}`);
-      });
-  }, [story]);
+        if (orderDiff !== 0) {
+          return orderDiff;
+        }
 
-  const medias = useMemo(() => story?.medias ?? [], [story?.medias]);
+        return mediaA.mediaId - mediaB.mediaId;
+      }),
+    [story?.medias],
+  );
+
   const imageMedias = useMemo(() => medias.filter(isImageMedia), [medias]);
   const videoMedias = useMemo(() => medias.filter(isVideoMedia), [medias]);
   const audioMedias = useMemo(() => medias.filter(isAudioMedia), [medias]);
 
   const imageUrls = useMemo(
     () =>
-      imageMedias
-        .slice()
-        .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
-        .map((media) => media.fileUrl?.trim() ?? "")
-        .filter(Boolean),
+      imageMedias.map((media) => media.fileUrl?.trim() ?? "").filter(Boolean),
     [imageMedias],
   );
 
-  const currentImageUrl = imageUrls[activeImageIndex] ?? imageUrls[0] ?? "";
+  const safeActiveImageIndex =
+    activeImageIndex < imageUrls.length ? activeImageIndex : 0;
+  const currentImageUrl = imageUrls[safeActiveImageIndex] ?? imageUrls[0] ?? "";
 
   const nextImage = () =>
     setActiveImageIndex((index) =>
-      imageUrls.length > 0 ? (index + 1) % imageUrls.length : 0,
+      imageUrls.length > 0
+        ? ((index >= imageUrls.length ? 0 : index) + 1) % imageUrls.length
+        : 0,
     );
+
   const prevImage = () =>
     setActiveImageIndex((index) =>
       imageUrls.length > 0
-        ? (index - 1 + imageUrls.length) % imageUrls.length
+        ? ((index >= imageUrls.length ? 0 : index) - 1 + imageUrls.length) %
+          imageUrls.length
         : 0,
     );
+
   const mediaViewportClassName =
     "relative h-[320px] w-full overflow-hidden rounded-[1.5rem] bg-slate-100 sm:h-[360px] lg:h-[420px]";
 
@@ -199,7 +218,7 @@ export default function StoryDetailPage() {
                 Chi tiết câu chuyện
               </h1>
               <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground sm:text-xs">
-                Xem nội dung, trạng thái và media đính kèm của câu chuyện.
+                Trang này đã map đầy đủ dữ liệu từ API get story theo id.
               </p>
             </div>
           </div>
@@ -218,7 +237,7 @@ export default function StoryDetailPage() {
 
       {isLoading ? (
         <div className="rounded-[1.5rem] border border-slate-200 bg-white px-5 py-8 text-center text-sm text-slate-600">
-          Đang tải story...
+          Đang tải câu chuyện...
         </div>
       ) : error ? (
         <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 px-5 py-8 text-center text-sm text-rose-700">
@@ -226,13 +245,13 @@ export default function StoryDetailPage() {
         </div>
       ) : !story ? (
         <div className="rounded-[1.5rem] border border-slate-200 bg-white px-5 py-8 text-center text-sm text-slate-600">
-          Story không có dữ liệu.
+          Câu chuyện không có dữ liệu.
         </div>
       ) : (
         <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
             <div className="max-w-4xl">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-yellow-900">
                 Tổng quan câu chuyện
               </p>
               <h2 className="mt-3 text-xl font-semibold tracking-[-0.03em] text-slate-900 sm:text-2xl">
@@ -254,30 +273,38 @@ export default function StoryDetailPage() {
             </div>
           </div>
 
-          <div className="mt-6 grid gap-4 border-t border-dashed border-slate-200 pt-6 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="space-y-1">
-              <p className="cq-label">Hotspot</p>
-              <p className="text-sm font-normal text-slate-900">
-                {hotspotName ?? `#${story.hotspotId}`}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="cq-label">Ảnh story</p>
-              <p className="text-sm font-normal text-slate-900">
-                {imageMedias.length} ảnh
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="cq-label">Video story</p>
-              <p className="text-sm font-normal text-slate-900">
-                {videoMedias.length} video
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="cq-label">Audio story</p>
-              <p className="text-sm font-normal text-slate-900">
-                {audioMedias.length} audio
-              </p>
+          <div className="mt-6 border-t border-dashed border-slate-200 pt-6">
+            <div className="grid max-w-5xl gap-x-5 gap-y-4 px-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-5">
+              <div className="space-y-1">
+                <p className="cq-label">Order index</p>
+                <p className="text-sm font-normal text-slate-900">
+                  {getOrderIndexLabel(story.orderIndex)}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="cq-label">Distance to next</p>
+                <p className="text-sm font-normal text-slate-900">
+                  {getDistanceToNextLabel(story.distanceToNext)}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="cq-label">Ảnh câu chuyện</p>
+                <p className="text-sm font-normal text-slate-900">
+                  {imageMedias.length} ảnh
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="cq-label">Video câu chuyện</p>
+                <p className="text-sm font-normal text-slate-900">
+                  {videoMedias.length} video
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="cq-label">Audio câu chuyện</p>
+                <p className="text-sm font-normal text-slate-900">
+                  {audioMedias.length} audio
+                </p>
+              </div>
             </div>
           </div>
 
@@ -287,7 +314,7 @@ export default function StoryDetailPage() {
               <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
                 {typeof story.content === "string" && story.content.trim()
                   ? story.content
-                  : "Story không có nội dung."}
+                  : "Câu chuyện không có nội dung."}
               </div>
             </div>
           </div>
@@ -297,14 +324,14 @@ export default function StoryDetailPage() {
               <div className="rounded-[1.5rem] bg-slate-50/80 p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="cq-label">Ảnh story</p>
+                    <p className="cq-label">Ảnh câu chuyện</p>
                     <p className="mt-1 text-xs text-slate-500">
                       {imageMedias.length} ảnh
                     </p>
                   </div>
                   <div className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
                     {imageUrls.length > 1
-                      ? `Ảnh ${activeImageIndex + 1} / ${imageUrls.length}`
+                      ? `Ảnh ${safeActiveImageIndex + 1} / ${imageUrls.length}`
                       : imageUrls.length === 1
                         ? "1 ảnh"
                         : "Không có ảnh"}
@@ -318,7 +345,7 @@ export default function StoryDetailPage() {
                         <div className="relative h-full w-full">
                           <Image
                             src={currentImageUrl}
-                            alt={`Ảnh ${activeImageIndex + 1}`}
+                            alt={`Ảnh ${safeActiveImageIndex + 1}`}
                             fill
                             className="rounded-[1.5rem] object-cover"
                             sizes="(max-width: 640px) 100vw, 640px"
@@ -364,7 +391,7 @@ export default function StoryDetailPage() {
                           onClick={() => setActiveImageIndex(index)}
                           className={cn(
                             "h-2 w-7 rounded-full transition",
-                            index === activeImageIndex
+                            index === safeActiveImageIndex
                               ? "bg-slate-700"
                               : "bg-slate-300",
                           )}
@@ -378,7 +405,7 @@ export default function StoryDetailPage() {
               <div className="rounded-[1.5rem] bg-slate-50/80 p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="cq-label">Video story</p>
+                    <p className="cq-label">Video câu chuyện</p>
                     <p className="mt-1 text-xs text-slate-500">
                       {videoMedias.length} video
                     </p>
@@ -422,7 +449,7 @@ export default function StoryDetailPage() {
             <div className="rounded-[1.5rem] bg-slate-50/80 p-4 sm:p-5">
               <div className="flex items-center gap-2">
                 <Volume2 className="h-4 w-4 text-slate-600" />
-                <p className="cq-label">Audio story</p>
+                <p className="cq-label">Audio câu chuyện</p>
               </div>
               {audioMedias.length > 0 ? (
                 <div className="mt-3 space-y-4">

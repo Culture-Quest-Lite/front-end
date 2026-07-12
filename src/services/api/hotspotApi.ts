@@ -47,11 +47,11 @@ export interface BackendHotspot {
 }
 
 export interface CreateHotspotPayload {
-  tagIds: number[];
+  storyIds: number[];
   hotspotName: string;
-  address: string;
-  description: string;
-  historyInformation: string;
+  address?: string;
+  description?: string;
+  historyInformation?: string;
   latitude: number;
   longitude: number;
   xp: number;
@@ -60,8 +60,8 @@ export interface CreateHotspotPayload {
   estimatedDurationMax: number;
   startTime: string;
   endTime: string;
-  openingTime: string;
-  closingTime: string;
+  openingTime?: string;
+  closingTime?: string;
 }
 
 export type HotspotSearchOperator =
@@ -130,7 +130,7 @@ export const hotspotApi = {
     });
   },
 
-  createHotspot: async (payload: CreateHotspotPayload) => {
+  createHotspot: async (payload: CreateHotspotPayload | FormData) => {
     return apiFetch<BackendHotspot>("/api/hotspots", {
       method: "POST",
       body: payload,
@@ -181,7 +181,10 @@ export const hotspotApi = {
     );
   },
 
-  updateHotspot: async (hotspotId: number, payload: CreateHotspotPayload) => {
+  updateHotspot: async (
+    hotspotId: number,
+    payload: CreateHotspotPayload | FormData,
+  ) => {
     return apiFetch<BackendHotspot>(`/api/hotspots/${hotspotId}`, {
       method: "PUT",
       body: payload,

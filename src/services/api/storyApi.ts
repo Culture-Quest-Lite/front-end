@@ -23,25 +23,48 @@ export interface BackendStoryMedia {
 
 export interface BackendStory {
   storyId: number;
-  tag: BackendStoryTag;
-  hotspotId: number;
-  orderIndex: number;
+  tag?: BackendStoryTag | null;
+  hotspotId?: number | null;
+  orderIndex?: number | null;
   title: string;
   content: string;
   status: string;
+  distanceToNext?: number | null;
   medias?: BackendStoryMedia[];
   createdAt?: string;
   updatedAt?: string;
 }
 
+export interface BackendStorySummary {
+  storyId: number;
+  tag?: BackendStoryTag | null;
+  orderIndex?: number | null;
+  title: string;
+  content: string;
+  status: string;
+  distanceToNext?: number | null;
+  medias?: BackendStoryMedia[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type CreateStoryResponse = BackendStorySummary;
+
 export interface StoryPageResponse {
-  content: BackendStory[];
+  content: BackendStorySummary[];
   page: {
     size: number;
     number: number;
     totalElements: number;
     totalPages: number;
   };
+}
+
+export interface UpdateStoryPayload {
+  files: string[];
+  tagId: number;
+  title: string;
+  content: string;
 }
 
 export const storyApi = {
@@ -91,7 +114,7 @@ export const storyApi = {
   },
 
   createStory: async (payload: FormData) => {
-    return apiFetch<BackendStory>("/api/stories", {
+    return apiFetch<CreateStoryResponse>("/api/stories", {
       method: "POST",
       body: payload,
       sameOrigin: true,
@@ -133,11 +156,9 @@ export const storyApi = {
 
   updateStory: async (
     storyId: number,
-    payload:
-      | FormData
-      | { title: string; content: string; tagId: number; hotspotId: number },
+    payload: UpdateStoryPayload,
   ) => {
-    return apiFetch<BackendStory>(`/api/stories/${storyId}`, {
+    return apiFetch<BackendStory | string>(`/api/stories/${storyId}`, {
       method: "PUT",
       body: payload,
       sameOrigin: true,
@@ -146,20 +167,48 @@ export const storyApi = {
 
   updateStoryStatus: async (storyId: number, status: string) => {
     const searchParams = new URLSearchParams({ status });
-
-    return apiFetch<BackendStory | string>(
+    const response = await fetch(
       `/api/stories/${storyId}/status?${searchParams.toString()}`,
       {
         method: "PUT",
-        sameOrigin: true,
+        credentials: "include",
+        headers: {
+          accept: "application/json, text/plain",
+        },
       },
     );
+    const contentType = response.headers.get("content-type") ?? "";
+    const responseText = await response.text();
+    const parsedBody = contentType.includes("application/json")
+      ? safeParseStoryResponse<BackendStory | { message?: unknown; error?: unknown }>(
+          responseText,
+        )
+      : null;
+    const message =
+      parsedBody &&
+      typeof parsedBody === "object" &&
+      !Array.isArray(parsedBody) &&
+      ("message" in parsedBody || "error" in parsedBody)
+        ? typeof parsedBody.message === "string"
+          ? parsedBody.message
+          : typeof parsedBody.error === "string"
+            ? parsedBody.error
+            : responseText.trim()
+        : responseText.trim();
+
+    if (!response.ok) {
+      throw new Error(message || "Không thể cập nhật trạng thái story.");
+    }
+
+    return (parsedBody ?? responseText) as BackendStory | string;
   },
 };
 
-function safeParseStoryResponse(value: string) {
+function safeParseStoryResponse<T = { message?: unknown; error?: unknown }>(
+  value: string,
+) {
   try {
-    return JSON.parse(value) as { message?: unknown; error?: unknown };
+    return JSON.parse(value) as T;
   } catch {
     return null;
   }
