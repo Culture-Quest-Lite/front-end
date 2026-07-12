@@ -634,7 +634,7 @@ export default function CuratorRouteCreatePage() {
         hotspotId,
         index,
       })),
-      tagIds: selectedTagIds,
+      tagId: selectedTagIds[0],
       xp,
       point,
       status: "DRAFT",

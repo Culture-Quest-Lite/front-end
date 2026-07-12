@@ -24,7 +24,7 @@ export interface RoutePayload {
   estimateTime: number;
   totalDistance: number;
   hotspots: RouteHotspotPayload[];
-  tagIds: number[];
+  tagId: number;
   xp: number;
   point: number;
   status?: RouteStatus;
@@ -63,6 +63,7 @@ export interface RouteResponse {
   xp: number;
   point: number;
   totalStops?: number | null;
+  tag?: BackendHotspotTag | null;
   tags?: BackendHotspotTag[];
   hotspots?: RouteHotspotResponse[];
   medias?: RouteMediaResponse[];
@@ -142,7 +143,7 @@ function normalizePage<T>(raw: RawPageMaybeNested<T>): PageResponse<T> {
  * @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
  * public ResponseEntity<RouteResponse> create(@Valid @ModelAttribute RouteRequest routeRequest)
  *
- * Vì backend dùng @ModelAttribute, KHÔNG gửi hotspots/tagIds bằng JSON string.
+ * Vì backend dùng @ModelAttribute, KHÔNG gửi hotspots bằng JSON string.
  * Phải gửi dạng indexed fields:
  *
  * hotspots[0].hotspotId = 1
@@ -150,8 +151,7 @@ function normalizePage<T>(raw: RawPageMaybeNested<T>): PageResponse<T> {
  * hotspots[1].hotspotId = 2
  * hotspots[1].index = 1
  *
- * tagIds = 1
- * tagIds = 2
+ * tagId = 1
  */
 function buildRouteFormData(payload: RoutePayload) {
   const formData = new FormData();
@@ -175,9 +175,7 @@ function buildRouteFormData(payload: RoutePayload) {
     formData.append(`hotspots[${index}].index`, String(hotspot.index));
   });
 
-  payload.tagIds.forEach((tagId) => {
-    formData.append("tagIds", String(tagId));
-  });
+  formData.append("tagId", String(payload.tagId));
 
   formData.append("xp", String(payload.xp));
   formData.append("point", String(payload.point));
@@ -236,6 +234,22 @@ function buildSearchQuery(payload: RouteSearchRequest) {
   return query ? `?${query}` : "";
 }
 
+
+function normalizeRouteResponse(route: RouteResponse): RouteResponse {
+  const normalizedTags =
+    route.tags && route.tags.length > 0
+      ? route.tags
+      : route.tag
+        ? [route.tag]
+        : [];
+
+  return {
+    ...route,
+    tag: route.tag ?? normalizedTags[0] ?? null,
+    tags: normalizedTags,
+  };
+}
+
 function toRoutePayload(route: RouteResponse, status?: RouteStatus): RoutePayload {
   return {
     routeName: route.routeName,
@@ -247,7 +261,12 @@ function toRoutePayload(route: RouteResponse, status?: RouteStatus): RoutePayloa
       hotspotId: hotspot.hotspotId,
       index: hotspot.index ?? hotspot.orderIndex ?? index,
     })),
-    tagIds: (route.tags ?? []).map((tag) => tag.tagId),
+    tagId:
+      route.tag?.tagId ??
+      route.tags?.[0]?.tagId ??
+      (() => {
+        throw new Error("Route không có tagId để cập nhật.");
+      })(),
     xp: route.xp ?? 0,
     point: route.point ?? 0,
     status: status ?? route.status,
@@ -256,10 +275,12 @@ function toRoutePayload(route: RouteResponse, status?: RouteStatus): RoutePayloa
 
 export const routeApi = {
   getRouteById: async (routeId: number) => {
-    return apiFetch<RouteResponse>(`${ROUTE_BASE_URL}/${routeId}`, {
+    const route = await apiFetch<RouteResponse>(`${ROUTE_BASE_URL}/${routeId}`, {
       method: "GET",
       sameOrigin: true,
     });
+
+    return normalizeRouteResponse(route);
   },
 
   /**
@@ -280,25 +301,41 @@ export const routeApi = {
       },
     );
 
-    return normalizePage<RouteResponse>(raw);
+    const page = normalizePage<RouteResponse>(raw);
+
+    return {
+      ...page,
+      content: page.content.map(normalizeRouteResponse),
+    };
   },
 
   createRoute: async (payload: RoutePayload) => {
-    return apiFetch<RouteResponse>(ROUTE_BASE_URL, {
+    const route = await apiFetch<RouteResponse>(ROUTE_BASE_URL, {
       method: "POST",
       body: buildRouteFormData(payload),
       sameOrigin: true,
     });
+
+    return normalizeRouteResponse(route);
   },
 
   updateRoute: async (routeId: number, payload: RoutePayload) => {
-    const { files: _files, ...jsonPayload } = payload;
+    const { files: _files, hotspots, ...restPayload } = payload;
 
-    return apiFetch<RouteResponse>(`${ROUTE_BASE_URL}/${routeId}`, {
+    // Backend DTO của PUT /api/routes/{id} nhận hotspotIds, không nhận
+    // danh sách hotspots dạng { hotspotId, index } như endpoint tạo mới.
+    const jsonPayload = {
+      ...restPayload,
+      hotspotIds: hotspots.map((hotspot) => hotspot.hotspotId),
+    };
+
+    const route = await apiFetch<RouteResponse>(`${ROUTE_BASE_URL}/${routeId}`, {
       method: "PUT",
       body: jsonPayload,
       sameOrigin: true,
     });
+
+    return normalizeRouteResponse(route);
   },
 
   publishRoute: async (routeId: number) => {
