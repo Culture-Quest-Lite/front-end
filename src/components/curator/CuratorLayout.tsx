@@ -16,7 +16,9 @@ export function CuratorLayout({ children }: CuratorLayoutProps) {
             <SidebarTrigger className="mr-3" />
             <div className="flex-1" />
           </header>
-          <div className="flex-1 min-w-0 overflow-y-auto p-4">{children}</div>
+          <div className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-4">
+            {children}
+          </div>
         </main>
       </div>
     </SidebarProvider>

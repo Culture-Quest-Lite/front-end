@@ -711,10 +711,10 @@ export default function CuratorStoriesPage() {
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
                   <Send className="h-8 w-8" />
                 </div>
-                <h2 className="text-base font-semibold leading-tight tracking-[-0.02em] text-slate-900 sm:text-lg">
+                <h2 className="text-[1.125rem] font-semibold leading-tight tracking-[-0.02em] text-slate-900 sm:text-[1.25rem]">
                   Bạn có chắc muốn duyệt bài?
                 </h2>
-                <p className="mx-auto max-w-[16.5rem] text-xs leading-5 text-slate-500 sm:text-[0.8125rem]">
+                <p className="mx-auto max-w-[16.5rem] text-[0.8125rem] leading-5 text-slate-500 sm:text-[0.875rem]">
                   Story{" "}
                   <span className="font-semibold text-slate-900">
                     {pendingPublishStory.title}
@@ -730,7 +730,7 @@ export default function CuratorStoriesPage() {
                   size="lg"
                   onClick={() => setPendingPublishStory(null)}
                   disabled={publishingStoryId === pendingPublishStory.id}
-                  className="h-10 rounded-2xl border-slate-200 bg-slate-100 text-xs font-semibold text-slate-600 shadow-none hover:bg-slate-200 hover:text-slate-700 sm:text-[0.8125rem]"
+                  className="h-10 rounded-2xl border-slate-200 bg-slate-100 text-[0.8125rem] font-semibold text-slate-600 shadow-none hover:bg-slate-200 hover:text-slate-700 sm:text-sm"
                 >
                   Hủy
                 </Button>
@@ -740,7 +740,7 @@ export default function CuratorStoriesPage() {
                   size="lg"
                   onClick={() => void handleConfirmPublishStory()}
                   disabled={publishingStoryId === pendingPublishStory.id}
-                  className="h-10 rounded-2xl border-[#0066CC] bg-[#0066CC] text-xs font-semibold text-white shadow-none hover:border-[#0052A3] hover:bg-[#0052A3] sm:text-[0.8125rem]"
+                  className="h-10 rounded-2xl border-[#0066CC] bg-[#0066CC] text-[0.8125rem] font-semibold text-white shadow-none hover:border-[#0052A3] hover:bg-[#0052A3] sm:text-sm"
                 >
                   {publishingStoryId === pendingPublishStory.id
                     ? "Đang duyệt..."
@@ -764,10 +764,10 @@ export default function CuratorStoriesPage() {
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 text-rose-700">
                   <Trash2 className="h-8 w-8" />
                 </div>
-                <h2 className="text-base font-semibold leading-tight tracking-[-0.02em] text-slate-900 sm:text-lg">
+                <h2 className="text-[1.125rem] font-semibold leading-tight tracking-[-0.02em] text-slate-900 sm:text-[1.25rem]">
                   Bạn có chắc muốn xóa câu chuyện?
                 </h2>
-                <p className="mx-auto max-w-[16.5rem] text-xs leading-5 text-slate-500 sm:text-[0.8125rem]">
+                <p className="mx-auto max-w-[16.5rem] text-[0.8125rem] leading-5 text-slate-500 sm:text-[0.875rem]">
                   Câu chuyện{" "}
                   <span className="font-semibold text-slate-900">
                     {pendingDeleteStory.title}
@@ -783,7 +783,7 @@ export default function CuratorStoriesPage() {
                   size="lg"
                   onClick={() => setPendingDeleteStory(null)}
                   disabled={deletingStoryId === pendingDeleteStory.id}
-                  className="h-10 rounded-2xl border-slate-200 bg-slate-100 text-xs font-semibold text-slate-600 shadow-none hover:bg-slate-200 hover:text-slate-700 sm:text-[0.8125rem]"
+                  className="h-10 rounded-2xl border-slate-200 bg-slate-100 text-[0.8125rem] font-semibold text-slate-600 shadow-none hover:bg-slate-200 hover:text-slate-700 sm:text-sm"
                 >
                   Hủy
                 </Button>
@@ -793,7 +793,7 @@ export default function CuratorStoriesPage() {
                   size="lg"
                   onClick={() => void handleConfirmDeleteStory()}
                   disabled={deletingStoryId === pendingDeleteStory.id}
-                  className="h-10 rounded-2xl border-rose-600 bg-rose-600 text-xs font-semibold text-white shadow-none hover:border-rose-700 hover:bg-rose-700 sm:text-[0.8125rem]"
+                  className="h-10 rounded-2xl border-rose-600 bg-rose-600 text-[0.8125rem] font-semibold text-white shadow-none hover:border-rose-700 hover:bg-rose-700 sm:text-sm"
                 >
                   {deletingStoryId === pendingDeleteStory.id
                     ? "Đang xóa..."

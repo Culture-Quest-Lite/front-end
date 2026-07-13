@@ -235,7 +235,7 @@ export function LevelEditorForm({
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
-            <h1 className="cq-page-title text-[1.35rem] leading-tight sm:text-[1.55rem]">
+            <h1 className="text-lg font-semibold tracking-[-0.03em] text-foreground sm:text-xl">
               {isEditMode ? "Chỉnh sửa cấp bậc" : "Tạo cấp bậc mới"}
             </h1>
             <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground sm:text-xs">
@@ -273,9 +273,7 @@ export function LevelEditorForm({
               )}
             </span>
             <div>
-              <h2 className="cq-section-title text-[1rem] sm:text-[1.0625rem]">
-                Thông tin cấp bậc
-              </h2>
+              <h2 className="cq-section-title">Thông tin cấp bậc</h2>
               <p className="mt-1 text-xs text-slate-500">
                 {isEditMode
                   ? "Chỉnh sửa các trường bắt buộc để cập nhật level."
@@ -288,7 +286,7 @@ export function LevelEditorForm({
             <div>
               <label
                 htmlFor="level-name"
-                className="cq-label mb-2 block text-[13px]"
+                className="cq-label mb-2 block"
               >
                 Tên cấp bậc
               </label>
@@ -297,7 +295,7 @@ export function LevelEditorForm({
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Ví dụ: 1, 2, 3"
-                className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                 disabled={isSubmitting || isLoadingLevel || !!loadError}
                 autoFocus
               />
@@ -306,7 +304,7 @@ export function LevelEditorForm({
             <div>
               <label
                 htmlFor="level-required-xp"
-                className="cq-label mb-2 block text-[13px]"
+                className="cq-label mb-2 block"
               >
                 XP yêu cầu
               </label>
@@ -318,7 +316,7 @@ export function LevelEditorForm({
                 value={requiredXp}
                 onChange={(event) => setRequiredXp(event.target.value)}
                 placeholder="Ví dụ: 100"
-                className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                 disabled={isSubmitting || isLoadingLevel || !!loadError}
               />
             </div>
@@ -326,7 +324,7 @@ export function LevelEditorForm({
             <div>
               <label
                 htmlFor="level-description"
-                className="cq-label mb-2 block text-[13px]"
+                className="cq-label mb-2 block"
               >
                 Mô tả
               </label>
@@ -337,12 +335,12 @@ export function LevelEditorForm({
                 placeholder="Mô tả ngắn về ý nghĩa và điều kiện đạt cấp bậc này"
                 rows={5}
                 disabled={isSubmitting || isLoadingLevel || !!loadError}
-                className="w-full resize-none rounded-3xl border border-slate-200 bg-slate-50 p-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full resize-none rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
 
             {submitError ? (
-              <p className="text-[13px] font-medium text-[#CF3F34]">
+              <p className="text-xs font-medium text-rose-700">
                 {submitError}
               </p>
             ) : null}
@@ -356,7 +354,7 @@ export function LevelEditorForm({
             size="lg"
             onClick={handleCancel}
             disabled={isSubmitting}
-            className="rounded-full px-5 text-[13px] shadow-sm"
+            className="rounded-full px-5 shadow-sm"
           >
             Hủy
           </Button>
@@ -365,7 +363,7 @@ export function LevelEditorForm({
             variant="secondary"
             size="lg"
             disabled={isSubmitting || isLoadingLevel || !!loadError}
-            className="rounded-full px-5 text-[13px] text-white shadow-sm"
+            className="rounded-full px-5 text-white shadow-sm"
           >
             {isSubmitting
               ? isEditMode

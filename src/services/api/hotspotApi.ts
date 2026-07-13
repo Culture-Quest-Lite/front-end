@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api";
+import type { BackendStory } from "./storyApi";
 
 export interface BackendHotspotTag {
   tagId: number;
@@ -25,6 +26,7 @@ export interface BackendHotspot {
   hotspotId: number;
   tags?: BackendHotspotTag[];
   medias?: BackendHotspotMedia[];
+  stories?: BackendStory[];
   createByUserId?: number;
   hotspotName?: string;
   address?: string;
