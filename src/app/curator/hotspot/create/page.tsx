@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState, type ChangeEvent } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
@@ -14,6 +15,7 @@ import {
   hotspotApi,
   storyApi,
   type BackendHotspot,
+  type BackendHotspotMedia,
   type BackendStorySummary,
   type CreateHotspotPayload,
   type GoongPlaceSuggestion,
@@ -27,6 +29,8 @@ import {
   MapPin,
   Save,
   Search,
+  Video,
+  X,
 } from "lucide-react";
 
 type HotspotFormState = {
@@ -46,6 +50,10 @@ type HotspotFormState = {
   closingTime: string;
 };
 
+type HotspotMediaType = "image" | "video";
+
+type HotspotMediaCollection = Record<HotspotMediaType, File[]>;
+
 const defaultHotspotForm: HotspotFormState = {
   hotspotName: "",
   address: "",
@@ -63,6 +71,14 @@ const defaultHotspotForm: HotspotFormState = {
   closingTime: "",
 };
 
+const defaultSelectedMedia: HotspotMediaCollection = {
+  image: [],
+  video: [],
+};
+
+const HOTSPOT_BACKEND_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://3.113.215.65:8080";
+
 export default function Page() {
   return (
     <Suspense fallback={<HotspotCreatePageFallback />}>
@@ -74,12 +90,17 @@ export default function Page() {
 function HotspotCreatePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
   const editingHotspotId = parseHotspotId(searchParams.get("id"));
   const isEditMode = editingHotspotId !== null;
   const [formState, setFormState] = useState(defaultHotspotForm);
   const [availableStories, setAvailableStories] = useState<
     BackendStorySummary[]
   >([]);
+  const [linkedStoriesFromHotspot, setLinkedStoriesFromHotspot] = useState<
+    BackendStorySummary[] | null
+  >(isEditMode ? null : []);
   const [selectedStoryIds, setSelectedStoryIds] = useState<number[]>([]);
   const [isStoryDropdownOpen, setIsStoryDropdownOpen] = useState(false);
   const [storyKeyword, setStoryKeyword] = useState("");
@@ -93,7 +114,14 @@ function HotspotCreatePageContent() {
   const [createdHotspot, setCreatedHotspot] = useState<BackendHotspot | null>(
     null,
   );
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [existingHotspotMedias, setExistingHotspotMedias] = useState<
+    BackendHotspotMedia[]
+  >([]);
+  const [removedExistingMediaIds, setRemovedExistingMediaIds] = useState<
+    number[]
+  >([]);
+  const [selectedMedia, setSelectedMedia] =
+    useState<HotspotMediaCollection>(defaultSelectedMedia);
   const [lastSubmittedPayload, setLastSubmittedPayload] =
     useState<CreateHotspotPayload | null>(null);
   const [goongSuggestions, setGoongSuggestions] = useState<
@@ -127,7 +155,13 @@ function HotspotCreatePageContent() {
           return;
         }
 
+        const linkedStories = getLinkedStoriesFromHotspot(response);
+
         setFormState(syncFormStateWithResponse(defaultHotspotForm, response));
+        setLinkedStoriesFromHotspot(linkedStories);
+        setSelectedStoryIds(getUniqueStoryIds(linkedStories));
+        setExistingHotspotMedias(resolveOrderedHotspotMedias(response.medias));
+        setRemovedExistingMediaIds([]);
         setCreatedHotspot(null);
       } catch (error) {
         if (isCancelled) {
@@ -157,29 +191,28 @@ function HotspotCreatePageContent() {
     let isCancelled = false;
 
     async function loadStories() {
+      if (isEditMode && linkedStoriesFromHotspot === null) {
+        return;
+      }
+
       setIsLoadingStories(true);
       setStoryLoadError(null);
 
       try {
-        const [publishedStories, linkedStories] = await Promise.all([
-          fetchAllStories({ status: "PUBLISHED" }),
-          isEditMode && editingHotspotId !== null
-            ? fetchAllStories({ hotspotId: editingHotspotId })
-            : Promise.resolve([]),
-        ]);
+        const publishedStories = await fetchAllStories({ status: "PUBLISHED" });
 
         if (isCancelled) {
           return;
         }
 
+        const linkedStories = isEditMode
+          ? (linkedStoriesFromHotspot ?? [])
+          : [];
         setAvailableStories(mergeStoryLists(publishedStories, linkedStories));
-        setSelectedStoryIds(
-          linkedStories
-            .map((story) => story.storyId)
-            .filter(
-              (storyId, index, current) => current.indexOf(storyId) === index,
-            ),
-        );
+
+        if (!isEditMode) {
+          setSelectedStoryIds([]);
+        }
       } catch (error) {
         if (isCancelled) {
           return;
@@ -205,7 +238,7 @@ function HotspotCreatePageContent() {
     return () => {
       isCancelled = true;
     };
-  }, [editingHotspotId, isEditMode]);
+  }, [isEditMode, linkedStoriesFromHotspot]);
 
   useEffect(() => {
     if (!isStoryDropdownOpen) {
@@ -312,6 +345,22 @@ function HotspotCreatePageContent() {
       (isPublished || selectedStoryIds.includes(story.storyId))
     );
   });
+  const selectedFiles = [...selectedMedia.image, ...selectedMedia.video];
+  const visibleExistingHotspotMedias = isEditMode
+    ? existingHotspotMedias.filter(
+        (media) => !removedExistingMediaIds.includes(media.mediaId),
+      )
+    : [];
+  const existingImageMedias = visibleExistingHotspotMedias.filter(
+    isImageHotspotMedia,
+  );
+  const existingVideoMedias = visibleExistingHotspotMedias.filter(
+    isVideoHotspotMedia,
+  );
+  const backendHotspotUrl =
+    isEditMode && editingHotspotId !== null
+      ? `${HOTSPOT_BACKEND_BASE_URL}/api/v1/hotspots/${editingHotspotId}`
+      : `${HOTSPOT_BACKEND_BASE_URL}/api/v1/hotspots`;
 
   function updateField<Key extends keyof HotspotFormState>(
     field: Key,
@@ -400,6 +449,50 @@ function HotspotCreatePageContent() {
     );
   }
 
+  function openMediaPicker(type: HotspotMediaType) {
+    if (type === "image") {
+      imageInputRef.current?.click();
+      return;
+    }
+
+    videoInputRef.current?.click();
+  }
+
+  function handleMediaSelection(type: HotspotMediaType) {
+    return (event: ChangeEvent<HTMLInputElement>) => {
+      const nextFiles = Array.from(event.target.files ?? []).filter((file) =>
+        file.type.startsWith(`${type}/`),
+      );
+
+      if (nextFiles.length === 0) {
+        event.target.value = "";
+        return;
+      }
+
+      setSelectedMedia((current) => ({
+        ...current,
+        [type]: mergeSelectedFiles(current[type], nextFiles),
+      }));
+
+      event.target.value = "";
+    };
+  }
+
+  function handleRemoveSelectedMedia(type: HotspotMediaType, fileKey: string) {
+    setSelectedMedia((current) => ({
+      ...current,
+      [type]: current[type].filter(
+        (file) => buildSelectedFileKey(file) !== fileKey,
+      ),
+    }));
+  }
+
+  function handleRemoveExistingMedia(mediaId: number) {
+    setRemovedExistingMediaIds((current) =>
+      current.includes(mediaId) ? current : [...current, mediaId],
+    );
+  }
+
   async function handleResolveAddressFromGoong() {
     const trimmedAddress = formState.address.trim();
 
@@ -476,6 +569,8 @@ function HotspotCreatePageContent() {
         : (null as unknown as BackendHotspot);
 
       setCreatedHotspot(response);
+      setExistingHotspotMedias(resolveOrderedHotspotMedias(response.medias));
+      setRemovedExistingMediaIds([]);
       setFormState((current) => syncFormStateWithResponse(current, response));
 
       const successMessage = isEditMode
@@ -499,7 +594,7 @@ function HotspotCreatePageContent() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3 text-slate-700">
           <Link
@@ -562,9 +657,9 @@ function HotspotCreatePageContent() {
                 Request preview
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                {isEditMode && editingHotspotId !== null
-                  ? `PUT http://13.158.40.56:8080/api/v1/hotspots/${editingHotspotId}`
-                  : "POST http://13.158.40.56:8080/api/v1/hotspots"}
+                {isEditMode
+                  ? `PUT ${backendHotspotUrl}`
+                  : `POST ${backendHotspotUrl}`}
               </p>
               <pre className="mt-3 overflow-x-auto rounded-2xl bg-slate-950/95 p-4 text-xs leading-6 text-slate-100">
                 {JSON.stringify(lastSubmittedPayload, null, 2)}
@@ -580,16 +675,29 @@ function HotspotCreatePageContent() {
         </div>
       ) : null}
 
-      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+      <div className="w-full min-w-0 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
         <div
-          className={`grid gap-4 ${
+          className={`grid min-w-0 gap-4 ${
             createdHotspot ? "md:grid-cols-[1.8fr_1fr]" : ""
           }`}
         >
-          <div className="flex flex-col gap-8">
+          <div className="min-w-0 flex flex-col gap-8">
             <section className="space-y-5">
               <h2 className="cq-section-title">Thông tin cơ bản</h2>
-              <div className="grid gap-4">
+              <div className="grid min-w-0 gap-4 [&>*]:min-w-0">
+                <div>
+                  <label className="cq-label mb-2 block">
+                    Tên địa điểm <span className="text-rose-500">*</span>
+                  </label>
+                  <Input
+                    value={formState.hotspotName}
+                    onChange={(event) =>
+                      updateField("hotspotName", event.target.value)
+                    }
+                    placeholder="Hãy nhập tên địa điểm"
+                    className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
                 <div>
                   <label className="cq-label mb-2 block">
                     Câu chuyện <span className="text-rose-500">*</span>
@@ -726,25 +834,7 @@ function HotspotCreatePageContent() {
                   ) : null}
                 </div>
                 <div>
-                  <label className="cq-label mb-2 block">
-                    Tên địa điểm <span className="text-rose-500">*</span>
-                  </label>
-                  <Input
-                    value={formState.hotspotName}
-                    onChange={(event) =>
-                      updateField("hotspotName", event.target.value)
-                    }
-                    placeholder="Hãy nhập tên địa điểm"
-                    className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
-                <div>
-                  <label className="cq-label mb-2 block">
-                    Địa chỉ
-                    <span className="ml-1 text-xs font-normal text-slate-500">
-                      (tuỳ chọn)
-                    </span>
-                  </label>
+                  <label className="cq-label mb-2 block">Địa chỉ</label>
                   <div className="relative">
                     <Search className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <Input
@@ -872,7 +962,7 @@ function HotspotCreatePageContent() {
                       updateField("description", event.target.value)
                     }
                     placeholder="Hãy nhập mô tả ngắn cho địa điểm"
-                    className="h-24 w-full resize-none rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    className="h-42 w-full min-w-0 resize-none break-words rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
                 <div>
@@ -885,10 +975,10 @@ function HotspotCreatePageContent() {
                       updateField("historyInformation", event.target.value)
                     }
                     placeholder="Hãy nhập thông tin lịch sử của địa điểm"
-                    className="h-28 w-full resize-none rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    className="h-60 w-full min-w-0 resize-none break-words rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
                   <div>
                     <label className="cq-label mb-2 block">
                       XP thưởng <span className="text-rose-500">*</span>
@@ -927,8 +1017,8 @@ function HotspotCreatePageContent() {
 
             <section className="space-y-5">
               <h2 className="cq-section-title">Thông số trải nghiệm</h2>
-              <div className="grid gap-4">
-                <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid min-w-0 gap-4 [&>*]:min-w-0">
+                <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
                   <div>
                     <label className="cq-label mb-2 block">
                       Vĩ độ <span className="text-rose-500">*</span>
@@ -961,7 +1051,7 @@ function HotspotCreatePageContent() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
                   <div>
                     <label className="cq-label mb-2 block">
                       Thời lượng tối thiểu (phút)
@@ -998,7 +1088,7 @@ function HotspotCreatePageContent() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
                   <div>
                     <label className="cq-label mb-2 block">
                       Thời gian bắt đầu
@@ -1063,37 +1153,266 @@ function HotspotCreatePageContent() {
 
             <section className="space-y-5">
               <h2 className="cq-section-title">Files</h2>
-              <div>
-                <div className="rounded-3xl bg-slate-50 p-6 text-center text-slate-500">
-                  <ImagePlus className="mx-auto mb-3 h-6 w-6" />
-                  <p className="text-sm font-medium">Tải lên files</p>
-
+              <div className="grid min-w-0 gap-4 lg:grid-cols-2 [&>*]:min-w-0">
+                <div className="rounded-3xl bg-slate-50 p-6">
                   <input
+                    ref={imageInputRef}
                     type="file"
-                    accept="image/*,video/*"
+                    accept="image/*"
                     multiple
-                    onChange={(event) => {
-                      const files = event.target.files;
-                      if (!files) {
-                        setSelectedFiles([]);
-                        return;
-                      }
-
-                      setSelectedFiles(Array.from(files));
-                    }}
-                    className="mt-3 w-full text-sm text-slate-700"
+                    onChange={handleMediaSelection("image")}
+                    className="hidden"
                   />
-                  {selectedFiles.length > 0 ? (
-                    <div className="mt-3 text-left text-xs text-slate-600">
-                      {selectedFiles.map((file, index) => (
-                        <div key={`${file.name}-${index}`} className="truncate">
-                          {file.name}
-                        </div>
-                      ))}
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        Hình ảnh địa điểm
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Có thể chọn nhiều ảnh cùng một lúc.
+                      </p>
+                    </div>
+                    <ImagePlus className="h-5 w-5 text-slate-400" />
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-4 rounded-full"
+                    onClick={() => openMediaPicker("image")}
+                  >
+                    <ImagePlus className="mr-2 h-4 w-4" />
+                    Thêm ảnh
+                  </Button>
+
+                  {existingImageMedias.length > 0 ? (
+                    <div className="mt-4 space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Ảnh hiện có
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {existingImageMedias.map((media, index) => {
+                          const fileUrl = media.fileUrl?.trim();
+
+                          if (!fileUrl) {
+                            return null;
+                          }
+
+                          return (
+                            <div
+                              key={media.mediaId}
+                              className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleRemoveExistingMedia(media.mediaId);
+                                }}
+                                className="absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow-sm transition hover:bg-white hover:text-rose-600"
+                                aria-label={`Xóa ${buildBackendMediaLabel(media, `Ảnh ${index + 1}`)}`}
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                              <a href={fileUrl} target="_blank" rel="noreferrer">
+                                <Image
+                                  src={fileUrl}
+                                  alt={buildBackendMediaLabel(media, `Ảnh ${index + 1}`)}
+                                  width={640}
+                                  height={256}
+                                  className="h-32 w-full object-cover"
+                                />
+                                <div className="p-3">
+                                  <p className="truncate text-sm font-medium text-slate-900">
+                                    {buildBackendMediaLabel(
+                                      media,
+                                      `Ảnh ${index + 1}`,
+                                    )}
+                                  </p>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    Media hiện có từ hotspot
+                                  </p>
+                                </div>
+                              </a>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {selectedMedia.image.length > 0 ? (
+                    <div className="mt-4 space-y-2">
+                      {selectedMedia.image.map((file) => {
+                        const fileKey = buildSelectedFileKey(file);
+
+                        return (
+                          <div
+                            key={fileKey}
+                            className="flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 text-sm text-slate-700 shadow-sm"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium text-slate-900">
+                                {file.name}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {formatUploadFileSize(file.size)}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleRemoveSelectedMedia("image", fileKey)
+                              }
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                              aria-label={`Xóa ảnh ${file.name}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
-                    <p className="mt-3 text-xs text-slate-400">
-                      Chưa chọn file nào.
+                    <p className="mt-4 text-xs text-slate-400">
+                      {existingImageMedias.length > 0
+                        ? "Chưa chọn thêm ảnh mới."
+                        : "Chưa có ảnh nào được chọn."}
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-3xl bg-slate-50 p-6">
+                  <input
+                    ref={videoInputRef}
+                    type="file"
+                    accept="video/*"
+                    multiple
+                    onChange={handleMediaSelection("video")}
+                    className="hidden"
+                  />
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        Video địa điểm
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Chọn một hoặc nhiều video cùng lúc.
+                      </p>
+                    </div>
+                    <Video className="h-5 w-5 text-slate-400" />
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-4 rounded-full"
+                    onClick={() => openMediaPicker("video")}
+                  >
+                    <Video className="mr-2 h-4 w-4" />
+                    Thêm video
+                  </Button>
+
+                  {existingVideoMedias.length > 0 ? (
+                    <div className="mt-4 space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Video hiện có
+                      </p>
+                      <div className="space-y-3">
+                        {existingVideoMedias.map((media, index) => {
+                          const fileUrl = media.fileUrl?.trim();
+
+                          if (!fileUrl) {
+                            return null;
+                          }
+
+                          return (
+                            <div
+                              key={media.mediaId}
+                              className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                            >
+                              <video
+                                src={fileUrl}
+                                controls
+                                preload="metadata"
+                                className="h-40 w-full bg-slate-950 object-cover"
+                              />
+                              <div className="flex items-center justify-between gap-3 p-3">
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-medium text-slate-900">
+                                    {buildBackendMediaLabel(
+                                      media,
+                                      `Video ${index + 1}`,
+                                    )}
+                                  </p>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    Media hiện có từ hotspot
+                                  </p>
+                                </div>
+                                <a
+                                  href={fileUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                                >
+                                  Mở file
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleRemoveExistingMedia(media.mediaId)
+                                  }
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-rose-600"
+                                  aria-label={`Xóa ${buildBackendMediaLabel(media, `Video ${index + 1}`)}`}
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {selectedMedia.video.length > 0 ? (
+                    <div className="mt-4 space-y-2">
+                      {selectedMedia.video.map((file) => {
+                        const fileKey = buildSelectedFileKey(file);
+
+                        return (
+                          <div
+                            key={fileKey}
+                            className="flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 text-sm text-slate-700 shadow-sm"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium text-slate-900">
+                                {file.name}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {formatUploadFileSize(file.size)}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleRemoveSelectedMedia("video", fileKey)
+                              }
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                              aria-label={`Xóa video ${file.name}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-xs text-slate-400">
+                      {existingVideoMedias.length > 0
+                        ? "Chưa chọn thêm video mới."
+                        : "Chưa có video nào được chọn."}
                     </p>
                   )}
                 </div>
@@ -1113,7 +1432,7 @@ function HotspotCreatePageContent() {
 
                 <div className="mt-4 grid gap-3 text-sm text-slate-700">
                   <ResultRow
-                    label="Địa điểm ID"
+                    label="Địa điểm"
                     value={
                       createdHotspot.hotspotId
                         ? String(createdHotspot.hotspotId)
@@ -1125,7 +1444,7 @@ function HotspotCreatePageContent() {
                     value={createdHotspot.status?.trim() || "Chưa có dữ liệu"}
                   />
                   <ResultRow
-                    label="Tạo bởi user"
+                    label="Tạo bởi"
                     value={
                       typeof createdHotspot.createByUserId === "number"
                         ? String(createdHotspot.createByUserId)
@@ -1204,6 +1523,85 @@ function ResultRow({ label, value }: { label: string; value: string }) {
       <p className="mt-1 text-sm font-medium text-slate-900">{value}</p>
     </div>
   );
+}
+
+function mergeSelectedFiles(currentFiles: File[], nextFiles: File[]) {
+  const mergedFiles = [...currentFiles];
+
+  nextFiles.forEach((file) => {
+    const fileKey = buildSelectedFileKey(file);
+
+    if (!mergedFiles.some((item) => buildSelectedFileKey(item) === fileKey)) {
+      mergedFiles.push(file);
+    }
+  });
+
+  return mergedFiles;
+}
+
+function buildSelectedFileKey(file: File) {
+  return `${file.name}-${file.size}-${file.lastModified}`;
+}
+
+function formatUploadFileSize(size: number) {
+  if (size < 1024 * 1024) {
+    return `${Math.max(1, Math.round(size / 1024))} KB`;
+  }
+
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function isImageHotspotMedia(media?: BackendHotspotMedia) {
+  if (!media?.fileUrl) {
+    return false;
+  }
+
+  const mediaType = media.mediaType?.trim().toUpperCase();
+  const mimeType = media.mimeType?.trim().toLowerCase();
+
+  return (
+    mediaType === "IMAGE" ||
+    mimeType?.startsWith("image/") ||
+    /\.(png|jpe?g|gif|webp|avif)$/i.test(media.fileUrl)
+  );
+}
+
+function isVideoHotspotMedia(media?: BackendHotspotMedia) {
+  if (!media?.fileUrl) {
+    return false;
+  }
+
+  const mediaType = media.mediaType?.trim().toUpperCase();
+  const mimeType = media.mimeType?.trim().toLowerCase();
+
+  return (
+    mediaType === "VIDEO" ||
+    mimeType?.startsWith("video/") ||
+    /\.(mp4|webm|ogg|mov)$/i.test(media.fileUrl)
+  );
+}
+
+function resolveOrderedHotspotMedias(medias?: BackendHotspotMedia[]) {
+  return [...(medias ?? [])].sort((mediaA, mediaB) => {
+    const displayOrderDiff =
+      (mediaA.displayOrder ?? Number.MAX_SAFE_INTEGER) -
+      (mediaB.displayOrder ?? Number.MAX_SAFE_INTEGER);
+
+    if (displayOrderDiff !== 0) {
+      return displayOrderDiff;
+    }
+
+    return mediaA.mediaId - mediaB.mediaId;
+  });
+}
+
+function buildBackendMediaLabel(
+  media: BackendHotspotMedia,
+  fallbackLabel: string,
+) {
+  const normalizedFileName = media.fileName?.trim();
+
+  return normalizedFileName || fallbackLabel;
 }
 
 function buildCreatePayload(
@@ -1390,6 +1788,27 @@ function mergeStoryLists(
 
     return left.storyId - right.storyId;
   });
+}
+
+function getLinkedStoriesFromHotspot(response: BackendHotspot) {
+  return (response.stories ?? []).map((story) => ({
+    storyId: story.storyId,
+    tag: story.tag ?? null,
+    orderIndex: story.orderIndex,
+    title: story.title,
+    content: story.content,
+    status: story.status,
+    distanceToNext: story.distanceToNext,
+    medias: story.medias,
+    createdAt: story.createdAt,
+    updatedAt: story.updatedAt,
+  }));
+}
+
+function getUniqueStoryIds(stories: BackendStorySummary[]) {
+  return stories
+    .map((story) => story.storyId)
+    .filter((storyId, index, current) => current.indexOf(storyId) === index);
 }
 
 function formatStoryOptionLabel(story: BackendStorySummary) {

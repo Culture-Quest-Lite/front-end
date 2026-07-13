@@ -238,16 +238,16 @@ export function GoongMapPreview({
   }, [coordinates, onCoordinateChange]);
 
   return (
-    <div className="mt-4 rounded-[1.75rem] border border-slate-200 bg-slate-50 p-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
+    <div className="mt-4 min-w-0 max-w-full rounded-[1.75rem] border border-slate-200 bg-slate-50 p-4">
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-1">
           <p className="text-sm font-semibold text-slate-900">
             Xem trước trên bản đồ Goong
           </p>
         </div>
 
         {coordinates ? (
-          <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-[11px] font-medium text-slate-600 shadow-sm">
+          <span className="inline-flex max-w-full items-center gap-2 rounded-full bg-white px-3 py-1 text-[11px] font-medium text-slate-600 shadow-sm">
             <MapPin className="h-3.5 w-3.5 text-[#CF3F34]" />
             {formatCoordinateValue(coordinates.latitude)},{" "}
             {formatCoordinateValue(coordinates.longitude)}
@@ -258,7 +258,7 @@ export function GoongMapPreview({
       {coordinates ? (
         <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white">
           <div className="border-b border-slate-100 px-4 py-3">
-            <p className="text-xs font-medium text-slate-500">
+            <p className="break-words text-xs font-medium text-slate-500">
               {address.trim() || "Vị trí từ tọa độ hiện tại"}
             </p>
           </div>
