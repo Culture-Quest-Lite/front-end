@@ -24,6 +24,7 @@ export type {
   BackendStoryMedia,
   CreateStoryResponse,
   StoryPageResponse,
+  UpdateStoryFields,
 } from "./storyApi";
 export { levelApi } from "./levelApi";
 export type { BackendLevelRecord, CreateLevelPayload } from "./levelApi";
