@@ -239,12 +239,12 @@ export default function PartnerVerificationPage() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FC]">
-      <PageHeader
-        title="Duyệt đăng ký đối tác"
-        description="Kiểm tra hồ sơ cửa hàng và xác nhận quyền Partner cho người đăng ký."
-      />
+      <PageHeader title="Duyệt đăng ký đối tác" />
 
       <main className="space-y-5 px-6 pb-8 pt-6 lg:px-8">
+        <p className="-mt-2 text-sm text-slate-500">
+          Kiểm tra hồ sơ cửa hàng và xác nhận quyền Partner cho người đăng ký.
+        </p>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard icon={Building2} label="Tổng hồ sơ" value={stats.total} />
           <StatCard icon={Clock3} label="Chờ duyệt" value={stats.pending} />

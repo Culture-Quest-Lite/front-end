@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -37,7 +38,7 @@ const routeSteps = [
   { id: 3, label: "Sắp xếp" },
   { id: 4, label: "Thông tin" },
   { id: 5, label: "Xem trước" },
-  { id: 6, label: "Tạo bản nháp" },
+  { id: 6, label: "Lưu tuyến" },
 ];
 
 const HOTSPOTS_PER_PAGE = 4;
@@ -278,6 +279,11 @@ function SummaryRow({
 }
 
 export default function CuratorRouteCreatePage() {
+  const searchParams = useSearchParams();
+  const routeIdParam = Number(searchParams.get("id"));
+  const editingRouteId = Number.isInteger(routeIdParam) && routeIdParam > 0 ? routeIdParam : null;
+  const isEditing = editingRouteId !== null;
+
   const [activeStep, setActiveStep] = useState<RouteBuilderStep>(1);
   const [hotspots, setHotspots] = useState<BackendHotspot[]>([]);
   const [tags, setTags] = useState<TagRecord[]>([]);
@@ -297,6 +303,7 @@ export default function CuratorRouteCreatePage() {
   const [routePointInput, setRoutePointInput] = useState("100");
   const [routeDifficulty, setRouteDifficulty] =
     useState<RouteDifficulty>("MEDIUM");
+  const [currentRouteStatus, setCurrentRouteStatus] = useState<"DRAFT" | "RECORDING" | "TRIAL" | "PENDING" | "PUBLISHED" | "DELETED">("DRAFT");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -336,6 +343,40 @@ export default function CuratorRouteCreatePage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (editingRouteId === null || isLoading) return;
+
+    const routeId = editingRouteId;
+    let cancelled = false;
+
+    async function loadRouteForEdit() {
+      try {
+        setError(null);
+        const route = await routeApi.getRouteById(routeId);
+        if (cancelled) return;
+
+        setRouteTitle(route.routeName ?? "");
+        setRouteDescription(route.description ?? "");
+        setRouteDifficulty(route.difficulty ?? "MEDIUM");
+        setCurrentRouteStatus(route.status);
+        setRouteDurationInput(String(route.estimateTime ?? 0));
+        setRouteDistanceInput(String(route.totalDistance ?? 0));
+        setRouteXpInput(String(route.xp ?? 0));
+        setRoutePointInput(String(route.point ?? 0));
+        const tagId = route.tag?.tagId ?? route.tags?.[0]?.tagId;
+        setSelectedTagIds(tagId ? [tagId] : []);
+        setSelectedHotspotIds((route.hotspots ?? []).map((item) => item.hotspotId));
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Không thể tải tuyến để chỉnh sửa.");
+        }
+      }
+    }
+
+    void loadRouteForEdit();
+    return () => { cancelled = true; };
+  }, [editingRouteId, isLoading]);
 
   useEffect(() => {
     if (!isFilterOpen) return;
@@ -461,11 +502,7 @@ export default function CuratorRouteCreatePage() {
   }
 
   function toggleTag(tagId: number) {
-    setSelectedTagIds((current) =>
-      current.includes(tagId)
-        ? current.filter((id) => id !== tagId)
-        : [...current, tagId],
-    );
+    setSelectedTagIds((current) => (current[0] === tagId ? [] : [tagId]));
   }
 
   function handleToggleHotspot(hotspotId: number) {
@@ -630,15 +667,12 @@ export default function CuratorRouteCreatePage() {
       difficulty: routeDifficulty,
       estimateTime,
       totalDistance,
-      hotspots: selectedHotspotIds.map((hotspotId, index) => ({
-        hotspotId,
-        index,
-      })),
+      hotspotIds: selectedHotspotIds,
       tagId: selectedTagIds[0],
       xp,
       point,
-      status: "DRAFT",
-      files: selectedFiles,
+      status: isEditing ? currentRouteStatus : "DRAFT",
+      files: isEditing ? undefined : selectedFiles,
     };
   }
 
@@ -648,11 +682,19 @@ export default function CuratorRouteCreatePage() {
       setIsSubmitting(true);
 
       const payload = buildPayload();
-      const response = await routeApi.createRoute(payload);
+      const response = isEditing && editingRouteId
+        ? await routeApi.updateRoute(editingRouteId, payload)
+        : await routeApi.createRoute(payload);
 
       window.location.href = `/curator/routes/${response.routeId}`;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể tạo tuyến.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : isEditing
+            ? "Không thể cập nhật tuyến."
+            : "Không thể tạo tuyến.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -1101,10 +1143,10 @@ export default function CuratorRouteCreatePage() {
             <CheckCircle2 className="h-8 w-8 text-emerald-600" />
           </div>
           <h2 className="mt-4 text-[1.45rem] font-semibold tracking-[-0.02em] text-slate-900">
-            Sẵn sàng tạo bản nháp
+            {isEditing ? "Sẵn sàng cập nhật tuyến" : "Sẵn sàng tạo bản nháp"}
           </h2>
           <p className="mt-2 text-sm text-slate-500">
-            Tuyến sẽ được tạo ở trạng thái bản nháp.
+            {isEditing ? "Kiểm tra lại thông tin trước khi lưu thay đổi." : "Tuyến sẽ được tạo ở trạng thái bản nháp."}
           </p>
           <Button
             type="button"
@@ -1117,7 +1159,7 @@ export default function CuratorRouteCreatePage() {
             {isSubmitting ? (
               <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
             ) : null}
-            Tạo bản nháp
+            {isEditing ? "Cập nhật tuyến" : "Tạo bản nháp"}
           </Button>
         </div>
       </div>

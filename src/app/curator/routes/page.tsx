@@ -127,7 +127,7 @@ function RouteCard({
   const canPublish = normalizedStatus !== "PUBLISHED" && normalizedStatus !== "APPROVED" && normalizedStatus !== "DELETED";
 
   return (
-    <article className="overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+    <article className="flex h-full flex-col overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
       <div className="h-44 w-full bg-[#F7F5EF]">
         {imageUrl ? (
           <img src={imageUrl} alt={route.routeName} className="h-full w-full object-cover" />
@@ -138,7 +138,7 @@ function RouteCard({
         )}
       </div>
 
-      <div className="flex flex-col gap-4 p-5">
+      <div className="flex flex-1 flex-col gap-4 p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-base font-semibold text-slate-950">{route.routeName}</h2>
@@ -170,7 +170,7 @@ function RouteCard({
           <span>Point: {route.point ?? 0}</span>
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+        <div className="mt-auto flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
           <button
             type="button"
             onClick={() => onDelete(route.routeId)}
@@ -327,9 +327,9 @@ export default function CuratorRoutesPage() {
         ) : routes.length === 0 ? (
           <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-500">Chưa có tuyến nào.</div>
         ) : (
-          <div className="mt-7 grid gap-4 xl:grid-cols-2">
+          <div className="mt-7 grid auto-rows-fr gap-4 xl:grid-cols-2">
             {routes.map((route) => (
-              <div key={route.routeId} className={publishingRouteId === route.routeId ? "pointer-events-none opacity-70" : undefined}>
+              <div key={route.routeId} className={`h-full ${publishingRouteId === route.routeId ? "pointer-events-none opacity-70" : ""}`}>
                 <RouteCard route={route} onDelete={handleDelete} onPublish={handlePublish} />
               </div>
             ))}

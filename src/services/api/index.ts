@@ -50,7 +50,6 @@ export type {
 export { routeApi } from "./routeApi";
 export type {
   RouteDifficulty,
-  RouteHotspotPayload,
   RouteHotspotResponse,
   RoutePayload,
   RouteResponse,

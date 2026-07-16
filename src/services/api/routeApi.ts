@@ -5,17 +5,11 @@ export type RouteDifficulty = "EASY" | "MEDIUM" | "HARD";
 
 export type RouteStatus =
   | "DRAFT"
+  | "RECORDING"
+  | "TRIAL"
   | "PENDING"
   | "PUBLISHED"
-  | "APPROVED"
-  | "REJECTED"
-  | "DELETED"
-  | string;
-
-export interface RouteHotspotPayload {
-  hotspotId: number;
-  index: number;
-}
+  | "DELETED";
 
 export interface RoutePayload {
   routeName: string;
@@ -23,7 +17,7 @@ export interface RoutePayload {
   difficulty: RouteDifficulty;
   estimateTime: number;
   totalDistance: number;
-  hotspots: RouteHotspotPayload[];
+  hotspotIds: number[];
   tagId: number;
   xp: number;
   point: number;
@@ -137,67 +131,25 @@ function normalizePage<T>(raw: RawPageMaybeNested<T>): PageResponse<T> {
   };
 }
 
-/**
- * Backend create:
- *
- * @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
- * public ResponseEntity<RouteResponse> create(@Valid @ModelAttribute RouteRequest routeRequest)
- *
- * Vì backend dùng @ModelAttribute, KHÔNG gửi hotspots bằng JSON string.
- * Phải gửi dạng indexed fields:
- *
- * hotspots[0].hotspotId = 1
- * hotspots[0].index = 0
- * hotspots[1].hotspotId = 2
- * hotspots[1].index = 1
- *
- * tagId = 1
- */
+/** Build multipart payload matching backend RouteRequest.hotspotIds. */
 function buildRouteFormData(payload: RoutePayload) {
   const formData = new FormData();
 
-  payload.files?.forEach((file) => {
-    formData.append("files", file);
-  });
-
+  payload.files?.forEach((file) => formData.append("files", file));
   formData.append("routeName", payload.routeName);
-
   if (payload.description?.trim()) {
     formData.append("description", payload.description.trim());
   }
-
   formData.append("difficulty", payload.difficulty);
   formData.append("estimateTime", String(payload.estimateTime));
   formData.append("totalDistance", String(payload.totalDistance));
-
-  payload.hotspots.forEach((hotspot, index) => {
-    formData.append(`hotspots[${index}].hotspotId`, String(hotspot.hotspotId));
-    formData.append(`hotspots[${index}].index`, String(hotspot.index));
+  payload.hotspotIds.forEach((hotspotId) => {
+    formData.append("hotspotIds", String(hotspotId));
   });
-
   formData.append("tagId", String(payload.tagId));
-
   formData.append("xp", String(payload.xp));
   formData.append("point", String(payload.point));
-
-  if (payload.status) {
-    formData.append("status", payload.status);
-  }
- console.log("========== FORM DATA ==========");
-
-  for (const [key, value] of formData.entries()) {
-    if (value instanceof File) {
-      console.log(key, {
-        name: value.name,
-        size: value.size,
-        type: value.type,
-      });
-    } else {
-      console.log(key, value);
-    }
-  }
-
-  console.log("===============================");
+  if (payload.status) formData.append("status", payload.status);
   return formData;
 }
 
@@ -257,10 +209,7 @@ function toRoutePayload(route: RouteResponse, status?: RouteStatus): RoutePayloa
     difficulty: route.difficulty,
     estimateTime: route.estimateTime ?? 0,
     totalDistance: route.totalDistance ?? 0,
-    hotspots: (route.hotspots ?? []).map((hotspot, index) => ({
-      hotspotId: hotspot.hotspotId,
-      index: hotspot.index ?? hotspot.orderIndex ?? index,
-    })),
+    hotspotIds: (route.hotspots ?? []).map((hotspot) => hotspot.hotspotId),
     tagId:
       route.tag?.tagId ??
       route.tags?.[0]?.tagId ??
@@ -320,14 +269,7 @@ export const routeApi = {
   },
 
   updateRoute: async (routeId: number, payload: RoutePayload) => {
-    const { files: _files, hotspots, ...restPayload } = payload;
-
-    // Backend DTO của PUT /api/routes/{id} nhận hotspotIds, không nhận
-    // danh sách hotspots dạng { hotspotId, index } như endpoint tạo mới.
-    const jsonPayload = {
-      ...restPayload,
-      hotspotIds: hotspots.map((hotspot) => hotspot.hotspotId),
-    };
+    const { files: _files, ...jsonPayload } = payload;
 
     const route = await apiFetch<RouteResponse>(`${ROUTE_BASE_URL}/${routeId}`, {
       method: "PUT",
@@ -340,28 +282,35 @@ export const routeApi = {
 
   publishRoute: async (routeId: number) => {
     const route = await routeApi.getRouteById(routeId);
+    const payload = toRoutePayload(route, "PUBLISHED");
 
-    return routeApi.updateRoute(routeId, toRoutePayload(route, "PUBLISHED"));
+    if (!payload.routeName.trim()) throw new Error("Tuyến chưa có tên.");
+    if (!payload.tagId) throw new Error("Tuyến chưa có tag.");
+    if (payload.hotspotIds.length < 4) {
+      throw new Error("Tuyến phải có ít nhất 4 hotspot trước khi publish.");
+    }
+    if (payload.estimateTime <= 0 || payload.totalDistance <= 0) {
+      throw new Error("Thời lượng và khoảng cách phải lớn hơn 0.");
+    }
+
+    return routeApi.updateRoute(routeId, payload);
   },
 
   addHotspotToRoute: async (routeId: number, hotspotId: number) => {
-    return apiFetch<RouteResponse>(
-      `${ROUTE_BASE_URL}/${routeId}/add/${hotspotId}`,
-      {
-        method: "POST",
-        sameOrigin: true,
-      },
-    );
+    const route = await routeApi.getRouteById(routeId);
+    const payload = toRoutePayload(route);
+    if (!payload.hotspotIds.includes(hotspotId)) payload.hotspotIds.push(hotspotId);
+    return routeApi.updateRoute(routeId, payload);
   },
 
   removeHotspotFromRoute: async (routeId: number, hotspotId: number) => {
-    return apiFetch<RouteResponse>(
-      `${ROUTE_BASE_URL}/${routeId}/remove/${hotspotId}`,
-      {
-        method: "DELETE",
-        sameOrigin: true,
-      },
-    );
+    const route = await routeApi.getRouteById(routeId);
+    const payload = toRoutePayload(route);
+    payload.hotspotIds = payload.hotspotIds.filter((id) => id !== hotspotId);
+    if (payload.hotspotIds.length < 4) {
+      throw new Error("Tuyến phải giữ tối thiểu 4 hotspot.");
+    }
+    return routeApi.updateRoute(routeId, payload);
   },
 
   deleteRoute: async (routeId: number) => {
