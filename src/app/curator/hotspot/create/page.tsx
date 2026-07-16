@@ -1,19 +1,22 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState, type ChangeEvent } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { buildTagToken, type TagRecord } from "@/lib/tags";
+import { buildTagToken } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import { GoongMapPreview } from "./GoongMapPreview";
 import {
   goongApi,
   hotspotApi,
-  tagApi,
+  storyApi,
   type BackendHotspot,
+  type BackendHotspotMedia,
+  type BackendStorySummary,
   type CreateHotspotPayload,
   type GoongPlaceSuggestion,
 } from "@/services/api";
@@ -27,6 +30,7 @@ import {
   Save,
   Search,
   Video,
+  X,
 } from "lucide-react";
 
 type HotspotFormState = {
@@ -46,6 +50,10 @@ type HotspotFormState = {
   closingTime: string;
 };
 
+type HotspotMediaType = "image" | "video";
+
+type HotspotMediaCollection = Record<HotspotMediaType, File[]>;
+
 const defaultHotspotForm: HotspotFormState = {
   hotspotName: "",
   address: "",
@@ -63,6 +71,14 @@ const defaultHotspotForm: HotspotFormState = {
   closingTime: "",
 };
 
+const defaultSelectedMedia: HotspotMediaCollection = {
+  image: [],
+  video: [],
+};
+
+const HOTSPOT_BACKEND_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://3.113.215.65:8080";
+
 export default function Page() {
   return (
     <Suspense fallback={<HotspotCreatePageFallback />}>
@@ -74,24 +90,38 @@ export default function Page() {
 function HotspotCreatePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
   const editingHotspotId = parseHotspotId(searchParams.get("id"));
   const isEditMode = editingHotspotId !== null;
   const [formState, setFormState] = useState(defaultHotspotForm);
-  const [availableTags, setAvailableTags] = useState<TagRecord[]>([]);
-  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
-  const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
+  const [availableStories, setAvailableStories] = useState<
+    BackendStorySummary[]
+  >([]);
+  const [linkedStoriesFromHotspot, setLinkedStoriesFromHotspot] = useState<
+    BackendStorySummary[] | null
+  >(isEditMode ? null : []);
+  const [selectedStoryIds, setSelectedStoryIds] = useState<number[]>([]);
+  const [isStoryDropdownOpen, setIsStoryDropdownOpen] = useState(false);
+  const [storyKeyword, setStoryKeyword] = useState("");
   const [isLoadingHotspot, setIsLoadingHotspot] = useState(false);
-  const [isLoadingTags, setIsLoadingTags] = useState(true);
-  const [tagError, setTagError] = useState<string | null>(null);
+  const [isLoadingStories, setIsLoadingStories] = useState(false);
   const [loadHotspotError, setLoadHotspotError] = useState<string | null>(null);
+  const [storyLoadError, setStoryLoadError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [createdHotspot, setCreatedHotspot] = useState<BackendHotspot | null>(
     null,
   );
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
-  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [existingHotspotMedias, setExistingHotspotMedias] = useState<
+    BackendHotspotMedia[]
+  >([]);
+  const [removedExistingMediaIds, setRemovedExistingMediaIds] = useState<
+    number[]
+  >([]);
+  const [selectedMedia, setSelectedMedia] =
+    useState<HotspotMediaCollection>(defaultSelectedMedia);
   const [lastSubmittedPayload, setLastSubmittedPayload] =
     useState<CreateHotspotPayload | null>(null);
   const [goongSuggestions, setGoongSuggestions] = useState<
@@ -104,53 +134,7 @@ function HotspotCreatePageContent() {
   );
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
   const [shouldSearchAddress, setShouldSearchAddress] = useState(false);
-  const tagDropdownRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    async function loadTags() {
-      setIsLoadingTags(true);
-      setTagError(null);
-
-      try {
-        const response = await tagApi.getTags({
-          page: 0,
-          size: 100,
-          status: "ACTIVE",
-        });
-
-        if (isCancelled) {
-          return;
-        }
-
-        setAvailableTags(response.content);
-      } catch (error) {
-        if (isCancelled) {
-          return;
-        }
-
-        console.error("Failed to load hotspot tags", error);
-        setAvailableTags([]);
-        setSelectedTagIds([]);
-        setTagError(
-          error instanceof Error
-            ? error.message
-            : "Không tải được danh sách thẻ từ dữ liệu trả về.",
-        );
-      } finally {
-        if (!isCancelled) {
-          setIsLoadingTags(false);
-        }
-      }
-    }
-
-    void loadTags();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, []);
+  const storyDropdownRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!isEditMode || editingHotspotId === null) {
@@ -171,8 +155,13 @@ function HotspotCreatePageContent() {
           return;
         }
 
+        const linkedStories = getLinkedStoriesFromHotspot(response);
+
         setFormState(syncFormStateWithResponse(defaultHotspotForm, response));
-        setSelectedTagIds(response.tags?.map((tag) => tag.tagId) ?? []);
+        setLinkedStoriesFromHotspot(linkedStories);
+        setSelectedStoryIds(getUniqueStoryIds(linkedStories));
+        setExistingHotspotMedias(resolveOrderedHotspotMedias(response.medias));
+        setRemovedExistingMediaIds([]);
         setCreatedHotspot(null);
       } catch (error) {
         if (isCancelled) {
@@ -199,22 +188,75 @@ function HotspotCreatePageContent() {
   }, [editingHotspotId, isEditMode]);
 
   useEffect(() => {
-    if (!isTagDropdownOpen) {
+    let isCancelled = false;
+
+    async function loadStories() {
+      if (isEditMode && linkedStoriesFromHotspot === null) {
+        return;
+      }
+
+      setIsLoadingStories(true);
+      setStoryLoadError(null);
+
+      try {
+        const publishedStories = await fetchAllStories({ status: "PUBLISHED" });
+
+        if (isCancelled) {
+          return;
+        }
+
+        const linkedStories = isEditMode
+          ? (linkedStoriesFromHotspot ?? [])
+          : [];
+        setAvailableStories(mergeStoryLists(publishedStories, linkedStories));
+
+        if (!isEditMode) {
+          setSelectedStoryIds([]);
+        }
+      } catch (error) {
+        if (isCancelled) {
+          return;
+        }
+
+        console.error("Failed to load stories for hotspot create form", error);
+        setAvailableStories([]);
+        setSelectedStoryIds([]);
+        setStoryLoadError(
+          error instanceof Error
+            ? error.message
+            : "Không tải được danh sách câu chuyện.",
+        );
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingStories(false);
+        }
+      }
+    }
+
+    void loadStories();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isEditMode, linkedStoriesFromHotspot]);
+
+  useEffect(() => {
+    if (!isStoryDropdownOpen) {
       return;
     }
 
     function handlePointerDown(event: MouseEvent) {
       if (
-        tagDropdownRef.current &&
-        !tagDropdownRef.current.contains(event.target as Node)
+        storyDropdownRef.current &&
+        !storyDropdownRef.current.contains(event.target as Node)
       ) {
-        setIsTagDropdownOpen(false);
+        setIsStoryDropdownOpen(false);
       }
     }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setIsTagDropdownOpen(false);
+        setIsStoryDropdownOpen(false);
       }
     }
 
@@ -225,7 +267,7 @@ function HotspotCreatePageContent() {
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isTagDropdownOpen]);
+  }, [isStoryDropdownOpen]);
 
   useEffect(() => {
     if (!shouldSearchAddress) {
@@ -276,18 +318,49 @@ function HotspotCreatePageContent() {
     };
   }, [formState.address, shouldSearchAddress]);
 
-  const selectedTags = availableTags.filter((tag) =>
-    selectedTagIds.includes(tag.tagId),
+  const selectedStories = selectedStoryIds
+    .map((storyId) =>
+      availableStories.find((story) => story.storyId === storyId),
+    )
+    .filter((story): story is BackendStorySummary => Boolean(story));
+  const storyDropdownLabel = isLoadingStories
+    ? "Đang tải danh sách story..."
+    : selectedStories.length === 0
+      ? availableStories.length > 0
+        ? "Chọn câu chuyện đã xuất bản"
+        : "Chưa có câu chuyện đã xuất bản"
+      : selectedStories.length <= 2
+        ? selectedStories.map(formatStoryOptionLabel).join(", ")
+        : `${selectedStories.length} câu chuyện đã chọn`;
+  const filteredStories = availableStories.filter((story) => {
+    const normalizedKeyword = normalizeText(storyKeyword);
+    const matchesKeyword =
+      !normalizedKeyword ||
+      normalizeText(story.title).includes(normalizedKeyword) ||
+      String(story.storyId).includes(storyKeyword.trim());
+    const isPublished = story.status.trim().toUpperCase() === "PUBLISHED";
+
+    return (
+      matchesKeyword &&
+      (isPublished || selectedStoryIds.includes(story.storyId))
+    );
+  });
+  const selectedFiles = [...selectedMedia.image, ...selectedMedia.video];
+  const visibleExistingHotspotMedias = isEditMode
+    ? existingHotspotMedias.filter(
+        (media) => !removedExistingMediaIds.includes(media.mediaId),
+      )
+    : [];
+  const existingImageMedias = visibleExistingHotspotMedias.filter(
+    isImageHotspotMedia,
   );
-  const tagDropdownLabel = isLoadingTags
-    ? "Đang tải danh sách thẻ..."
-    : selectedTags.length === 0
-      ? availableTags.length > 0
-        ? "Chọn một hoặc nhiều thẻ"
-        : "Chưa có thẻ nào khả dụng"
-      : selectedTags.length <= 2
-        ? selectedTags.map((tag) => `#${buildTagToken(tag.tagName)}`).join(", ")
-        : `${selectedTags.length} thẻ đã chọn`;
+  const existingVideoMedias = visibleExistingHotspotMedias.filter(
+    isVideoHotspotMedia,
+  );
+  const backendHotspotUrl =
+    isEditMode && editingHotspotId !== null
+      ? `${HOTSPOT_BACKEND_BASE_URL}/api/v1/hotspots/${editingHotspotId}`
+      : `${HOTSPOT_BACKEND_BASE_URL}/api/v1/hotspots`;
 
   function updateField<Key extends keyof HotspotFormState>(
     field: Key,
@@ -297,14 +370,6 @@ function HotspotCreatePageContent() {
       ...current,
       [field]: value,
     }));
-  }
-
-  function handleToggleTag(tagId: number) {
-    setSelectedTagIds((current) =>
-      current.includes(tagId)
-        ? current.filter((item) => item !== tagId)
-        : [...current, tagId],
-    );
   }
 
   function handleMapCoordinateChange(next: {
@@ -376,6 +441,58 @@ function HotspotCreatePageContent() {
     }
   }
 
+  function handleToggleStory(storyId: number) {
+    setSelectedStoryIds((current) =>
+      current.includes(storyId)
+        ? current.filter((item) => item !== storyId)
+        : [...current, storyId],
+    );
+  }
+
+  function openMediaPicker(type: HotspotMediaType) {
+    if (type === "image") {
+      imageInputRef.current?.click();
+      return;
+    }
+
+    videoInputRef.current?.click();
+  }
+
+  function handleMediaSelection(type: HotspotMediaType) {
+    return (event: ChangeEvent<HTMLInputElement>) => {
+      const nextFiles = Array.from(event.target.files ?? []).filter((file) =>
+        file.type.startsWith(`${type}/`),
+      );
+
+      if (nextFiles.length === 0) {
+        event.target.value = "";
+        return;
+      }
+
+      setSelectedMedia((current) => ({
+        ...current,
+        [type]: mergeSelectedFiles(current[type], nextFiles),
+      }));
+
+      event.target.value = "";
+    };
+  }
+
+  function handleRemoveSelectedMedia(type: HotspotMediaType, fileKey: string) {
+    setSelectedMedia((current) => ({
+      ...current,
+      [type]: current[type].filter(
+        (file) => buildSelectedFileKey(file) !== fileKey,
+      ),
+    }));
+  }
+
+  function handleRemoveExistingMedia(mediaId: number) {
+    setRemovedExistingMediaIds((current) =>
+      current.includes(mediaId) ? current : [...current, mediaId],
+    );
+  }
+
   async function handleResolveAddressFromGoong() {
     const trimmedAddress = formState.address.trim();
 
@@ -416,73 +533,44 @@ function HotspotCreatePageContent() {
     setSubmitMessage(null);
 
     try {
-      const payload = buildCreatePayload(formState, selectedTagIds);
+      const payload = buildCreatePayload(formState, selectedStoryIds);
       setLastSubmittedPayload(payload);
       await validateHotspotPayload(payload, editingHotspotId);
 
       setIsSubmitting(true);
 
-      let response: BackendHotspot;
-      const hasFiles = imageFiles.length > 0 || videoFile !== null;
+      const formData = buildHotspotFormData(payload, selectedFiles);
 
-      if (hasFiles) {
-        const formData = new FormData();
-        // append payload fields
-        Object.entries(payload).forEach(([key, value]) => {
-          if (Array.isArray(value)) {
-            // append arrays as repeated fields (tagIds=1&tagIds=2)
-            value.forEach((item) => formData.append(key, String(item)));
-            return;
-          }
-
-          // append scalar values (including 0)
-          if (value !== undefined && value !== null) {
-            formData.append(key, String(value));
-          }
-        });
-
-        // debug: list form keys (helpful when inspecting outgoing request in devtools)
-        try {
-          console.debug("FormData keys:", Array.from(formData.keys()));
-        } catch {
-          // ignore in environments that disallow FormData introspection
-        }
-
-        // append files under 'files' (backend expects files[])
-        imageFiles.forEach((f) => formData.append("files", f));
-        if (videoFile) formData.append("files", videoFile);
-
-        const url =
-          isEditMode && editingHotspotId !== null
-            ? `/api/hotspots/${editingHotspotId}`
-            : `/api/hotspots`;
-
-        const fetchResp = await fetch(url, {
-          method: isEditMode ? "PUT" : "POST",
-          body: formData,
-          credentials: "include",
-        });
-
-        const text = await fetchResp.text();
-        if (!fetchResp.ok) {
-          const msg = text || `Request failed with status ${fetchResp.status}`;
-          throw new Error(msg);
-        }
-
-        response = text
-          ? JSON.parse(text)
-          : (null as unknown as BackendHotspot);
-      } else {
-        response =
-          isEditMode && editingHotspotId !== null
-            ? await hotspotApi.updateHotspot(editingHotspotId, payload)
-            : await hotspotApi.createHotspot(payload);
+      try {
+        console.debug("FormData keys:", Array.from(formData.keys()));
+      } catch {
+        // ignore in environments that disallow FormData introspection
       }
 
+      const url =
+        isEditMode && editingHotspotId !== null
+          ? `/api/hotspots/${editingHotspotId}`
+          : `/api/hotspots`;
+
+      const fetchResp = await fetch(url, {
+        method: isEditMode ? "PUT" : "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      const text = await fetchResp.text();
+      if (!fetchResp.ok) {
+        const msg = text || `Request failed with status ${fetchResp.status}`;
+        throw new Error(msg);
+      }
+
+      const response = text
+        ? JSON.parse(text)
+        : (null as unknown as BackendHotspot);
+
       setCreatedHotspot(response);
-      setSelectedTagIds(
-        response.tags?.map((tag) => tag.tagId) ?? selectedTagIds,
-      );
+      setExistingHotspotMedias(resolveOrderedHotspotMedias(response.medias));
+      setRemovedExistingMediaIds([]);
       setFormState((current) => syncFormStateWithResponse(current, response));
 
       const successMessage = isEditMode
@@ -506,7 +594,7 @@ function HotspotCreatePageContent() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3 text-slate-700">
           <Link
@@ -537,6 +625,7 @@ function HotspotCreatePageContent() {
             disabled={
               isSubmitting ||
               isLoadingHotspot ||
+              isLoadingStories ||
               isResolvingPlace ||
               !!loadHotspotError
             }
@@ -568,9 +657,9 @@ function HotspotCreatePageContent() {
                 Request preview
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                {isEditMode && editingHotspotId !== null
-                  ? `PUT http://13.158.40.56:8080/api/v1/hotspots/${editingHotspotId}`
-                  : "POST http://13.158.40.56:8080/api/v1/hotspots"}
+                {isEditMode
+                  ? `PUT ${backendHotspotUrl}`
+                  : `POST ${backendHotspotUrl}`}
               </p>
               <pre className="mt-3 overflow-x-auto rounded-2xl bg-slate-950/95 p-4 text-xs leading-6 text-slate-100">
                 {JSON.stringify(lastSubmittedPayload, null, 2)}
@@ -586,18 +675,20 @@ function HotspotCreatePageContent() {
         </div>
       ) : null}
 
-      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+      <div className="w-full min-w-0 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
         <div
-          className={`grid gap-4 ${
+          className={`grid min-w-0 gap-4 ${
             createdHotspot ? "md:grid-cols-[1.8fr_1fr]" : ""
           }`}
         >
-          <div className="flex flex-col gap-4">
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="min-w-0 flex flex-col gap-8">
+            <section className="space-y-5">
               <h2 className="cq-section-title">Thông tin cơ bản</h2>
-              <div className="mt-5 grid gap-4">
+              <div className="grid min-w-0 gap-4 [&>*]:min-w-0">
                 <div>
-                  <label className="cq-label mb-2 block">Tên địa điểm</label>
+                  <label className="cq-label mb-2 block">
+                    Tên địa điểm <span className="text-rose-500">*</span>
+                  </label>
                   <Input
                     value={formState.hotspotName}
                     onChange={(event) =>
@@ -606,6 +697,141 @@ function HotspotCreatePageContent() {
                     placeholder="Hãy nhập tên địa điểm"
                     className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
+                </div>
+                <div>
+                  <label className="cq-label mb-2 block">
+                    Câu chuyện <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative" ref={storyDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setIsStoryDropdownOpen((current) => !current)
+                      }
+                      disabled={
+                        isLoadingStories || availableStories.length === 0
+                      }
+                      aria-expanded={isStoryDropdownOpen}
+                      aria-haspopup="dialog"
+                      className={cn(
+                        "flex w-full items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm text-slate-900 shadow-sm outline-none transition hover:border-slate-300 hover:bg-white focus-visible:ring-2 focus-visible:ring-primary/20",
+                        "disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400",
+                      )}
+                    >
+                      <span className="min-w-0 flex-1 truncate">
+                        {storyDropdownLabel}
+                      </span>
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 shrink-0 text-slate-400 transition",
+                          isStoryDropdownOpen && "rotate-180 text-primary",
+                        )}
+                      />
+                    </button>
+
+                    {isStoryDropdownOpen ? (
+                      <div className="absolute inset-x-0 top-[calc(100%+0.75rem)] z-20 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+                        <div className="border-b border-slate-100 px-4 py-3">
+                          <div className="relative">
+                            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                            <Input
+                              value={storyKeyword}
+                              onChange={(event) =>
+                                setStoryKeyword(event.target.value)
+                              }
+                              placeholder="Tìm theo tên câu chuyện"
+                              className="h-11 rounded-2xl border border-slate-200 bg-slate-50 pr-4 pl-10 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="max-h-80 overflow-y-auto p-2">
+                          {filteredStories.length > 0 ? (
+                            filteredStories.map((story) => {
+                              const isSelected = selectedStoryIds.includes(
+                                story.storyId,
+                              );
+                              const isPublished =
+                                story.status.trim().toUpperCase() ===
+                                "PUBLISHED";
+
+                              return (
+                                <label
+                                  key={story.storyId}
+                                  className={cn(
+                                    "flex cursor-pointer items-start gap-3 rounded-2xl px-3 py-3 text-sm transition",
+                                    isSelected
+                                      ? "bg-slate-100"
+                                      : "hover:bg-slate-50",
+                                  )}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() =>
+                                      handleToggleStory(story.storyId)
+                                    }
+                                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-primary focus:ring-primary"
+                                  />
+                                  <span className="min-w-0 flex-1">
+                                    <span className="flex items-center gap-2">
+                                      <span className="truncate font-semibold text-slate-900">
+                                        {story.title}
+                                      </span>
+
+                                      {!isPublished ? (
+                                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                                          {story.status}
+                                        </span>
+                                      ) : null}
+                                    </span>
+                                    <span className="mt-1 block text-xs text-slate-500">
+                                      {isPublished
+                                        ? " Câu chuyện đã sẵn sàng để liên kết."
+                                        : "Câu chuyện này đang được liên kết nhưng hiện không ở trạng thái công khai."}
+                                    </span>
+                                  </span>
+                                </label>
+                              );
+                            })
+                          ) : (
+                            <div className="px-3 py-4 text-sm text-slate-500">
+                              Không có câu chuyện phù hợp.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {selectedStories.length > 0 ? (
+                      selectedStories.map((story) => (
+                        <button
+                          key={story.storyId}
+                          type="button"
+                          onClick={() => handleToggleStory(story.storyId)}
+                          className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                        >
+                          {formatStoryOptionLabel(story)} ×
+                        </button>
+                      ))
+                    ) : (
+                      <p className="text-xs text-amber-700">
+                        Chưa chọn câu chuyện nào.
+                      </p>
+                    )}
+                  </div>
+
+                  {isLoadingStories ? (
+                    <p className="mt-2 text-xs text-slate-500">
+                      Đang tải danh sách câu chuyện...
+                    </p>
+                  ) : null}
+                  {storyLoadError ? (
+                    <p className="mt-2 text-xs font-medium text-rose-700">
+                      {storyLoadError}
+                    </p>
+                  ) : null}
                 </div>
                 <div>
                   <label className="cq-label mb-2 block">Địa chỉ</label>
@@ -736,7 +962,7 @@ function HotspotCreatePageContent() {
                       updateField("description", event.target.value)
                     }
                     placeholder="Hãy nhập mô tả ngắn cho địa điểm"
-                    className="h-24 w-full resize-none rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    className="h-42 w-full min-w-0 resize-none break-words rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
                 <div>
@@ -749,12 +975,14 @@ function HotspotCreatePageContent() {
                       updateField("historyInformation", event.target.value)
                     }
                     placeholder="Hãy nhập thông tin lịch sử của địa điểm"
-                    className="h-28 w-full resize-none rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    className="h-60 w-full min-w-0 resize-none break-words rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
                   <div>
-                    <label className="cq-label mb-2 block">XP thưởng</label>
+                    <label className="cq-label mb-2 block">
+                      XP thưởng <span className="text-rose-500">*</span>
+                    </label>
                     <Input
                       type="number"
                       min="0"
@@ -768,7 +996,9 @@ function HotspotCreatePageContent() {
                     />
                   </div>
                   <div>
-                    <label className="cq-label mb-2 block">Điểm thưởng</label>
+                    <label className="cq-label mb-2 block">
+                      Điểm thưởng <span className="text-rose-500">*</span>
+                    </label>
                     <Input
                       type="number"
                       min="0"
@@ -782,167 +1012,17 @@ function HotspotCreatePageContent() {
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="cq-label mb-2 block">Thẻ</label>
-                  <div className="relative" ref={tagDropdownRef}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setIsTagDropdownOpen((current) => !current)
-                      }
-                      disabled={isLoadingTags || availableTags.length === 0}
-                      aria-expanded={isTagDropdownOpen}
-                      aria-haspopup="dialog"
-                      className={cn(
-                        "flex w-full items-center justify-between gap-3 rounded-3xl border px-4 py-3 text-left text-sm shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-primary/20",
-                        isTagDropdownOpen
-                          ? "border-[#F7DCE8] bg-[#FFF1F7]"
-                          : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white",
-                        "disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400",
-                      )}
-                    >
-                      <span className="min-w-0 flex-1 truncate text-slate-900">
-                        {tagDropdownLabel}
-                      </span>
-                      <ChevronDown
-                        className={cn(
-                          "h-4 w-4 shrink-0 text-slate-400 transition",
-                          isTagDropdownOpen && "rotate-180 text-[#D94A8D]",
-                        )}
-                      />
-                    </button>
-
-                    {isTagDropdownOpen &&
-                    !isLoadingTags &&
-                    availableTags.length > 0 ? (
-                      <div className="absolute left-0 right-0 top-[calc(100%+0.75rem)] z-20 rounded-[1.5rem] border border-slate-200 bg-white p-3 shadow-[0_20px_45px_rgba(15,23,42,0.12)]">
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                            Chọn thẻ
-                          </p>
-                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                            {selectedTags.length} đã chọn
-                          </span>
-                        </div>
-
-                        <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
-                          {availableTags.map((tag) => {
-                            const isSelected = selectedTagIds.includes(
-                              tag.tagId,
-                            );
-
-                            return (
-                              <label
-                                key={tag.tagId}
-                                className={cn(
-                                  "flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 text-sm transition",
-                                  isSelected
-                                    ? "border-[#F7DCE8] bg-[#FFF1F7] shadow-sm"
-                                    : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white",
-                                )}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => handleToggleTag(tag.tagId)}
-                                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[#D94A8D] focus:ring-[#D94A8D]"
-                                />
-                                <span className="min-w-0 flex-1">
-                                  <span className="flex items-center justify-between gap-2">
-                                    <span
-                                      className={cn(
-                                        "truncate font-semibold",
-                                        isSelected
-                                          ? "text-[#D94A8D]"
-                                          : "text-slate-900",
-                                      )}
-                                    >
-                                      #{buildTagToken(tag.tagName)}
-                                    </span>
-                                    {isSelected ? (
-                                      <CheckCircle2 className="h-4 w-4 shrink-0 text-[#D94A8D]" />
-                                    ) : null}
-                                  </span>
-                                  <span className="mt-1 block text-xs text-slate-500">
-                                    Chọn thẻ này cho địa điểm
-                                  </span>
-                                </span>
-                              </label>
-                            );
-                          })}
-                        </div>
-
-                        <div className="mt-3 flex items-center justify-between gap-3">
-                          <p className="text-xs text-slate-500">
-                            Có thể chọn nhiều thẻ trong một lần mở dropdown.
-                          </p>
-                          {selectedTags.length > 0 ? (
-                            <button
-                              type="button"
-                              onClick={() => setSelectedTagIds([])}
-                              className="text-xs font-medium text-slate-500 transition hover:text-slate-900"
-                            >
-                              Xóa tất cả
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                  {selectedTags.length > 0 ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {selectedTags.map((tag) => (
-                        <button
-                          key={tag.tagId}
-                          type="button"
-                          onClick={() => handleToggleTag(tag.tagId)}
-                          className="rounded-full border border-[#F7DCE8] bg-[#FFF1F7] px-3 py-1.5 text-xs font-semibold text-[#D94A8D] shadow-sm transition hover:border-rose-200 hover:bg-rose-50"
-                        >
-                          #{buildTagToken(tag.tagName)} ×
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                  {selectedTags.length > 1 ? (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTagIds([])}
-                      className="mt-3 text-xs font-medium text-slate-500 transition hover:text-slate-900"
-                    >
-                      Xóa tất cả thẻ đã chọn
-                    </button>
-                  ) : null}
-                  <p className="mt-2 text-xs text-slate-500">
-                    Bấm vào ô chọn để xổ danh sách checkbox và chọn nhiều thẻ
-                    cho hotspot này.
-                  </p>
-                  {tagError ? (
-                    <p className="mt-2 text-xs font-medium text-rose-700">
-                      {tagError}
-                    </p>
-                  ) : null}
-                  {selectedTags.length > 0 ? (
-                    <p className="mt-2 text-xs font-medium text-[#D94A8D]">
-                      Đã chọn:{" "}
-                      {selectedTags
-                        .map((tag) => `#${buildTagToken(tag.tagName)}`)
-                        .join(", ")}
-                    </p>
-                  ) : (
-                    <p className="mt-2 text-xs font-medium text-amber-700">
-                      Chưa chọn thẻ nào.
-                    </p>
-                  )}
-                </div>
               </div>
-            </div>
+            </section>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <section className="space-y-5">
               <h2 className="cq-section-title">Thông số trải nghiệm</h2>
-              <div className="mt-5 grid gap-4">
-                <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid min-w-0 gap-4 [&>*]:min-w-0">
+                <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
                   <div>
-                    <label className="cq-label mb-2 block">Vĩ độ</label>
+                    <label className="cq-label mb-2 block">
+                      Vĩ độ <span className="text-rose-500">*</span>
+                    </label>
                     <Input
                       type="number"
                       step="any"
@@ -955,7 +1035,9 @@ function HotspotCreatePageContent() {
                     />
                   </div>
                   <div>
-                    <label className="cq-label mb-2 block">Kinh độ</label>
+                    <label className="cq-label mb-2 block">
+                      Kinh độ <span className="text-rose-500">*</span>
+                    </label>
                     <Input
                       type="number"
                       step="any"
@@ -969,10 +1051,11 @@ function HotspotCreatePageContent() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
                   <div>
                     <label className="cq-label mb-2 block">
                       Thời lượng tối thiểu (phút)
+                      <span className="ml-1 text-rose-500">*</span>
                     </label>
                     <Input
                       type="number"
@@ -989,6 +1072,7 @@ function HotspotCreatePageContent() {
                   <div>
                     <label className="cq-label mb-2 block">
                       Thời lượng tối đa (phút)
+                      <span className="ml-1 text-rose-500">*</span>
                     </label>
                     <Input
                       type="number"
@@ -1004,10 +1088,11 @@ function HotspotCreatePageContent() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
                   <div>
                     <label className="cq-label mb-2 block">
                       Thời gian bắt đầu
+                      <span className="ml-1 text-rose-500">*</span>
                     </label>
                     <Input
                       type="time"
@@ -1023,6 +1108,7 @@ function HotspotCreatePageContent() {
                   <div>
                     <label className="cq-label mb-2 block">
                       Thời gian kết thúc
+                      <span className="ml-1 text-rose-500">*</span>
                     </label>
                     <Input
                       type="time"
@@ -1063,82 +1149,290 @@ function HotspotCreatePageContent() {
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="cq-section-title">Phương tiện</h2>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-slate-500">
-                  <ImagePlus className="mx-auto mb-3 h-6 w-6" />
-                  <p className="text-sm font-medium">Ảnh (có thể chọn nhiều)</p>
-                  <p className="text-xs text-slate-400">
-                    JPG, PNG · tối đa 5 MB mỗi ảnh
-                  </p>
+            <section className="space-y-5">
+              <h2 className="cq-section-title">Files</h2>
+              <div className="grid min-w-0 gap-4 lg:grid-cols-2 [&>*]:min-w-0">
+                <div className="rounded-3xl bg-slate-50 p-6">
                   <input
+                    ref={imageInputRef}
                     type="file"
                     accept="image/*"
                     multiple
-                    onChange={(e) => {
-                      const files = e.target.files;
-                      if (!files) return;
-                      setImageFiles(Array.from(files));
-                    }}
-                    className="mt-3 w-full text-sm text-slate-700"
+                    onChange={handleMediaSelection("image")}
+                    className="hidden"
                   />
-                  {imageFiles.length > 0 ? (
-                    <div className="mt-3 text-left text-xs text-slate-600">
-                      {imageFiles.map((f, i) => (
-                        <div key={i} className="truncate">
-                          {f.name}
-                        </div>
-                      ))}
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        Hình ảnh địa điểm
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Có thể chọn nhiều ảnh cùng một lúc.
+                      </p>
+                    </div>
+                    <ImagePlus className="h-5 w-5 text-slate-400" />
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-4 rounded-full"
+                    onClick={() => openMediaPicker("image")}
+                  >
+                    <ImagePlus className="mr-2 h-4 w-4" />
+                    Thêm ảnh
+                  </Button>
+
+                  {existingImageMedias.length > 0 ? (
+                    <div className="mt-4 space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Ảnh hiện có
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {existingImageMedias.map((media, index) => {
+                          const fileUrl = media.fileUrl?.trim();
+
+                          if (!fileUrl) {
+                            return null;
+                          }
+
+                          return (
+                            <div
+                              key={media.mediaId}
+                              className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleRemoveExistingMedia(media.mediaId);
+                                }}
+                                className="absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow-sm transition hover:bg-white hover:text-rose-600"
+                                aria-label={`Xóa ${buildBackendMediaLabel(media, `Ảnh ${index + 1}`)}`}
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                              <a href={fileUrl} target="_blank" rel="noreferrer">
+                                <Image
+                                  src={fileUrl}
+                                  alt={buildBackendMediaLabel(media, `Ảnh ${index + 1}`)}
+                                  width={640}
+                                  height={256}
+                                  className="h-32 w-full object-cover"
+                                />
+                                <div className="p-3">
+                                  <p className="truncate text-sm font-medium text-slate-900">
+                                    {buildBackendMediaLabel(
+                                      media,
+                                      `Ảnh ${index + 1}`,
+                                    )}
+                                  </p>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    Media hiện có từ hotspot
+                                  </p>
+                                </div>
+                              </a>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   ) : null}
+
+                  {selectedMedia.image.length > 0 ? (
+                    <div className="mt-4 space-y-2">
+                      {selectedMedia.image.map((file) => {
+                        const fileKey = buildSelectedFileKey(file);
+
+                        return (
+                          <div
+                            key={fileKey}
+                            className="flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 text-sm text-slate-700 shadow-sm"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium text-slate-900">
+                                {file.name}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {formatUploadFileSize(file.size)}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleRemoveSelectedMedia("image", fileKey)
+                              }
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                              aria-label={`Xóa ảnh ${file.name}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-xs text-slate-400">
+                      {existingImageMedias.length > 0
+                        ? "Chưa chọn thêm ảnh mới."
+                        : "Chưa có ảnh nào được chọn."}
+                    </p>
+                  )}
                 </div>
 
-                <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-slate-500">
-                  <Video className="mx-auto mb-3 h-6 w-6" />
-                  <p className="text-sm font-medium">Video giới thiệu</p>
-                  <p className="text-xs text-slate-400">MP4 · tối đa 50 MB</p>
+                <div className="rounded-3xl bg-slate-50 p-6">
                   <input
+                    ref={videoInputRef}
                     type="file"
                     accept="video/*"
-                    onChange={(e) => {
-                      const files = e.target.files;
-                      if (!files || files.length === 0) {
-                        setVideoFile(null);
-                        return;
-                      }
-                      setVideoFile(files[0]);
-                    }}
-                    className="mt-3 w-full text-sm text-slate-700"
+                    multiple
+                    onChange={handleMediaSelection("video")}
+                    className="hidden"
                   />
-                  {videoFile ? (
-                    <div className="mt-3 text-left text-xs text-slate-600 truncate">
-                      {videoFile.name}
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        Video địa điểm
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Chọn một hoặc nhiều video cùng lúc.
+                      </p>
+                    </div>
+                    <Video className="h-5 w-5 text-slate-400" />
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-4 rounded-full"
+                    onClick={() => openMediaPicker("video")}
+                  >
+                    <Video className="mr-2 h-4 w-4" />
+                    Thêm video
+                  </Button>
+
+                  {existingVideoMedias.length > 0 ? (
+                    <div className="mt-4 space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Video hiện có
+                      </p>
+                      <div className="space-y-3">
+                        {existingVideoMedias.map((media, index) => {
+                          const fileUrl = media.fileUrl?.trim();
+
+                          if (!fileUrl) {
+                            return null;
+                          }
+
+                          return (
+                            <div
+                              key={media.mediaId}
+                              className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                            >
+                              <video
+                                src={fileUrl}
+                                controls
+                                preload="metadata"
+                                className="h-40 w-full bg-slate-950 object-cover"
+                              />
+                              <div className="flex items-center justify-between gap-3 p-3">
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-medium text-slate-900">
+                                    {buildBackendMediaLabel(
+                                      media,
+                                      `Video ${index + 1}`,
+                                    )}
+                                  </p>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    Media hiện có từ hotspot
+                                  </p>
+                                </div>
+                                <a
+                                  href={fileUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                                >
+                                  Mở file
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleRemoveExistingMedia(media.mediaId)
+                                  }
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-rose-600"
+                                  aria-label={`Xóa ${buildBackendMediaLabel(media, `Video ${index + 1}`)}`}
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   ) : null}
+
+                  {selectedMedia.video.length > 0 ? (
+                    <div className="mt-4 space-y-2">
+                      {selectedMedia.video.map((file) => {
+                        const fileKey = buildSelectedFileKey(file);
+
+                        return (
+                          <div
+                            key={fileKey}
+                            className="flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 text-sm text-slate-700 shadow-sm"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium text-slate-900">
+                                {file.name}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {formatUploadFileSize(file.size)}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleRemoveSelectedMedia("video", fileKey)
+                              }
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                              aria-label={`Xóa video ${file.name}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-xs text-slate-400">
+                      {existingVideoMedias.length > 0
+                        ? "Chưa chọn thêm video mới."
+                        : "Chưa có video nào được chọn."}
+                    </p>
+                  )}
                 </div>
               </div>
-            </div>
+            </section>
           </div>
 
           {createdHotspot ? (
             <div className="space-y-4">
-              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="rounded-3xl bg-slate-50 p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="cq-card-title">Kết quả từ dữ liệu trả về</p>
-                    <p className="text-xs text-slate-500">
-                      Đồng bộ các field backend vừa trả về sau khi tạo địa điểm.
-                    </p>
                   </div>
                   <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                 </div>
 
                 <div className="mt-4 grid gap-3 text-sm text-slate-700">
                   <ResultRow
-                    label="Địa điểm ID"
+                    label="Địa điểm"
                     value={
                       createdHotspot.hotspotId
                         ? String(createdHotspot.hotspotId)
@@ -1150,7 +1444,7 @@ function HotspotCreatePageContent() {
                     value={createdHotspot.status?.trim() || "Chưa có dữ liệu"}
                   />
                   <ResultRow
-                    label="Tạo bởi user"
+                    label="Tạo bởi"
                     value={
                       typeof createdHotspot.createByUserId === "number"
                         ? String(createdHotspot.createByUserId)
@@ -1231,14 +1525,96 @@ function ResultRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function buildCreatePayload(
-  formState: HotspotFormState,
-  selectedTagIds: number[],
-): CreateHotspotPayload {
-  if (selectedTagIds.length === 0) {
-    throw new Error("Vui lòng chọn ít nhất một thẻ trước khi lưu địa điểm.");
+function mergeSelectedFiles(currentFiles: File[], nextFiles: File[]) {
+  const mergedFiles = [...currentFiles];
+
+  nextFiles.forEach((file) => {
+    const fileKey = buildSelectedFileKey(file);
+
+    if (!mergedFiles.some((item) => buildSelectedFileKey(item) === fileKey)) {
+      mergedFiles.push(file);
+    }
+  });
+
+  return mergedFiles;
+}
+
+function buildSelectedFileKey(file: File) {
+  return `${file.name}-${file.size}-${file.lastModified}`;
+}
+
+function formatUploadFileSize(size: number) {
+  if (size < 1024 * 1024) {
+    return `${Math.max(1, Math.round(size / 1024))} KB`;
   }
 
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function isImageHotspotMedia(media?: BackendHotspotMedia) {
+  if (!media?.fileUrl) {
+    return false;
+  }
+
+  const mediaType = media.mediaType?.trim().toUpperCase();
+  const mimeType = media.mimeType?.trim().toLowerCase();
+
+  return (
+    mediaType === "IMAGE" ||
+    mimeType?.startsWith("image/") ||
+    /\.(png|jpe?g|gif|webp|avif)$/i.test(media.fileUrl)
+  );
+}
+
+function isVideoHotspotMedia(media?: BackendHotspotMedia) {
+  if (!media?.fileUrl) {
+    return false;
+  }
+
+  const mediaType = media.mediaType?.trim().toUpperCase();
+  const mimeType = media.mimeType?.trim().toLowerCase();
+
+  return (
+    mediaType === "VIDEO" ||
+    mimeType?.startsWith("video/") ||
+    /\.(mp4|webm|ogg|mov)$/i.test(media.fileUrl)
+  );
+}
+
+function resolveOrderedHotspotMedias(medias?: BackendHotspotMedia[]) {
+  return [...(medias ?? [])].sort((mediaA, mediaB) => {
+    const displayOrderDiff =
+      (mediaA.displayOrder ?? Number.MAX_SAFE_INTEGER) -
+      (mediaB.displayOrder ?? Number.MAX_SAFE_INTEGER);
+
+    if (displayOrderDiff !== 0) {
+      return displayOrderDiff;
+    }
+
+    return mediaA.mediaId - mediaB.mediaId;
+  });
+}
+
+function buildBackendMediaLabel(
+  media: BackendHotspotMedia,
+  fallbackLabel: string,
+) {
+  const normalizedFileName = media.fileName?.trim();
+
+  return normalizedFileName || fallbackLabel;
+}
+
+function buildCreatePayload(
+  formState: HotspotFormState,
+  selectedStoryIds: number[],
+): CreateHotspotPayload {
+  if (selectedStoryIds.length === 0) {
+    throw new Error("Vui lòng chọn ít nhất một story trước khi lưu.");
+  }
+
+  const storyIds = selectedStoryIds.filter(
+    (storyId, index) => selectedStoryIds.indexOf(storyId) === index,
+  );
   const hotspotName = formState.hotspotName.trim();
   const address = formState.address.trim();
   const description = formState.description.trim();
@@ -1246,18 +1622,6 @@ function buildCreatePayload(
 
   if (!hotspotName) {
     throw new Error("Vui lòng nhập tên địa điểm.");
-  }
-
-  if (!address) {
-    throw new Error("Vui lòng nhập địa chỉ địa điểm.");
-  }
-
-  if (!description) {
-    throw new Error("Vui lòng nhập mô tả địa điểm.");
-  }
-
-  if (!historyInformation) {
-    throw new Error("Vui lòng nhập thông tin lịch sử.");
   }
 
   const estimatedDurationMin = parseIntegerField(
@@ -1275,12 +1639,9 @@ function buildCreatePayload(
     );
   }
 
-  return {
-    tagIds: selectedTagIds,
+  const payload: CreateHotspotPayload = {
+    storyIds,
     hotspotName,
-    address,
-    description,
-    historyInformation,
     latitude: parseDecimalField("latitude", formState.latitude),
     longitude: parseDecimalField("longitude", formState.longitude),
     xp: parseIntegerField("XP thưởng", formState.xp),
@@ -1289,9 +1650,38 @@ function buildCreatePayload(
     estimatedDurationMax,
     startTime: normalizeTimeForApi("thời gian bắt đầu", formState.startTime),
     endTime: normalizeTimeForApi("thời gian kết thúc", formState.endTime),
-    openingTime: normalizeTimeForApi("giờ mở cửa", formState.openingTime),
-    closingTime: normalizeTimeForApi("giờ đóng cửa", formState.closingTime),
   };
+
+  if (address) {
+    payload.address = address;
+  }
+
+  if (description) {
+    payload.description = description;
+  }
+
+  if (historyInformation) {
+    payload.historyInformation = historyInformation;
+  }
+
+  const openingTime = normalizeOptionalTimeForApi(
+    "giờ mở cửa",
+    formState.openingTime,
+  );
+  const closingTime = normalizeOptionalTimeForApi(
+    "giờ đóng cửa",
+    formState.closingTime,
+  );
+
+  if (openingTime) {
+    payload.openingTime = openingTime;
+  }
+
+  if (closingTime) {
+    payload.closingTime = closingTime;
+  }
+
+  return payload;
 }
 
 function parseDecimalField(label: string, value: string) {
@@ -1324,6 +1714,109 @@ function parseIntegerField(label: string, value: string) {
   return parsedValue;
 }
 
+function buildHotspotFormData(payload: CreateHotspotPayload, files: File[]) {
+  const formData = new FormData();
+
+  Object.entries(payload).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      value.forEach((item) => formData.append(key, String(item)));
+      return;
+    }
+
+    if (value !== undefined && value !== null) {
+      formData.append(key, String(value));
+    }
+  });
+
+  files.forEach((file) => formData.append("files", file));
+
+  return formData;
+}
+
+async function fetchAllStories(filters: {
+  status?: string;
+  hotspotId?: number;
+}) {
+  const stories: BackendStorySummary[] = [];
+  let page = 0;
+  let totalPages = 1;
+
+  while (page < totalPages) {
+    const response = await storyApi.getStories({
+      page,
+      size: 100,
+      sortBy: "storyId",
+      sortDir: "asc",
+      ...filters,
+    });
+
+    stories.push(...response.content);
+
+    totalPages = Math.max(response.page.totalPages, 1);
+    page += 1;
+
+    if (response.content.length === 0) {
+      break;
+    }
+  }
+
+  return stories;
+}
+
+function mergeStoryLists(
+  primaryStories: BackendStorySummary[],
+  secondaryStories: BackendStorySummary[],
+) {
+  const storyMap = new Map<number, BackendStorySummary>();
+
+  [...secondaryStories, ...primaryStories].forEach((story) => {
+    storyMap.set(story.storyId, story);
+  });
+
+  return Array.from(storyMap.values()).sort((left, right) => {
+    if (left.status === right.status) {
+      return left.storyId - right.storyId;
+    }
+
+    if (left.status === "PUBLISHED") {
+      return -1;
+    }
+
+    if (right.status === "PUBLISHED") {
+      return 1;
+    }
+
+    return left.storyId - right.storyId;
+  });
+}
+
+function getLinkedStoriesFromHotspot(response: BackendHotspot) {
+  return (response.stories ?? []).map((story) => ({
+    storyId: story.storyId,
+    tag: story.tag ?? null,
+    orderIndex: story.orderIndex,
+    title: story.title,
+    content: story.content,
+    status: story.status,
+    distanceToNext: story.distanceToNext,
+    medias: story.medias,
+    createdAt: story.createdAt,
+    updatedAt: story.updatedAt,
+  }));
+}
+
+function getUniqueStoryIds(stories: BackendStorySummary[]) {
+  return stories
+    .map((story) => story.storyId)
+    .filter((storyId, index, current) => current.indexOf(storyId) === index);
+}
+
+function formatStoryOptionLabel(story: BackendStorySummary) {
+  const normalizedTitle = story.title.trim();
+
+  return normalizedTitle ? `${normalizedTitle} ` : `Story #${story.storyId}`;
+}
+
 async function validateHotspotPayload(
   payload: CreateHotspotPayload,
   editingHotspotId: number | null,
@@ -1334,11 +1827,15 @@ async function validateHotspotPayload(
     payload.startTime,
     payload.endTime,
   );
-  validateTimeWindow("giờ mở cửa", payload.openingTime, payload.closingTime);
+  validateOptionalTimeWindow(
+    "giờ mở cửa",
+    payload.openingTime,
+    payload.closingTime,
+  );
 
   const existingHotspots = await hotspotApi.getHotspots();
   const normalizedName = normalizeText(payload.hotspotName);
-  const normalizedAddress = normalizeText(payload.address);
+  const normalizedAddress = normalizeText(payload.address ?? "");
 
   const duplicateHotspot = existingHotspots.find((hotspot) => {
     if (editingHotspotId !== null && hotspot.hotspotId === editingHotspotId) {
@@ -1372,6 +1869,20 @@ function normalizeTimeForApi(label: string, value: string) {
     throw new Error(`Vui lòng nhập ${label}.`);
   }
 
+  return normalizeTimeValue(label, normalizedValue);
+}
+
+function normalizeOptionalTimeForApi(label: string, value: string) {
+  const normalizedValue = value.trim();
+
+  if (!normalizedValue) {
+    return undefined;
+  }
+
+  return normalizeTimeValue(label, normalizedValue);
+}
+
+function normalizeTimeValue(label: string, normalizedValue: string) {
   if (/^\d{2}:\d{2}$/.test(normalizedValue)) {
     return `${normalizedValue}:00`;
   }
@@ -1381,6 +1892,24 @@ function normalizeTimeForApi(label: string, value: string) {
   }
 
   throw new Error(`${label} không đúng định dạng HH:mm hoặc HH:mm:ss.`);
+}
+
+function validateOptionalTimeWindow(
+  label: string,
+  startTime?: string,
+  endTime?: string,
+) {
+  if (!startTime && !endTime) {
+    return;
+  }
+
+  if (!startTime || !endTime) {
+    throw new Error(
+      `${label} không hợp lệ: vui lòng nhập đủ thời gian bắt đầu và kết thúc.`,
+    );
+  }
+
+  validateTimeWindow(label, startTime, endTime);
 }
 
 function syncFormStateWithResponse(

@@ -1199,6 +1199,8 @@ export default function Page() {
   const [publishingHotspotId, setPublishingHotspotId] = useState<number | null>(
     null,
   );
+  const [pendingPublishHotspot, setPendingPublishHotspot] =
+    useState<HotspotViewItem | null>(null);
   const [pendingDeleteHotspot, setPendingDeleteHotspot] =
     useState<HotspotViewItem | null>(null);
   const [deletingHotspotId, setDeletingHotspotId] = useState<number | null>(
@@ -1579,16 +1581,31 @@ export default function Page() {
       return;
     }
 
-    setPublishingHotspotId(item.hotspotId);
+    setOpenMenuKey(null);
+    setPendingPublishHotspot(item);
+  }
+
+  async function handleConfirmPublishHotspot() {
+    if (!pendingPublishHotspot?.hotspotId) {
+      setPendingPublishHotspot(null);
+      return;
+    }
+
+    const hotspotId = pendingPublishHotspot.hotspotId;
+
+    setPublishingHotspotId(hotspotId);
 
     try {
-      await hotspotApi.updateHotspotStatus(item.hotspotId, "PUBLISHED");
+      await hotspotApi.updateHotspotStatus(hotspotId, "PUBLISHED");
 
-      const publishedStatusMeta = buildStatusMeta("PUBLISHED", item);
+      const publishedStatusMeta = buildStatusMeta(
+        "PUBLISHED",
+        pendingPublishHotspot,
+      );
 
       setHotspots((currentHotspots) =>
         currentHotspots.map((hotspot) =>
-          hotspot.hotspotId === item.hotspotId
+          hotspot.hotspotId === hotspotId
             ? {
                 ...hotspot,
                 rawStatus: "PUBLISHED",
@@ -1599,7 +1616,7 @@ export default function Page() {
             : hotspot,
         ),
       );
-      setOpenMenuKey(null);
+      setPendingPublishHotspot(null);
       setReloadVersion((currentVersion) => currentVersion + 1);
       toast.success("Đã duyệt địa điểm và chuyển sang trạng thái xuất bản.");
     } catch (error) {
@@ -2252,6 +2269,63 @@ export default function Page() {
           ) : null}
         </section>
       </div>
+
+      {pendingPublishHotspot ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 px-4 py-6 backdrop-blur-sm">
+          <div
+            className="absolute inset-0"
+            onClick={() => setPendingPublishHotspot(null)}
+            aria-hidden="true"
+          />
+
+          <div className="relative z-10 w-full max-w-[22rem] rounded-[1.75rem] border border-slate-200 bg-white px-5 py-7 text-center shadow-[0_24px_60px_rgba(15,23,42,0.18)] sm:px-6 sm:py-8">
+            <div className="space-y-3">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                <Send className="h-10 w-10" />
+              </div>
+              <h2 className="text-[1.125rem] font-semibold leading-tight tracking-[-0.02em] text-slate-900 sm:text-[1.25rem]">
+                Bạn có chắc muốn duyệt bài?
+              </h2>
+              <p className="mx-auto max-w-[16.5rem] text-[0.8125rem] leading-5 text-slate-500 sm:text-[0.875rem]">
+                Địa điểm{" "}
+                <span className="font-semibold text-slate-900">
+                  {pendingPublishHotspot.title}
+                </span>{" "}
+                sẽ được xuất bản ngay lập tức.
+              </p>
+            </div>
+
+            <div className="mt-7 grid grid-cols-2 gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={() => setPendingPublishHotspot(null)}
+                disabled={
+                  publishingHotspotId === pendingPublishHotspot.hotspotId
+                }
+                className="h-11 rounded-2xl border-slate-200 bg-slate-100 text-[0.8125rem] font-semibold text-slate-600 shadow-none hover:border-slate-300 hover:bg-slate-200 hover:text-slate-700 sm:text-sm"
+              >
+                Hủy
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={() => void handleConfirmPublishHotspot()}
+                disabled={
+                  publishingHotspotId === pendingPublishHotspot.hotspotId
+                }
+                className="h-11 rounded-2xl border-emerald-500 bg-emerald-500 text-[0.8125rem] font-semibold text-white shadow-none hover:border-emerald-600 hover:bg-emerald-600 hover:text-white sm:text-sm"
+              >
+                {publishingHotspotId === pendingPublishHotspot.hotspotId
+                  ? "Đang duyệt..."
+                  : "Duyệt bài"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {pendingDeleteHotspot ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 px-4 py-6 backdrop-blur-sm">

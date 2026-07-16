@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import {
   ChevronDown,
   Eye,
   Filter,
+  Loader2,
   MoreHorizontal,
-  Pencil,
+  PencilLine,
   Plus,
   Search,
   Send,
@@ -19,24 +20,24 @@ import { Button } from "@/components/ui/button";
 import { CuratorPagination } from "@/components/curator/CuratorPagination";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import {
-  storyApi,
-  tagApi,
-  hotspotApi,
-  type BackendHotspot,
-  type BackendStory,
-} from "@/services/api";
+import { storyApi, tagApi } from "@/services/api";
 
 type StoryStatus = "Đã xuất bản" | "Chờ duyệt" | "Bản nháp" | "Bị từ chối";
+
+const storyActions = [
+  { key: "edit", label: "Chỉnh sửa", icon: PencilLine },
+  { key: "detail", label: "Xem chi tiết", icon: Eye },
+  { key: "submit", label: "Duyệt bài", icon: Send },
+  { key: "delete", label: "Xóa", icon: Trash2 },
+];
 
 type StoryItem = {
   id: string;
   title: string;
-  hotspot: string;
   status: StoryStatus;
   tagName: string;
-  updatedAt: string;
-  reviewNote?: string;
+  orderIndexLabel: string;
+  distanceToNextLabel: string;
 };
 
 function getSingleTagName(tagName?: string) {
@@ -60,9 +61,29 @@ function getStoryStatusLabel(status?: string): StoryStatus {
       return "Đã xuất bản";
     case "REJECTED":
       return "Bị từ chối";
+    case "REVIEW":
+      return "Chờ duyệt";
     default:
       return "Chờ duyệt";
   }
+}
+
+function getOrderIndexLabel(orderIndex?: number | null) {
+  if (typeof orderIndex !== "number") {
+    return "Chưa sắp";
+  }
+
+  return String(orderIndex);
+}
+
+function getDistanceToNextLabel(distanceToNext?: number | null) {
+  if (typeof distanceToNext !== "number") {
+    return "Chưa có";
+  }
+
+  return new Intl.NumberFormat("vi-VN", {
+    maximumFractionDigits: 2,
+  }).format(distanceToNext);
 }
 
 const initialStories: StoryItem[] = [];
@@ -104,23 +125,11 @@ export default function CuratorStoriesPage() {
     "all",
   );
   const [selectedTagId, setSelectedTagId] = useState<number | "all">("all");
-  const [selectedHotspotId, setSelectedHotspotId] = useState<number | "all">(
-    "all",
-  );
   const [availableTags, setAvailableTags] = useState<
     { tagId: number; tagName: string }[] | []
   >([]);
-  const [availableHotspots, setAvailableHotspots] = useState<BackendHotspot[]>(
-    [],
-  );
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [openMenuStoryId, setOpenMenuStoryId] = useState<string | null>(null);
-  const [, setDraftTitle] = useState("");
-  const [, setDraftHotspot] = useState("");
-  const [, setDraftStatus] = useState<StoryStatus>("Bản nháp");
-  const [, setDraftReviewNote] = useState("");
-  const [editingStoryId, setEditingStoryId] = useState<string | null>(null);
-  const [, setFormError] = useState<string | null>(null);
   const [isLoadingStories, setIsLoadingStories] = useState(false);
   const [loadStoriesError, setLoadStoriesError] = useState<string | null>(null);
   const [totalPages, setTotalPages] = useState(1);
@@ -132,8 +141,7 @@ export default function CuratorStoriesPage() {
   const [pendingDeleteStory, setPendingDeleteStory] =
     useState<StoryItem | null>(null);
   const [deletingStoryId, setDeletingStoryId] = useState<string | null>(null);
-  const draftInputRef = useRef<HTMLInputElement>(null);
-  const createSectionRef = useRef<HTMLDivElement>(null);
+  const [storiesReloadToken, setStoriesReloadToken] = useState(0);
   const deferredSearch = useDeferredValue(searchQuery);
 
   const backendStatusValue =
@@ -143,7 +151,9 @@ export default function CuratorStoriesPage() {
         ? "REJECTED"
         : selectedStatus === "Bản nháp"
           ? "DRAFT"
-          : undefined;
+          : selectedStatus === "Chờ duyệt"
+            ? "REVIEW"
+            : undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -161,42 +171,20 @@ export default function CuratorStoriesPage() {
           keyword: deferredSearch,
           status: backendStatusValue,
           tagId: selectedTagId === "all" ? undefined : selectedTagId,
-          hotspotId:
-            selectedHotspotId === "all" ? undefined : selectedHotspotId,
         });
 
-        const storiesWithHotspot = await Promise.all(
-          response.content.map(async (story: BackendStory) => {
-            const hotspot = await hotspotApi
-              .getHotspotById(story.hotspotId)
-              .catch((error) => {
-                console.warn("[story] Failed to load hotspot for story", {
-                  storyId: story.storyId,
-                  hotspotId: story.hotspotId,
-                  error,
-                });
-                return { hotspotName: `#${story.hotspotId}` } as BackendHotspot;
-              });
-
-            return {
-              id: String(story.storyId),
-              title: story.title,
-              hotspot: hotspot.hotspotName ?? `#${story.hotspotId}`,
-              status: getStoryStatusLabel(story.status),
-              tagName: getSingleTagName(story.tag?.tagName),
-              updatedAt: story.updatedAt
-                ? new Intl.DateTimeFormat("vi-VN").format(
-                    new Date(story.updatedAt),
-                  )
-                : "",
-              reviewNote: undefined,
-            };
-          }),
-        );
+        const nextStories = response.content.map((story) => ({
+          id: String(story.storyId),
+          title: story.title,
+          status: getStoryStatusLabel(story.status),
+          tagName: getSingleTagName(story.tag?.tagName),
+          orderIndexLabel: getOrderIndexLabel(story.orderIndex),
+          distanceToNextLabel: getDistanceToNextLabel(story.distanceToNext),
+        }));
 
         if (!cancelled) {
-          setStories(storiesWithHotspot);
-          setTotalPages(response.page.totalPages);
+          setStories(nextStories);
+          setTotalPages(Math.max(response.page.totalPages, 1));
         }
       } catch (error) {
         if (!cancelled) {
@@ -221,10 +209,9 @@ export default function CuratorStoriesPage() {
   }, [
     currentPage,
     deferredSearch,
-    selectedStatus,
     selectedTagId,
-    selectedHotspotId,
     backendStatusValue,
+    storiesReloadToken,
   ]);
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const paginatedStories = stories;
@@ -248,6 +235,7 @@ export default function CuratorStoriesPage() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setOpenMenuStoryId(null);
+        setIsFilterOpen(false);
       }
     };
 
@@ -259,70 +247,6 @@ export default function CuratorStoriesPage() {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
-
-  function handleCreateFocus() {
-    createSectionRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-    });
-    draftInputRef.current?.focus();
-  }
-
-  function resetForm() {
-    setDraftTitle("");
-    setDraftHotspot("");
-    setDraftStatus("Bản nháp");
-    setDraftReviewNote("");
-    setEditingStoryId(null);
-    setFormError(null);
-  }
-
-  function handleEditStory(story: StoryItem) {
-    setEditingStoryId(story.id);
-    setDraftTitle(story.title);
-    setDraftHotspot(story.hotspot);
-    setDraftStatus(story.status);
-    setDraftReviewNote(story.reviewNote ?? "");
-    setFormError(null);
-    handleCreateFocus();
-  }
-
-  async function handleDeleteStory(storyId: string) {
-    setOpenMenuStoryId(null);
-
-    const story = stories.find((s) => s.id === storyId);
-    if (story) {
-      setPendingDeleteStory(story);
-    }
-  }
-
-  async function handleConfirmDeleteStory() {
-    if (!pendingDeleteStory) {
-      setPendingDeleteStory(null);
-      return;
-    }
-
-    const storyId = pendingDeleteStory.id;
-    setDeletingStoryId(storyId);
-
-    try {
-      await storyApi.deleteStory(Number(storyId));
-      setStories((current) => current.filter((story) => story.id !== storyId));
-      if (editingStoryId === storyId) {
-        resetForm();
-      }
-      setPendingDeleteStory(null);
-      toast.success("Xóa story thành công.");
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Không thể xóa story. Vui lòng thử lại.",
-      );
-    } finally {
-      setDeletingStoryId(null);
-    }
-  }
 
   function handlePublishStory(story: StoryItem) {
     setOpenMenuStoryId(null);
@@ -371,6 +295,45 @@ export default function CuratorStoriesPage() {
     }
   }
 
+  function handleDeleteStory(story: StoryItem) {
+    setOpenMenuStoryId(null);
+    setPendingDeleteStory(story);
+  }
+
+  async function handleConfirmDeleteStory() {
+    if (!pendingDeleteStory) {
+      setPendingDeleteStory(null);
+      return;
+    }
+
+    const storyId = pendingDeleteStory.id;
+    setDeletingStoryId(storyId);
+
+    try {
+      await storyApi.deleteStory(Number(storyId));
+
+      if (stories.length === 1 && currentPage > 1) {
+        setCurrentPage((page) => Math.max(page - 1, 1));
+      } else {
+        setStories((currentStories) =>
+          currentStories.filter((story) => story.id !== storyId),
+        );
+        setStoriesReloadToken((current) => current + 1);
+      }
+
+      setPendingDeleteStory(null);
+      toast.success("Xóa story thành công.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Không thể xóa story. Vui lòng thử lại.",
+      );
+    } finally {
+      setDeletingStoryId(null);
+    }
+  }
+
   function handleSearchChange(value: string) {
     setSearchQuery(value);
     setCurrentPage(1);
@@ -383,11 +346,6 @@ export default function CuratorStoriesPage() {
 
   function handleTagFilterChange(value: number | "all") {
     setSelectedTagId(value);
-    setCurrentPage(1);
-  }
-
-  function handleHotspotFilterChange(value: number | "all") {
-    setSelectedHotspotId(value);
     setCurrentPage(1);
   }
 
@@ -409,13 +367,6 @@ export default function CuratorStoriesPage() {
       } catch {
         setAvailableTags([]);
       }
-
-      try {
-        const hotspotResponse = await hotspotApi.getHotspots();
-        setAvailableHotspots(hotspotResponse);
-      } catch {
-        setAvailableHotspots([]);
-      }
     }
 
     void loadFilterData();
@@ -428,7 +379,7 @@ export default function CuratorStoriesPage() {
           <div className="space-y-2">
             <h1 className="cq-page-title">Quản lý câu chuyện</h1>
             <p className="cq-page-subtitle max-w-2xl">
-              Quản lý micro-story gắn với hotspot và trạng thái biên tập.
+              Quản lý micro-story theo nội dung, thẻ và trạng thái biên tập.
             </p>
           </div>
 
@@ -476,7 +427,7 @@ export default function CuratorStoriesPage() {
                   data-story-filter-panel
                   className="absolute right-0 top-full z-20 mt-3 w-[min(28rem,calc(100vw-2rem))] rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-[0_20px_40px_-16px_rgba(15,23,42,0.15)]"
                 >
-                  <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <div className="relative">
                       <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                         Trạng thái
@@ -523,34 +474,6 @@ export default function CuratorStoriesPage() {
                       </select>
                       <ChevronDown className="pointer-events-none absolute right-4 top-[54%] h-4 w-4 -translate-y-1/2 text-slate-400" />
                     </div>
-
-                    <div className="relative">
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                        Địa điểm
-                      </label>
-                      <select
-                        value={selectedHotspotId}
-                        onChange={(event) =>
-                          handleHotspotFilterChange(
-                            event.target.value === "all"
-                              ? "all"
-                              : Number(event.target.value),
-                          )
-                        }
-                        className="h-11 w-full appearance-none rounded-full border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-                      >
-                        <option value="all">Tất cả địa điểm</option>
-                        {availableHotspots.map((hotspot) => (
-                          <option
-                            key={hotspot.hotspotId}
-                            value={hotspot.hotspotId}
-                          >
-                            {hotspot.hotspotName ?? `#${hotspot.hotspotId}`}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-4 top-[54%] h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    </div>
                   </div>
                 </div>
               ) : null}
@@ -570,7 +493,7 @@ export default function CuratorStoriesPage() {
               </div>
             ) : stories.length > 0 ? (
               <div className="rounded-[1.5rem] border border-slate-200 bg-white overflow-visible">
-                <table className="min-w-190 w-full border-collapse">
+                <table className="w-full min-w-[980px] border-collapse">
                   <thead>
                     <tr className="bg-slate-50/90 text-left">
                       <th className="w-14 px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
@@ -580,27 +503,35 @@ export default function CuratorStoriesPage() {
                         Tiêu đề
                       </th>
                       <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                        Địa điểm
+                        Tên thẻ
                       </th>
                       <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                        Thẻ
+                        Thứ tự
+                      </th>
+                      <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        Khoảng cách
                       </th>
                       <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                         Trạng thái
                       </th>
-                      <th className="w-20 px-4 py-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 whitespace-nowrap">
+                      <th className="px-4 py-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 whitespace-nowrap">
                         Thao tác
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {paginatedStories.map((story, index) => {
+                      const isMenuOpen = openMenuStoryId === story.id;
+                      const isPublishing = publishingStoryId === story.id;
+                      const isDeleting = deletingStoryId === story.id;
+                      const isBusy = isPublishing || isDeleting;
+
                       return (
                         <tr
                           key={story.id}
                           className={cn(
                             "border-t border-slate-200 align-top",
-                            openMenuStoryId === story.id && "relative z-20",
+                            isMenuOpen && "relative z-20",
                           )}
                         >
                           <td className="px-4 py-4 text-sm font-semibold text-slate-500">
@@ -608,96 +539,130 @@ export default function CuratorStoriesPage() {
                               index +
                               1}
                           </td>
-                          <td className="px-4 py-4">
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold leading-6 text-slate-950">
-                                {story.title}
-                              </p>
-                            </div>
+                          <td className="px-4 py-4 text-sm text-slate-700">
+                            {story.title}
+                          </td>
+                          <td className="px-4 py-4 text-sm text-slate-700">
+                            {story.tagName}
                           </td>
                           <td className="px-4 py-4">
-                            <span className="inline-flex rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
-                              {story.hotspot}
+                            <span className="inline-flex px-3 py-1 text-xs font-medium text-slate-700">
+                              {story.orderIndexLabel}
                             </span>
                           </td>
                           <td className="px-4 py-4">
-                            <span className="inline-flex rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
-                              {story.tagName}
+                            <span className="inline-flex px-3 py-1 text-xs font-medium text-slate-700">
+                              {story.distanceToNextLabel}
                             </span>
                           </td>
                           <td className="px-4 py-4">
                             <StatusBadge status={story.status} />
                           </td>
-                          <td className="px-4 py-4">
+                          <td className="px-4 py-4 text-right">
                             <div
-                              className="relative flex justify-end overflow-visible"
+                              className="relative flex justify-end"
                               data-story-actions
                             >
                               <button
                                 type="button"
                                 aria-haspopup="menu"
-                                aria-expanded={openMenuStoryId === story.id}
+                                aria-expanded={isMenuOpen}
                                 onClick={() =>
                                   setOpenMenuStoryId(
-                                    openMenuStoryId === story.id
-                                      ? null
-                                      : story.id,
+                                    isMenuOpen ? null : story.id,
                                   )
                                 }
-                                className={cn(
-                                  "inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700",
-                                  openMenuStoryId === story.id &&
-                                    "bg-slate-100",
-                                )}
-                                aria-label={`Tác vụ cho ${story.title}`}
+                                className={`rounded-full p-1.5 text-slate-600 transition hover:bg-slate-100 ${isMenuOpen ? "bg-slate-100" : "bg-white/90"}`}
                               >
-                                <MoreHorizontal className="h-4 w-4" />
+                                <MoreHorizontal className="h-3.5 w-3.5" />
                               </button>
 
-                              {openMenuStoryId === story.id ? (
+                              {isMenuOpen ? (
                                 <div
                                   role="menu"
                                   className="absolute right-0 top-[calc(100%+0.6rem)] w-40 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
                                 >
-                                  <Link
-                                    href={`/curator/stories/${story.id}`}
-                                    role="menuitem"
-                                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-                                    onClick={() => setOpenMenuStoryId(null)}
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                    <span>Xem chi tiết</span>
-                                  </Link>
+                                  {storyActions.map((action) => {
+                                    const ActionIcon = action.icon;
 
-                                  <Link
-                                    href={`/curator/stories/${story.id}/edit`}
-                                    role="menuitem"
-                                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-                                    onClick={() => setOpenMenuStoryId(null)}
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                    <span>Chỉnh sửa</span>
-                                  </Link>
-
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={() => handlePublishStory(story)}
-                                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-emerald-600 transition hover:bg-emerald-50"
-                                  >
-                                    <Send className="h-4 w-4" />
-                                    <span>Duyệt bài</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={() => handleDeleteStory(story.id)}
-                                    className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-slate-100 px-3 pt-3 pb-2.5 text-left text-sm font-medium text-red-500 transition hover:bg-red-50"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                    <span>Xóa</span>
-                                  </button>
+                                    return action.key === "edit" ? (
+                                      <Link
+                                        key={action.label}
+                                        href={`/curator/stories/${story.id}/edit`}
+                                        role="menuitem"
+                                        onClick={(event) => {
+                                          if (isBusy) {
+                                            event.preventDefault();
+                                            return;
+                                          }
+                                          setOpenMenuStoryId(null);
+                                        }}
+                                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                                      >
+                                        <ActionIcon className="h-4 w-4" />
+                                        <span>{action.label}</span>
+                                      </Link>
+                                    ) : action.key === "detail" ? (
+                                      <Link
+                                        key={action.label}
+                                        href={`/curator/stories/${story.id}`}
+                                        role="menuitem"
+                                        onClick={(event) => {
+                                          if (isBusy) {
+                                            event.preventDefault();
+                                            return;
+                                          }
+                                          setOpenMenuStoryId(null);
+                                        }}
+                                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                                      >
+                                        <ActionIcon className="h-4 w-4" />
+                                        <span>{action.label}</span>
+                                      </Link>
+                                    ) : action.key === "submit" ? (
+                                      <button
+                                        key={action.label}
+                                        type="button"
+                                        role="menuitem"
+                                        onClick={() =>
+                                          handlePublishStory(story)
+                                        }
+                                        disabled={isBusy}
+                                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                      >
+                                        {isPublishing ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <ActionIcon className="h-4 w-4" />
+                                        )}
+                                        <span>
+                                          {isPublishing
+                                            ? "Đang duyệt..."
+                                            : action.label}
+                                        </span>
+                                      </button>
+                                    ) : (
+                                      <button
+                                        key={action.label}
+                                        type="button"
+                                        role="menuitem"
+                                        onClick={() => handleDeleteStory(story)}
+                                        disabled={isBusy}
+                                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                      >
+                                        {isDeleting ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <ActionIcon className="h-4 w-4" />
+                                        )}
+                                        <span>
+                                          {isDeleting
+                                            ? "Đang xóa..."
+                                            : action.label}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
                                 </div>
                               ) : null}
                             </div>
@@ -741,10 +706,10 @@ export default function CuratorStoriesPage() {
               aria-hidden="true"
             />
 
-            <div className="relative z-10 w-full max-w-[22rem] rounded-[1.75rem] border border-slate-200 bg-white px-5 py-7 text-center shadow-[0_24px_60px_rgba(15,23,42,0.18)] sm:px-6 sm:py-8">
+            <div className="relative z-10 w-full max-w-[22rem] rounded-[1.75rem] border border-slate-200 bg-white px-5 py-6 text-center shadow-[0_24px_60px_rgba(15,23,42,0.18)] sm:px-6 sm:py-7">
               <div className="space-y-3">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                  <Send className="h-10 w-10" />
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                  <Send className="h-8 w-8" />
                 </div>
                 <h2 className="text-[1.125rem] font-semibold leading-tight tracking-[-0.02em] text-slate-900 sm:text-[1.25rem]">
                   Bạn có chắc muốn duyệt bài?
@@ -765,7 +730,7 @@ export default function CuratorStoriesPage() {
                   size="lg"
                   onClick={() => setPendingPublishStory(null)}
                   disabled={publishingStoryId === pendingPublishStory.id}
-                  className="h-11 rounded-2xl border-slate-200 bg-slate-100 text-[0.8125rem] font-semibold text-slate-600 shadow-none hover:bg-slate-200 hover:text-slate-700 sm:text-sm"
+                  className="h-10 rounded-2xl border-slate-200 bg-slate-100 text-[0.8125rem] font-semibold text-slate-600 shadow-none hover:bg-slate-200 hover:text-slate-700 sm:text-sm"
                 >
                   Hủy
                 </Button>
@@ -775,7 +740,7 @@ export default function CuratorStoriesPage() {
                   size="lg"
                   onClick={() => void handleConfirmPublishStory()}
                   disabled={publishingStoryId === pendingPublishStory.id}
-                  className="h-11 rounded-2xl border-[#0066CC] bg-[#0066CC] text-[0.8125rem] font-semibold text-white shadow-none hover:border-[#0052A3] hover:bg-[#0052A3] sm:text-sm"
+                  className="h-10 rounded-2xl border-[#0066CC] bg-[#0066CC] text-[0.8125rem] font-semibold text-white shadow-none hover:border-[#0052A3] hover:bg-[#0052A3] sm:text-sm"
                 >
                   {publishingStoryId === pendingPublishStory.id
                     ? "Đang duyệt..."
@@ -794,20 +759,20 @@ export default function CuratorStoriesPage() {
               aria-hidden="true"
             />
 
-            <div className="relative z-10 w-full max-w-[22rem] rounded-[1.75rem] border border-slate-200 bg-white px-5 py-7 text-center shadow-[0_24px_60px_rgba(15,23,42,0.18)] sm:px-6 sm:py-8">
+            <div className="relative z-10 w-full max-w-[22rem] rounded-[1.75rem] border border-slate-200 bg-white px-5 py-6 text-center shadow-[0_24px_60px_rgba(15,23,42,0.18)] sm:px-6 sm:py-7">
               <div className="space-y-3">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-rose-100 text-rose-700">
-                  <Trash2 className="h-10 w-10" />
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+                  <Trash2 className="h-8 w-8" />
                 </div>
                 <h2 className="text-[1.125rem] font-semibold leading-tight tracking-[-0.02em] text-slate-900 sm:text-[1.25rem]">
-                  Bạn có chắc muốn xóa?
+                  Bạn có chắc muốn xóa câu chuyện?
                 </h2>
                 <p className="mx-auto max-w-[16.5rem] text-[0.8125rem] leading-5 text-slate-500 sm:text-[0.875rem]">
-                  Hành động này không thể hoàn tác. Story{" "}
+                  Câu chuyện{" "}
                   <span className="font-semibold text-slate-900">
                     {pendingDeleteStory.title}
                   </span>{" "}
-                  sẽ bị xóa khỏi danh sách hiện tại.
+                  sẽ bị xóa khỏi danh sách.
                 </p>
               </div>
 
@@ -818,7 +783,7 @@ export default function CuratorStoriesPage() {
                   size="lg"
                   onClick={() => setPendingDeleteStory(null)}
                   disabled={deletingStoryId === pendingDeleteStory.id}
-                  className="h-11 rounded-2xl border-slate-200 bg-slate-100 text-[0.8125rem] font-semibold text-slate-600 shadow-none hover:bg-slate-200 hover:text-slate-700 sm:text-sm"
+                  className="h-10 rounded-2xl border-slate-200 bg-slate-100 text-[0.8125rem] font-semibold text-slate-600 shadow-none hover:bg-slate-200 hover:text-slate-700 sm:text-sm"
                 >
                   Hủy
                 </Button>
@@ -828,7 +793,7 @@ export default function CuratorStoriesPage() {
                   size="lg"
                   onClick={() => void handleConfirmDeleteStory()}
                   disabled={deletingStoryId === pendingDeleteStory.id}
-                  className="h-11 rounded-2xl border-rose-600 bg-rose-600 text-[0.8125rem] font-semibold text-white shadow-none hover:border-rose-700 hover:bg-rose-700 sm:text-sm"
+                  className="h-10 rounded-2xl border-rose-600 bg-rose-600 text-[0.8125rem] font-semibold text-white shadow-none hover:border-rose-700 hover:bg-rose-700 sm:text-sm"
                 >
                   {deletingStoryId === pendingDeleteStory.id
                     ? "Đang xóa..."

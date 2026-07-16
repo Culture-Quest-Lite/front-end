@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import {
@@ -22,14 +22,20 @@ import {
   type HotspotProfile,
 } from "@/data/hotspots";
 import { buildTagToken } from "@/lib/tags";
-import type { BackendHotspot, BackendUser } from "@/services/api";
+import type {
+  BackendHotspot,
+  BackendStory,
+  BackendStoryMedia,
+  BackendUser,
+} from "@/services/api";
+import { HotspotDetailNetworkSync } from "./HotspotDetailNetworkSync";
 import { HotspotMediaPanel } from "./HotspotMediaPanel";
 
 const BACKEND_API_BASE_URL =
   process.env.HOTSPOT_API_BASE_URL ??
   process.env.API_BASE_URL ??
   process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://13.158.40.56:8080";
+  "http://3.113.215.65:8080";
 
 const ACCESS_TOKEN_COOKIE_KEY = "culture-quest-access-token";
 
@@ -76,25 +82,28 @@ const HOTSPOT_STATUS_META: Record<string, { label: string; style: string }> = {
   },
 };
 
-function SectionCard({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <div className="flex flex-col gap-1">
-        <h2 className="cq-section-title">{title}</h2>
-        <p className="cq-page-subtitle">{description}</p>
-      </div>
-      <div className="mt-5">{children}</div>
-    </section>
-  );
-}
+const STORY_STATUS_META: Record<string, { label: string; style: string }> = {
+  DRAFT: {
+    label: "Bản nháp",
+    style: "border border-slate-200 bg-slate-100 text-slate-700",
+  },
+  PUBLISHED: {
+    label: "Đã xuất bản",
+    style: "border border-emerald-200 bg-emerald-50 text-emerald-700",
+  },
+  REJECTED: {
+    label: "Bị từ chối",
+    style: "border border-rose-200 bg-rose-50 text-rose-700",
+  },
+  REVIEW: {
+    label: "Chờ duyệt",
+    style: "border border-amber-200 bg-amber-50 text-amber-700",
+  },
+  SUBMITTED: {
+    label: "Chờ duyệt",
+    style: "border border-amber-200 bg-amber-50 text-amber-700",
+  },
+};
 
 function MetricTile({ value, label }: { value: string; label: string }) {
   return (
@@ -103,6 +112,17 @@ function MetricTile({ value, label }: { value: string; label: string }) {
       <p className="cq-label mt-1">{label}</p>
     </div>
   );
+}
+
+type EditorialCard = {
+  key: string;
+  label: string;
+  value: string;
+  icon?: ReactNode;
+};
+
+function isEditorialCard(item: EditorialCard | null): item is EditorialCard {
+  return item !== null;
 }
 
 export default async function HotspotDetailPage({
@@ -156,6 +176,7 @@ export async function renderHotspotDetailPage({
   const effectiveHotspotId = hotspotId ?? backendHotspot?.hotspotId ?? null;
   const isBackendDetail = Boolean(backendHotspot);
   const historyInformation = backendHotspot?.historyInformation?.trim() || "";
+  const hotspotStories = resolveHotspotStories(backendHotspot?.stories);
   const summaryMetrics = isBackendDetail
     ? buildBackendMetrics(backendHotspot)
     : [
@@ -163,16 +184,53 @@ export async function renderHotspotDetailPage({
         { value: profile.stats.saves, label: "Đã lưu" },
         { value: profile.stats.routes, label: "Tuyến chứa điểm" },
       ].filter((item) => item.value);
-  const showEditorialInfo = Boolean(
-    hotspot.author ||
-    hotspot.date ||
-    profile.lastUpdated ||
-    hotspot.status ||
-    hotspot.gps,
-  );
+  const editorialCards: Array<EditorialCard | null> = [
+    hotspot.author
+      ? {
+          key: "author",
+          label: "Người phụ trách",
+          value: hotspot.author,
+        }
+      : null,
+
+    hotspot.date
+      ? {
+          key: "created-at",
+          label: "Tạo ngày",
+          value: hotspot.date,
+          icon: <CalendarDays className="h-4 w-4 text-sky-600" />,
+        }
+      : null,
+    profile.lastUpdated
+      ? {
+          key: "updated-at",
+          label: "Cập nhật gần nhất",
+          value: profile.lastUpdated,
+          icon: <Clock3 className="h-4 w-4 text-amber-600" />,
+        }
+      : null,
+    hotspot.badge
+      ? {
+          key: "status",
+          label: "Trạng thái",
+          value: hotspot.badge,
+          icon: <ShieldCheck className="h-4 w-4 text-emerald-600" />,
+        }
+      : null,
+  ];
+
+  const filteredEditorialCards: EditorialCard[] =
+    editorialCards.filter(isEditorialCard);
+  const showEditorialInfo = filteredEditorialCards.length > 0;
+  const editorialColumnCount = Math.min(filteredEditorialCards.length, 4);
+  const showStorySection = hotspotStories.length > 0;
 
   return (
     <div className="space-y-8">
+      {effectiveHotspotId ? (
+        <HotspotDetailNetworkSync hotspotId={effectiveHotspotId} />
+      ) : null}
+
       <div className="flex items-center gap-2 text-slate-700">
         <Link
           href="/curator/hotspot"
@@ -328,71 +386,200 @@ export async function renderHotspotDetailPage({
             </div>
           ) : null}
         </div>
-      </section>
 
-      <section className="grid gap-6 xl:grid-cols-2">
-        <SectionCard
-          title="Hình ảnh & video"
-          description="Chuyển giữa ảnh và video của hotspot ngay trong trang chi tiết."
-        >
-          <HotspotMediaPanel
-            key={`${effectiveHotspotId ?? hotspot.slug}-${hotspot.videoUrl ?? "no-video"}-${hotspot.image}`}
-            title={hotspot.title}
-            imageUrl={hotspot.image}
-            imageUrls={
-              backendHotspot
-                ? resolveHotspotImageUrls(backendHotspot.medias)
-                : [hotspot.image]
-            }
-            videoUrl={hotspot.videoUrl}
-          />
-        </SectionCard>
+        <div className="mt-8 space-y-8 border-t border-slate-200 pt-8">
+          <div className="space-y-5">
+            <div className="flex flex-col gap-1">
+              <h2 className="cq-section-title">Hình ảnh & video</h2>
+              <p className="cq-page-subtitle">
+                Chuyển giữa ảnh và video của địa điểm ngay trong trang chi tiết.
+              </p>
+            </div>
 
-        {showEditorialInfo ? (
-          <SectionCard
-            title="Thông tin biên tập"
-            description="Tổng hợp trạng thái quản trị và lịch sử cập nhật chính."
-          >
-            <div className="space-y-3">
-              {hotspot.author ? (
-                <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3">
-                  <p className="cq-label">Người phụ trách</p>
-                  <p className="cq-card-title mt-1 font-normal">
-                    {hotspot.author}
+            <HotspotMediaPanel
+              key={`${effectiveHotspotId ?? hotspot.slug}-${hotspot.videoUrl ?? "no-video"}-${hotspot.image}`}
+              title={hotspot.title}
+              imageUrl={hotspot.image}
+              imageUrls={
+                backendHotspot
+                  ? resolveHotspotImageUrls(backendHotspot.medias)
+                  : [hotspot.image]
+              }
+              videoUrl={hotspot.videoUrl}
+            />
+          </div>
+
+          {showEditorialInfo ? (
+            <div className="space-y-5 border-t border-slate-200 pt-8">
+              <div className="flex flex-col gap-1">
+                <h2 className="cq-section-title">Thông tin biên tập</h2>
+                <p className="cq-page-subtitle">
+                  Tổng hợp trạng thái quản trị và lịch sử cập nhật chính.
+                </p>
+              </div>
+
+              <div
+                className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:[grid-template-columns:repeat(var(--editorial-columns),minmax(0,1fr))]"
+                style={
+                  {
+                    "--editorial-columns": String(editorialColumnCount || 1),
+                  } as CSSProperties
+                }
+              >
+                {filteredEditorialCards.map((item) => (
+                  <div
+                    key={item.key}
+                    className="h-full rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3"
+                  >
+                    {item.icon ? (
+                      <div className="flex items-center gap-2">
+                        {item.icon}
+                        <p className="cq-label">{item.label}</p>
+                      </div>
+                    ) : (
+                      <p className="cq-label">{item.label}</p>
+                    )}
+                    <p className="cq-card-title mt-2 font-normal">
+                      {item.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {showStorySection ? (
+            <div className="space-y-5 border-t border-slate-200 pt-8">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="cq-section-title">Câu chuyện liên kết</h2>
+                  <p className="cq-page-subtitle">
+                    Khám phá thêm những câu chuyện nổi bật gắn với địa điểm này.
                   </p>
                 </div>
-              ) : null}
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+                  {hotspotStories.length} câu chuyện
+                </span>
+              </div>
 
-              {hotspot.date || profile.lastUpdated ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {hotspot.date ? (
-                    <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <CalendarDays className="h-4 w-4 text-sky-600" />
-                        <p className="cq-label">Tạo ngày</p>
-                      </div>
-                      <p className="cq-card-title mt-2 font-normal">
-                        {hotspot.date}
-                      </p>
-                    </div>
-                  ) : null}
+              <div className="grid gap-4">
+                {hotspotStories.map((story) => {
+                  const storyStatusMeta = getStoryStatusMeta(story.status);
+                  const storyPreviewImage = getStoryPreviewImageUrl(story);
+                  const updatedAtLabel = formatDateTimeLabel(
+                    story.updatedAt ?? story.createdAt,
+                  );
+                  const storyMediaSummary = buildStoryMediaSummary(story);
+                  const storyOrderLabel = formatStoryOrderIndex(
+                    story.orderIndex,
+                  );
+                  const storyDistanceLabel = formatStoryDistance(
+                    story.distanceToNext,
+                  );
 
-                  {profile.lastUpdated ? (
-                    <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Clock3 className="h-4 w-4 text-amber-600" />
-                        <p className="cq-label">Cập nhật gần nhất</p>
+                  return (
+                    <article
+                      key={story.storyId}
+                      className="overflow-hidden border border-slate-200 bg-white shadow-sm"
+                    >
+                      <div className="grid gap-0 lg:grid-cols-[220px_minmax(0,1fr)]">
+                        <div className="relative min-h-[170px] overflow-hidden bg-slate-100 lg:min-h-[190px]">
+                          {storyPreviewImage ? (
+                            <div
+                              aria-hidden="true"
+                              className="h-full w-full bg-cover bg-center"
+                              style={{
+                                backgroundImage: `url("${storyPreviewImage}")`,
+                              }}
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top_left,_rgba(217,119,6,0.16),_transparent_45%),linear-gradient(135deg,#fff7ed,_#f8fafc_55%,#e2e8f0)] p-6 text-center">
+                              <div>
+                                <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-white/80 shadow-sm">
+                                  <BookOpen className="h-5 w-5 text-amber-700" />
+                                </div>
+                                <p className="mt-3 text-xs font-semibold text-slate-800">
+                                  Câu chuyện nổi bật
+                                </p>
+                                <p className="mt-1 text-[11px] leading-5 text-slate-500">
+                                  Nội dung biên tập dành riêng cho địa điểm này
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/35 to-transparent" />
+                        </div>
+
+                        <div className="flex flex-col justify-between p-4 sm:p-5">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600">
+                                Câu chuyện {storyOrderLabel}
+                              </span>
+                              {story.tag?.tagName?.trim() ? (
+                                <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
+                                  {story.tag.tagName.trim()}
+                                </span>
+                              ) : null}
+                              {story.status?.trim() ? (
+                                <span
+                                  className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${storyStatusMeta.style}`}
+                                >
+                                  {storyStatusMeta.label}
+                                </span>
+                              ) : null}
+                            </div>
+
+                            <Link
+                              href={`/curator/stories/${story.storyId}`}
+                              className="mt-3 block text-[1rem] font-semibold leading-snug tracking-[-0.02em] text-slate-950 transition hover:text-[#C94534] sm:text-[1.05rem]"
+                            >
+                              {story.title}
+                            </Link>
+
+                            {story.content?.trim() ? (
+                              <p className="mt-2.5 text-[13px] leading-6 text-slate-600 sm:text-sm">
+                                {truncateText(story.content.trim(), 220)}
+                              </p>
+                            ) : null}
+                          </div>
+
+                          <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-3">
+                            <div className="flex flex-wrap gap-1.5 text-[11px] font-medium text-slate-600">
+                              <span className="rounded-full bg-slate-100 px-2.5 py-1">
+                                {storyMediaSummary}
+                              </span>
+                              {storyDistanceLabel ? (
+                                <span className="rounded-full bg-slate-100 px-2.5 py-1">
+                                  Khoảng cách tiếp: {storyDistanceLabel}
+                                </span>
+                              ) : null}
+                              {updatedAtLabel ? (
+                                <span className="rounded-full bg-slate-100 px-2.5 py-1">
+                                  Cập nhật: {updatedAtLabel}
+                                </span>
+                              ) : null}
+                            </div>
+
+                            <div className="flex justify-end">
+                              <Link
+                                href={`/curator/stories/${story.storyId}`}
+                                className="inline-flex items-center gap-1.5 rounded-full bg-slate-950 px-3.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-slate-800 sm:text-xs"
+                              >
+                                Đọc câu chuyện
+                                <ExternalLink className="h-3 w-3" />
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <p className="cq-card-title mt-2 font-normal">
-                        {profile.lastUpdated}
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
+                    </article>
+                  );
+                })}
+              </div>
             </div>
-          </SectionCard>
-        ) : null}
+          ) : null}
+        </div>
       </section>
     </div>
   );
@@ -574,7 +761,7 @@ function resolveHotspotMedia(medias?: BackendHotspot["medias"]) {
 
 function resolveHotspotImageUrls(medias?: BackendHotspot["medias"]) {
   return (
-    medias
+    resolveOrderedHotspotMedias(medias)
       ?.filter((m) => Boolean(m.fileUrl?.trim()))
       .filter((m) => {
         const mediaType = m.mediaType?.trim().toUpperCase();
@@ -584,6 +771,139 @@ function resolveHotspotImageUrls(medias?: BackendHotspot["medias"]) {
       })
       .map((m) => m.fileUrl!.trim()) ?? []
   );
+}
+
+function resolveOrderedHotspotMedias(medias?: BackendHotspot["medias"]) {
+  return [...(medias ?? [])].sort((mediaA, mediaB) => {
+    const displayOrderDiff =
+      (mediaA.displayOrder ?? Number.MAX_SAFE_INTEGER) -
+      (mediaB.displayOrder ?? Number.MAX_SAFE_INTEGER);
+
+    if (displayOrderDiff !== 0) {
+      return displayOrderDiff;
+    }
+
+    return mediaA.mediaId - mediaB.mediaId;
+  });
+}
+
+function resolveHotspotStories(stories?: BackendHotspot["stories"]) {
+  return [...(stories ?? [])].sort((storyA, storyB) => {
+    const orderDiff =
+      (storyA.orderIndex ?? Number.MAX_SAFE_INTEGER) -
+      (storyB.orderIndex ?? Number.MAX_SAFE_INTEGER);
+
+    if (orderDiff !== 0) {
+      return orderDiff;
+    }
+
+    return storyA.storyId - storyB.storyId;
+  });
+}
+
+function isImageStoryMedia(media?: BackendStoryMedia) {
+  if (!media?.fileUrl) {
+    return false;
+  }
+
+  const mediaType = media.mediaType?.trim().toUpperCase();
+  const mimeType = media.mimeType?.trim().toLowerCase();
+
+  return (
+    mediaType === "IMAGE" ||
+    mimeType?.startsWith("image/") ||
+    /\.(png|jpe?g|gif|webp|avif)$/i.test(media.fileUrl)
+  );
+}
+
+function isVideoStoryMedia(media?: BackendStoryMedia) {
+  if (!media?.fileUrl) {
+    return false;
+  }
+
+  const mediaType = media.mediaType?.trim().toUpperCase();
+  const mimeType = media.mimeType?.trim().toLowerCase();
+
+  return (
+    mediaType === "VIDEO" ||
+    mimeType?.startsWith("video/") ||
+    /\.(mp4|webm|ogg|mov)$/i.test(media.fileUrl)
+  );
+}
+
+function isAudioStoryMedia(media?: BackendStoryMedia) {
+  if (!media?.fileUrl) {
+    return false;
+  }
+
+  const mediaType = media.mediaType?.trim().toUpperCase();
+  const mimeType = media.mimeType?.trim().toLowerCase();
+
+  return (
+    mediaType === "AUDIO" ||
+    mimeType?.startsWith("audio/") ||
+    /\.(mp3|wav|ogg|m4a)$/i.test(media.fileUrl)
+  );
+}
+
+function getStoryPreviewImageUrl(story: BackendStory) {
+  return (
+    story.medias?.find((media) => isImageStoryMedia(media))?.fileUrl?.trim() ||
+    ""
+  );
+}
+
+function getStoryStatusMeta(status?: string | null) {
+  const normalizedStatus = status?.trim().toUpperCase();
+
+  if (normalizedStatus && STORY_STATUS_META[normalizedStatus]) {
+    return STORY_STATUS_META[normalizedStatus];
+  }
+
+  return {
+    label: status?.trim() ? formatEnumLabel(status.trim()) : "Chưa rõ",
+    style: "border border-slate-200 bg-slate-100 text-slate-700",
+  };
+}
+
+function truncateText(value: string, maxLength: number) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength).trimEnd()}...`;
+}
+
+function formatStoryOrderIndex(value?: number | null) {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "Chưa sắp";
+  }
+
+  return String(value);
+}
+
+function formatStoryDistance(value?: number | null) {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "";
+  }
+
+  return new Intl.NumberFormat("vi-VN", {
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function buildStoryMediaSummary(story: BackendStory) {
+  const medias = story.medias ?? [];
+  const imageCount = medias.filter(isImageStoryMedia).length;
+  const videoCount = medias.filter(isVideoStoryMedia).length;
+  const audioCount = medias.filter(isAudioStoryMedia).length;
+  const parts = [
+    imageCount > 0 ? `${imageCount} ảnh` : "",
+    videoCount > 0 ? `${videoCount} video` : "",
+    audioCount > 0 ? `${audioCount} audio` : "",
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(" · ") : "Chưa có media";
 }
 
 function buildDetailHotspot(
