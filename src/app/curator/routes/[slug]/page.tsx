@@ -29,9 +29,10 @@ const difficultyLabels: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
   DRAFT: "Bản nháp",
+  RECORDING: "Đang ghi",
+  TRIAL: "Đang thử nghiệm",
   PENDING: "Chờ duyệt",
-  APPROVED: "Đã duyệt",
-  REJECTED: "Từ chối",
+  PUBLISHED: "Đã xuất bản",
   DELETED: "Đã xoá",
 };
 
@@ -170,6 +171,25 @@ export default function CuratorRouteDetailPage() {
     }
   }
 
+  async function handlePublishRoute() {
+    if (!routeId || !route) return;
+    const ok = window.confirm(
+      "Hệ thống sẽ kiểm tra thông tin tuyến và chuyển trạng thái sang PUBLISHED. Tiếp tục?",
+    );
+    if (!ok) return;
+
+    setIsActionLoading(true);
+    try {
+      const response = await routeApi.publishRoute(routeId);
+      setRoute(response);
+      toast.success("Tuyến đã được kiểm tra và cập nhật trạng thái PUBLISHED.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không thể publish tuyến.");
+    } finally {
+      setIsActionLoading(false);
+    }
+  }
+
   async function handleDeleteRoute() {
     if (!routeId) return;
     const ok = window.confirm("Bạn có chắc muốn xoá tuyến này không?");
@@ -237,6 +257,18 @@ export default function CuratorRouteDetailPage() {
               ))}
             </div>
             <div className="flex flex-wrap gap-2 xl:justify-end">
+              {route.status !== "PUBLISHED" ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="rounded-full text-white"
+                  onClick={() => void handlePublishRoute()}
+                  disabled={isActionLoading}
+                >
+                  <ShieldCheck className="mr-2 h-4 w-4" />
+                  Kiểm tra & publish
+                </Button>
+              ) : null}
               <Button asChild variant="outline" className="rounded-full">
                 <Link href={`/curator/routes/create?id=${route.routeId}`}>
                   <PencilLine className="mr-2 h-4 w-4" />
@@ -290,7 +322,7 @@ export default function CuratorRouteDetailPage() {
                     <h3 className="text-sm font-semibold text-slate-900">{stop.hotspotName}</h3>
                     <p className="mt-1 text-xs text-slate-500">{stop.address}</p>
                     <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
-                      <span className="inline-flex items-center gap-1"><Route className="h-3.5 w-3.5" /> Index API: {stop.index}</span>
+                      <span className="inline-flex items-center gap-1"><Route className="h-3.5 w-3.5" /> Thứ tự: {index + 1}</span>
                       <span className="inline-flex items-center gap-1"><Sparkles className="h-3.5 w-3.5" /> XP: {stop.xp ?? 0}</span>
                       {typeof stop.distanceToNext === "number" ? <span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" /> Tới điểm sau: {stop.distanceToNext.toFixed(2)} km</span> : null}
                     </div>
