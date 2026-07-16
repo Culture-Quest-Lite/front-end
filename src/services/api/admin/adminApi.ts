@@ -4,6 +4,14 @@ export type UserRole = "EXPLORER" | "CURATOR" | "ADMIN" | "PARTNER";
 export type UserStatus = "ACTIVE" | "INACTIVE" | "PENDING" | "DELETED";
 export type PostStatus = "APPROVED" | "PENDING" | "REJECTED" | "DELETED";
 export type SubscriptionPlanStatus = "ACTIVE" | "INACTIVE" | "DELETED";
+export type PartnerSubscriptionStatus =
+  | "PAYMENT_PENDING"
+  | "PAYMENT_FAILED"
+  | "PENDING"
+  | "ACTIVE"
+  | "REJECTED"
+  | "REFUND"
+  | "EXPIRED";
 
 export interface PageResponse<T> {
   content: T[];
@@ -84,7 +92,7 @@ export interface PartnerSubscription {
   longitude?: number;
   latitude?: number;
   billingCycle?: string;
-  status?: string;
+  status?: PartnerSubscriptionStatus;
   startDate?: string;
   endDate?: string;
   isVerified?: boolean;
@@ -117,6 +125,16 @@ export interface GetSubscriptionPlansParams {
   sortDir?: "asc" | "desc";
   search?: string;
   status?: SubscriptionPlanStatus;
+}
+
+
+export interface GetPartnerSubscriptionsParams {
+  page?: number;
+  size?: number;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+  search?: string;
+  status?: PartnerSubscriptionStatus;
 }
 
 export interface SubscriptionPlanPayload {
@@ -230,6 +248,30 @@ export const adminApi = {
     });
   },
 
+  /**
+   * API dự kiến cho backend trong tương lai.
+   * `id` trong mỗi phần tử trả về sẽ được dùng cho API verify bên dưới.
+   */
+  getPartnerSubscriptions: async (params: GetPartnerSubscriptionsParams = {}) => {
+    const query = buildQuery({
+      page: params.page,
+      size: params.size,
+      sortBy: params.sortBy,
+      sortDir: params.sortDir,
+      search: params.search,
+      status: params.status,
+    });
+
+    return apiFetch<PageResponse<PartnerSubscription>>(
+      adminPath(`/subscriptions${query}`),
+      { method: "GET", sameOrigin: true },
+    );
+  },
+
+  /**
+   * API duyệt/từ chối đăng ký Partner đã được setup trước ở frontend.
+   * Backend dự kiến: PATCH /api/admin/subscription/{id}/verify?isApproved=true|false
+   */
   verifyPartnerSubscription: async (subscriptionId: number, isApproved: boolean) => {
     return apiFetch<PartnerSubscription>(
       adminPath(`/subscription/${subscriptionId}/verify?isApproved=${isApproved}`),

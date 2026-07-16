@@ -43,6 +43,7 @@ export type {
   UserStatus,
   PostStatus,
   SubscriptionPlanStatus,
+  PartnerSubscriptionStatus,
 } from "./admin/adminApi";
 export { routeApi } from "./routeApi";
 export type {
