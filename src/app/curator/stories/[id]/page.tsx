@@ -16,6 +16,7 @@ import {
 import { getTagColor, getTagColorState } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import {
+  hotspotApi,
   storyApi,
   type BackendStory,
   type BackendStoryMedia,
@@ -115,6 +116,18 @@ function getDistanceToNextLabel(distanceToNext?: number | null) {
   }).format(distanceToNext);
 }
 
+function getValidHotspotId(hotspotId?: number | null) {
+  if (
+    typeof hotspotId !== "number" ||
+    !Number.isInteger(hotspotId) ||
+    hotspotId <= 0
+  ) {
+    return null;
+  }
+
+  return hotspotId;
+}
+
 export default function StoryDetailPage() {
   const params = useParams();
   const storyId = useMemo(() => {
@@ -127,6 +140,10 @@ export default function StoryDetailPage() {
   const [error, setError] = useState<string | null>(
     hasInvalidId ? "ID story không hợp lệ." : null,
   );
+  const [resolvedHotspot, setResolvedHotspot] = useState<{
+    hotspotId: number;
+    hotspotName: string;
+  } | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const isLoading = useMemo(
@@ -153,6 +170,43 @@ export default function StoryDetailPage() {
         );
       });
   }, [hasInvalidId, storyId]);
+
+  useEffect(() => {
+    const hotspotId = getValidHotspotId(story?.hotspotId);
+
+    if (hotspotId === null) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    void hotspotApi
+      .getHotspotById(hotspotId)
+      .then((response) => {
+        if (isCancelled) {
+          return;
+        }
+
+        setResolvedHotspot({
+          hotspotId,
+          hotspotName: response.hotspotName?.trim() || `Hotspot #${hotspotId}`,
+        });
+      })
+      .catch(() => {
+        if (isCancelled) {
+          return;
+        }
+
+        setResolvedHotspot({
+          hotspotId,
+          hotspotName: `Hotspot #${hotspotId}`,
+        });
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [story?.hotspotId]);
 
   const medias = useMemo(
     () =>
@@ -183,6 +237,19 @@ export default function StoryDetailPage() {
   const safeActiveImageIndex =
     activeImageIndex < imageUrls.length ? activeImageIndex : 0;
   const currentImageUrl = imageUrls[safeActiveImageIndex] ?? imageUrls[0] ?? "";
+  const currentHotspotId = getValidHotspotId(story?.hotspotId);
+  const normalizedAudioScript = story?.audioScript?.trim() ?? "";
+  const isHotspotLoading =
+    currentHotspotId !== null &&
+    resolvedHotspot?.hotspotId !== currentHotspotId;
+  const hotspotLabel =
+    currentHotspotId === null
+      ? "Chưa liên kết hotspot"
+      : resolvedHotspot?.hotspotId === currentHotspotId
+        ? resolvedHotspot.hotspotName
+        : isHotspotLoading
+          ? "Đang tải hotspot..."
+          : `Hotspot #${currentHotspotId}`;
 
   const nextImage = () =>
     setActiveImageIndex((index) =>
@@ -257,6 +324,12 @@ export default function StoryDetailPage() {
               <h2 className="mt-3 text-xl font-semibold tracking-[-0.03em] text-slate-900 sm:text-2xl">
                 {story.title}
               </h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Địa điểm:{" "}
+                <span className="font-medium text-slate-900">
+                  {hotspotLabel}
+                </span>
+              </p>
             </div>
 
             <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:justify-end">
@@ -276,13 +349,13 @@ export default function StoryDetailPage() {
           <div className="mt-6 border-t border-dashed border-slate-200 pt-6">
             <div className="grid max-w-5xl gap-x-5 gap-y-4 px-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-5">
               <div className="space-y-1">
-                <p className="cq-label">Order index</p>
+                <p className="cq-label">Thứ tự vị trí</p>
                 <p className="text-sm font-normal text-slate-900">
                   {getOrderIndexLabel(story.orderIndex)}
                 </p>
               </div>
               <div className="space-y-1">
-                <p className="cq-label">Distance to next</p>
+                <p className="cq-label">Khoảng cách</p>
                 <p className="text-sm font-normal text-slate-900">
                   {getDistanceToNextLabel(story.distanceToNext)}
                 </p>
@@ -467,11 +540,33 @@ export default function StoryDetailPage() {
                       </audio>
                     </div>
                   ))}
+                  {normalizedAudioScript ? (
+                    <div className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                        Audio script
+                      </p>
+                      <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                        {normalizedAudioScript}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ) : (
-                <p className="mt-3 text-sm text-slate-500">
-                  Không có audio đính kèm.
-                </p>
+                <div className="mt-3 space-y-3">
+                  <p className="text-sm text-slate-500">
+                    Không có audio đính kèm.
+                  </p>
+                  {normalizedAudioScript ? (
+                    <div className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                        Audio script
+                      </p>
+                      <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                        {normalizedAudioScript}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               )}
             </div>
           </div>

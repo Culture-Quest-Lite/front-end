@@ -8,21 +8,17 @@ import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { buildTagToken } from "@/lib/tags";
-import { cn } from "@/lib/utils";
 import { GoongMapPreview } from "./GoongMapPreview";
 import {
   goongApi,
   hotspotApi,
-  storyApi,
   type BackendHotspot,
   type BackendHotspotMedia,
-  type BackendStorySummary,
   type CreateHotspotPayload,
   type GoongPlaceSuggestion,
 } from "@/services/api";
 import {
   ArrowLeft,
-  ChevronDown,
   CheckCircle2,
   ImagePlus,
   LoaderCircle,
@@ -95,19 +91,8 @@ function HotspotCreatePageContent() {
   const editingHotspotId = parseHotspotId(searchParams.get("id"));
   const isEditMode = editingHotspotId !== null;
   const [formState, setFormState] = useState(defaultHotspotForm);
-  const [availableStories, setAvailableStories] = useState<
-    BackendStorySummary[]
-  >([]);
-  const [linkedStoriesFromHotspot, setLinkedStoriesFromHotspot] = useState<
-    BackendStorySummary[] | null
-  >(isEditMode ? null : []);
-  const [selectedStoryIds, setSelectedStoryIds] = useState<number[]>([]);
-  const [isStoryDropdownOpen, setIsStoryDropdownOpen] = useState(false);
-  const [storyKeyword, setStoryKeyword] = useState("");
   const [isLoadingHotspot, setIsLoadingHotspot] = useState(false);
-  const [isLoadingStories, setIsLoadingStories] = useState(false);
   const [loadHotspotError, setLoadHotspotError] = useState<string | null>(null);
-  const [storyLoadError, setStoryLoadError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
@@ -134,7 +119,6 @@ function HotspotCreatePageContent() {
   );
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
   const [shouldSearchAddress, setShouldSearchAddress] = useState(false);
-  const storyDropdownRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!isEditMode || editingHotspotId === null) {
@@ -155,11 +139,7 @@ function HotspotCreatePageContent() {
           return;
         }
 
-        const linkedStories = getLinkedStoriesFromHotspot(response);
-
         setFormState(syncFormStateWithResponse(defaultHotspotForm, response));
-        setLinkedStoriesFromHotspot(linkedStories);
-        setSelectedStoryIds(getUniqueStoryIds(linkedStories));
         setExistingHotspotMedias(resolveOrderedHotspotMedias(response.medias));
         setRemovedExistingMediaIds([]);
         setCreatedHotspot(null);
@@ -186,88 +166,6 @@ function HotspotCreatePageContent() {
       isCancelled = true;
     };
   }, [editingHotspotId, isEditMode]);
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    async function loadStories() {
-      if (isEditMode && linkedStoriesFromHotspot === null) {
-        return;
-      }
-
-      setIsLoadingStories(true);
-      setStoryLoadError(null);
-
-      try {
-        const publishedStories = await fetchAllStories({ status: "PUBLISHED" });
-
-        if (isCancelled) {
-          return;
-        }
-
-        const linkedStories = isEditMode
-          ? (linkedStoriesFromHotspot ?? [])
-          : [];
-        setAvailableStories(mergeStoryLists(publishedStories, linkedStories));
-
-        if (!isEditMode) {
-          setSelectedStoryIds([]);
-        }
-      } catch (error) {
-        if (isCancelled) {
-          return;
-        }
-
-        console.error("Failed to load stories for hotspot create form", error);
-        setAvailableStories([]);
-        setSelectedStoryIds([]);
-        setStoryLoadError(
-          error instanceof Error
-            ? error.message
-            : "Không tải được danh sách câu chuyện.",
-        );
-      } finally {
-        if (!isCancelled) {
-          setIsLoadingStories(false);
-        }
-      }
-    }
-
-    void loadStories();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [isEditMode, linkedStoriesFromHotspot]);
-
-  useEffect(() => {
-    if (!isStoryDropdownOpen) {
-      return;
-    }
-
-    function handlePointerDown(event: MouseEvent) {
-      if (
-        storyDropdownRef.current &&
-        !storyDropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsStoryDropdownOpen(false);
-      }
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setIsStoryDropdownOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isStoryDropdownOpen]);
 
   useEffect(() => {
     if (!shouldSearchAddress) {
@@ -318,33 +216,6 @@ function HotspotCreatePageContent() {
     };
   }, [formState.address, shouldSearchAddress]);
 
-  const selectedStories = selectedStoryIds
-    .map((storyId) =>
-      availableStories.find((story) => story.storyId === storyId),
-    )
-    .filter((story): story is BackendStorySummary => Boolean(story));
-  const storyDropdownLabel = isLoadingStories
-    ? "Đang tải danh sách story..."
-    : selectedStories.length === 0
-      ? availableStories.length > 0
-        ? "Chọn câu chuyện đã xuất bản"
-        : "Chưa có câu chuyện đã xuất bản"
-      : selectedStories.length <= 2
-        ? selectedStories.map(formatStoryOptionLabel).join(", ")
-        : `${selectedStories.length} câu chuyện đã chọn`;
-  const filteredStories = availableStories.filter((story) => {
-    const normalizedKeyword = normalizeText(storyKeyword);
-    const matchesKeyword =
-      !normalizedKeyword ||
-      normalizeText(story.title).includes(normalizedKeyword) ||
-      String(story.storyId).includes(storyKeyword.trim());
-    const isPublished = story.status.trim().toUpperCase() === "PUBLISHED";
-
-    return (
-      matchesKeyword &&
-      (isPublished || selectedStoryIds.includes(story.storyId))
-    );
-  });
   const selectedFiles = [...selectedMedia.image, ...selectedMedia.video];
   const visibleExistingHotspotMedias = isEditMode
     ? existingHotspotMedias.filter(
@@ -441,14 +312,6 @@ function HotspotCreatePageContent() {
     }
   }
 
-  function handleToggleStory(storyId: number) {
-    setSelectedStoryIds((current) =>
-      current.includes(storyId)
-        ? current.filter((item) => item !== storyId)
-        : [...current, storyId],
-    );
-  }
-
   function openMediaPicker(type: HotspotMediaType) {
     if (type === "image") {
       imageInputRef.current?.click();
@@ -533,13 +396,19 @@ function HotspotCreatePageContent() {
     setSubmitMessage(null);
 
     try {
-      const payload = buildCreatePayload(formState, selectedStoryIds);
+      const payload = buildCreatePayload(formState);
       setLastSubmittedPayload(payload);
       await validateHotspotPayload(payload, editingHotspotId);
 
       setIsSubmitting(true);
 
-      const formData = buildHotspotFormData(payload, selectedFiles);
+      const submissionFiles = await resolveHotspotSubmissionFiles({
+        isEditMode,
+        includeExistingMediaFiles: isEditMode,
+        existingMedias: visibleExistingHotspotMedias,
+        selectedFiles,
+      });
+      const formData = buildHotspotFormData(payload, submissionFiles);
 
       try {
         console.debug("FormData keys:", Array.from(formData.keys()));
@@ -625,7 +494,6 @@ function HotspotCreatePageContent() {
             disabled={
               isSubmitting ||
               isLoadingHotspot ||
-              isLoadingStories ||
               isResolvingPlace ||
               !!loadHotspotError
             }
@@ -697,141 +565,6 @@ function HotspotCreatePageContent() {
                     placeholder="Hãy nhập tên địa điểm"
                     className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
-                </div>
-                <div>
-                  <label className="cq-label mb-2 block">
-                    Câu chuyện <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative" ref={storyDropdownRef}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setIsStoryDropdownOpen((current) => !current)
-                      }
-                      disabled={
-                        isLoadingStories || availableStories.length === 0
-                      }
-                      aria-expanded={isStoryDropdownOpen}
-                      aria-haspopup="dialog"
-                      className={cn(
-                        "flex w-full items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm text-slate-900 shadow-sm outline-none transition hover:border-slate-300 hover:bg-white focus-visible:ring-2 focus-visible:ring-primary/20",
-                        "disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400",
-                      )}
-                    >
-                      <span className="min-w-0 flex-1 truncate">
-                        {storyDropdownLabel}
-                      </span>
-                      <ChevronDown
-                        className={cn(
-                          "h-4 w-4 shrink-0 text-slate-400 transition",
-                          isStoryDropdownOpen && "rotate-180 text-primary",
-                        )}
-                      />
-                    </button>
-
-                    {isStoryDropdownOpen ? (
-                      <div className="absolute inset-x-0 top-[calc(100%+0.75rem)] z-20 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
-                        <div className="border-b border-slate-100 px-4 py-3">
-                          <div className="relative">
-                            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                            <Input
-                              value={storyKeyword}
-                              onChange={(event) =>
-                                setStoryKeyword(event.target.value)
-                              }
-                              placeholder="Tìm theo tên câu chuyện"
-                              className="h-11 rounded-2xl border border-slate-200 bg-slate-50 pr-4 pl-10 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="max-h-80 overflow-y-auto p-2">
-                          {filteredStories.length > 0 ? (
-                            filteredStories.map((story) => {
-                              const isSelected = selectedStoryIds.includes(
-                                story.storyId,
-                              );
-                              const isPublished =
-                                story.status.trim().toUpperCase() ===
-                                "PUBLISHED";
-
-                              return (
-                                <label
-                                  key={story.storyId}
-                                  className={cn(
-                                    "flex cursor-pointer items-start gap-3 rounded-2xl px-3 py-3 text-sm transition",
-                                    isSelected
-                                      ? "bg-slate-100"
-                                      : "hover:bg-slate-50",
-                                  )}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={() =>
-                                      handleToggleStory(story.storyId)
-                                    }
-                                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-primary focus:ring-primary"
-                                  />
-                                  <span className="min-w-0 flex-1">
-                                    <span className="flex items-center gap-2">
-                                      <span className="truncate font-semibold text-slate-900">
-                                        {story.title}
-                                      </span>
-
-                                      {!isPublished ? (
-                                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                                          {story.status}
-                                        </span>
-                                      ) : null}
-                                    </span>
-                                    <span className="mt-1 block text-xs text-slate-500">
-                                      {isPublished
-                                        ? " Câu chuyện đã sẵn sàng để liên kết."
-                                        : "Câu chuyện này đang được liên kết nhưng hiện không ở trạng thái công khai."}
-                                    </span>
-                                  </span>
-                                </label>
-                              );
-                            })
-                          ) : (
-                            <div className="px-3 py-4 text-sm text-slate-500">
-                              Không có câu chuyện phù hợp.
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {selectedStories.length > 0 ? (
-                      selectedStories.map((story) => (
-                        <button
-                          key={story.storyId}
-                          type="button"
-                          onClick={() => handleToggleStory(story.storyId)}
-                          className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
-                        >
-                          {formatStoryOptionLabel(story)} ×
-                        </button>
-                      ))
-                    ) : (
-                      <p className="text-xs text-amber-700">
-                        Chưa chọn câu chuyện nào.
-                      </p>
-                    )}
-                  </div>
-
-                  {isLoadingStories ? (
-                    <p className="mt-2 text-xs text-slate-500">
-                      Đang tải danh sách câu chuyện...
-                    </p>
-                  ) : null}
-                  {storyLoadError ? (
-                    <p className="mt-2 text-xs font-medium text-rose-700">
-                      {storyLoadError}
-                    </p>
-                  ) : null}
                 </div>
                 <div>
                   <label className="cq-label mb-2 block">Địa chỉ</label>
@@ -1606,15 +1339,7 @@ function buildBackendMediaLabel(
 
 function buildCreatePayload(
   formState: HotspotFormState,
-  selectedStoryIds: number[],
 ): CreateHotspotPayload {
-  if (selectedStoryIds.length === 0) {
-    throw new Error("Vui lòng chọn ít nhất một story trước khi lưu.");
-  }
-
-  const storyIds = selectedStoryIds.filter(
-    (storyId, index) => selectedStoryIds.indexOf(storyId) === index,
-  );
   const hotspotName = formState.hotspotName.trim();
   const address = formState.address.trim();
   const description = formState.description.trim();
@@ -1640,7 +1365,6 @@ function buildCreatePayload(
   }
 
   const payload: CreateHotspotPayload = {
-    storyIds,
     hotspotName,
     latitude: parseDecimalField("latitude", formState.latitude),
     longitude: parseDecimalField("longitude", formState.longitude),
@@ -1733,88 +1457,83 @@ function buildHotspotFormData(payload: CreateHotspotPayload, files: File[]) {
   return formData;
 }
 
-async function fetchAllStories(filters: {
-  status?: string;
-  hotspotId?: number;
+async function resolveHotspotSubmissionFiles(options: {
+  isEditMode: boolean;
+  includeExistingMediaFiles: boolean;
+  existingMedias: BackendHotspotMedia[];
+  selectedFiles: File[];
 }) {
-  const stories: BackendStorySummary[] = [];
-  let page = 0;
-  let totalPages = 1;
-
-  while (page < totalPages) {
-    const response = await storyApi.getStories({
-      page,
-      size: 100,
-      sortBy: "storyId",
-      sortDir: "asc",
-      ...filters,
-    });
-
-    stories.push(...response.content);
-
-    totalPages = Math.max(response.page.totalPages, 1);
-    page += 1;
-
-    if (response.content.length === 0) {
-      break;
-    }
+  if (
+    !options.isEditMode ||
+    !options.includeExistingMediaFiles ||
+    options.existingMedias.length === 0
+  ) {
+    return options.selectedFiles;
   }
 
-  return stories;
+  const existingFiles = await Promise.all(
+    options.existingMedias.map((media, index) =>
+      convertExistingHotspotMediaToFile(media, index),
+    ),
+  );
+
+  return [...existingFiles, ...options.selectedFiles];
 }
 
-function mergeStoryLists(
-  primaryStories: BackendStorySummary[],
-  secondaryStories: BackendStorySummary[],
+async function convertExistingHotspotMediaToFile(
+  media: BackendHotspotMedia,
+  index: number,
 ) {
-  const storyMap = new Map<number, BackendStorySummary>();
+  const fileUrl = media.fileUrl?.trim();
 
-  [...secondaryStories, ...primaryStories].forEach((story) => {
-    storyMap.set(story.storyId, story);
-  });
+  if (!fileUrl) {
+    throw new Error(
+      `File hiện có #${index + 1} không có đường dẫn để gửi lại khi cập nhật.`,
+    );
+  }
 
-  return Array.from(storyMap.values()).sort((left, right) => {
-    if (left.status === right.status) {
-      return left.storyId - right.storyId;
-    }
+  const response = await fetch(fileUrl);
 
-    if (left.status === "PUBLISHED") {
-      return -1;
-    }
+  if (!response.ok) {
+    throw new Error(
+      `Không thể tải lại file hiện có "${resolveExistingMediaFileName(media, fileUrl, index)}" để cập nhật hotspot.`,
+    );
+  }
 
-    if (right.status === "PUBLISHED") {
-      return 1;
-    }
+  const blob = await response.blob();
+  const fileName = resolveExistingMediaFileName(media, fileUrl, index);
+  const mimeType = media.mimeType?.trim() || blob.type || undefined;
 
-    return left.storyId - right.storyId;
-  });
+  return new File([blob], fileName, { type: mimeType });
 }
 
-function getLinkedStoriesFromHotspot(response: BackendHotspot) {
-  return (response.stories ?? []).map((story) => ({
-    storyId: story.storyId,
-    tag: story.tag ?? null,
-    orderIndex: story.orderIndex,
-    title: story.title,
-    content: story.content,
-    status: story.status,
-    distanceToNext: story.distanceToNext,
-    medias: story.medias,
-    createdAt: story.createdAt,
-    updatedAt: story.updatedAt,
-  }));
-}
+function resolveExistingMediaFileName(
+  media: BackendHotspotMedia,
+  fileUrl: string,
+  index: number,
+) {
+  const normalizedFileName = media.fileName?.trim();
 
-function getUniqueStoryIds(stories: BackendStorySummary[]) {
-  return stories
-    .map((story) => story.storyId)
-    .filter((storyId, index, current) => current.indexOf(storyId) === index);
-}
+  if (normalizedFileName) {
+    return normalizedFileName;
+  }
 
-function formatStoryOptionLabel(story: BackendStorySummary) {
-  const normalizedTitle = story.title.trim();
+  try {
+    const url = new URL(fileUrl, window.location.origin);
+    const fileNameFromUrl = url.pathname.split("/").pop()?.trim();
 
-  return normalizedTitle ? `${normalizedTitle} ` : `Story #${story.storyId}`;
+    if (fileNameFromUrl) {
+      return fileNameFromUrl;
+    }
+  } catch {
+    // Ignore URL parsing errors and fall back to a deterministic name.
+  }
+
+  if (Number.isInteger(media.mediaId)) {
+    return `hotspot-media-${media.mediaId}`;
+  }
+
+  return `hotspot-media-${index + 1}`;
 }
 
 async function validateHotspotPayload(

@@ -16,18 +16,52 @@ export async function forwardHotspotRequest(
   hotspotPath: string[] = [],
 ) {
   const headers = buildBackendHeaders(request);
+  const init: RequestInit = {
+    method,
+    headers,
+    cache: "no-store",
+  };
   const requestBody =
     method === "POST" || method === "PUT"
       ? await request.arrayBuffer()
       : undefined;
-  const response = await fetch(buildBackendUrl(request, hotspotPath), {
-    method,
-    headers,
-    cache: "no-store",
-    body: requestBody,
-  });
+
+  if (requestBody !== undefined) {
+    init.body = requestBody;
+    (init as RequestInit & { duplex: "half" }).duplex = "half";
+  }
+
+  const backendUrl = buildBackendUrl(request, hotspotPath);
+  let response: Response;
+
+  try {
+    response = await fetch(backendUrl, init);
+  } catch (error) {
+    console.error("[hotspot proxy] upstream fetch failed", {
+      method,
+      backendUrl,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    return NextResponse.json(
+      {
+        message: "Không thể kết nối tới dịch vụ hotspot.",
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 502 },
+    );
+  }
 
   const responseText = await response.text();
+  if (!response.ok) {
+    console.error("[hotspot proxy] upstream responded with error", {
+      method,
+      backendUrl,
+      status: response.status,
+      responseText,
+    });
+  }
+
   const nextResponse = new NextResponse(
     responseText.length > 0 ? responseText : null,
     { status: response.status },
@@ -51,7 +85,10 @@ function buildBackendUrl(request: NextRequest, hotspotPath: string[]) {
   const normalizedBaseUrl = BACKEND_API_BASE_URL.endsWith("/")
     ? BACKEND_API_BASE_URL.slice(0, -1)
     : BACKEND_API_BASE_URL;
-  const joinedPath = hotspotPath.length > 0 ? `/${hotspotPath.join("/")}` : "";
+  const joinedPath =
+    hotspotPath.length > 0
+      ? `/${hotspotPath.map((segment) => encodeURIComponent(segment)).join("/")}`
+      : "";
 
   return `${normalizedBaseUrl}/api/v1/hotspots${joinedPath}${request.nextUrl.search}`;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useDeferredValue, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import {
   ChevronDown,
@@ -20,7 +20,13 @@ import { Button } from "@/components/ui/button";
 import { CuratorPagination } from "@/components/curator/CuratorPagination";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { storyApi, tagApi } from "@/services/api";
+import {
+  hotspotApi,
+  routeApi,
+  storyApi,
+  tagApi,
+  type BackendStorySummary,
+} from "@/services/api";
 
 type StoryStatus = "Đã xuất bản" | "Chờ duyệt" | "Bản nháp" | "Bị từ chối";
 
@@ -31,13 +37,17 @@ const storyActions = [
   { key: "delete", label: "Xóa", icon: Trash2 },
 ];
 
-type StoryItem = {
+type StoryItem = BackendStorySummary & {
   id: string;
-  title: string;
-  status: StoryStatus;
+  statusLabel: StoryStatus;
   tagName: string;
   orderIndexLabel: string;
   distanceToNextLabel: string;
+};
+
+type FilterOption = {
+  id: number;
+  name: string;
 };
 
 function getSingleTagName(tagName?: string) {
@@ -86,14 +96,43 @@ function getDistanceToNextLabel(distanceToNext?: number | null) {
   }).format(distanceToNext);
 }
 
+function parseOptionalFilterId(value: string) {
+  const normalizedValue = value.trim();
+  if (!normalizedValue) {
+    return undefined;
+  }
+
+  const parsedValue = Number(normalizedValue);
+  if (!Number.isSafeInteger(parsedValue) || parsedValue <= 0) {
+    return undefined;
+  }
+
+  return parsedValue;
+}
+
+function normalizeSearchText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function matchesStoryName(title: string, keyword: string) {
+  const normalizedKeyword = normalizeSearchText(keyword);
+  if (!normalizedKeyword) {
+    return true;
+  }
+
+  return normalizeSearchText(title).includes(normalizedKeyword);
+}
+
 const initialStories: StoryItem[] = [];
 
 const statusOptions: Array<{ label: string; value: StoryStatus | "all" }> = [
   { label: "Tất cả trạng thái", value: "all" },
   { label: "Đã xuất bản", value: "Đã xuất bản" },
-  { label: "Chờ duyệt", value: "Chờ duyệt" },
   { label: "Bản nháp", value: "Bản nháp" },
-  { label: "Bị từ chối", value: "Bị từ chối" },
 ];
 const STORIES_PER_PAGE = 10;
 
@@ -117,6 +156,44 @@ function StatusBadge({ status }: { status: StoryStatus }) {
   );
 }
 
+async function loadAllRouteOptions() {
+  const routeOptions: FilterOption[] = [];
+  const seenRouteIds = new Set<number>();
+  let page = 0;
+  let totalPages = 1;
+
+  while (page < totalPages) {
+    const response = await routeApi.searchRoutes({
+      filters: [],
+      page,
+      size: 100,
+      sortBy: "routeName",
+      sortDirection: "ASC",
+    });
+
+    response.content.forEach((route) => {
+      if (seenRouteIds.has(route.routeId)) {
+        return;
+      }
+
+      seenRouteIds.add(route.routeId);
+      routeOptions.push({
+        id: route.routeId,
+        name: route.routeName?.trim() || `Route #${route.routeId}`,
+      });
+    });
+
+    totalPages = Math.max(response.page.totalPages, 1);
+    page += 1;
+
+    if (response.content.length === 0) {
+      break;
+    }
+  }
+
+  return routeOptions;
+}
+
 export default function CuratorStoriesPage() {
   const [stories, setStories] = useState(initialStories);
   const [searchQuery, setSearchQuery] = useState("");
@@ -124,10 +201,18 @@ export default function CuratorStoriesPage() {
   const [selectedStatus, setSelectedStatus] = useState<StoryStatus | "all">(
     "all",
   );
+  const [draftStatus, setDraftStatus] = useState<StoryStatus | "all">("all");
   const [selectedTagId, setSelectedTagId] = useState<number | "all">("all");
+  const [draftTagId, setDraftTagId] = useState<number | "all">("all");
+  const [selectedHotspotId, setSelectedHotspotId] = useState("");
+  const [draftHotspotId, setDraftHotspotId] = useState("");
+  const [selectedRouteId, setSelectedRouteId] = useState("");
+  const [draftRouteId, setDraftRouteId] = useState("");
   const [availableTags, setAvailableTags] = useState<
     { tagId: number; tagName: string }[] | []
   >([]);
+  const [availableHotspots, setAvailableHotspots] = useState<FilterOption[]>([]);
+  const [availableRoutes, setAvailableRoutes] = useState<FilterOption[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [openMenuStoryId, setOpenMenuStoryId] = useState<string | null>(null);
   const [isLoadingStories, setIsLoadingStories] = useState(false);
@@ -142,18 +227,15 @@ export default function CuratorStoriesPage() {
     useState<StoryItem | null>(null);
   const [deletingStoryId, setDeletingStoryId] = useState<string | null>(null);
   const [storiesReloadToken, setStoriesReloadToken] = useState(0);
-  const deferredSearch = useDeferredValue(searchQuery);
+  const selectedHotspotFilterId = parseOptionalFilterId(selectedHotspotId);
+  const selectedRouteFilterId = parseOptionalFilterId(selectedRouteId);
 
   const backendStatusValue =
     selectedStatus === "Đã xuất bản"
       ? "PUBLISHED"
-      : selectedStatus === "Bị từ chối"
-        ? "REJECTED"
-        : selectedStatus === "Bản nháp"
-          ? "DRAFT"
-          : selectedStatus === "Chờ duyệt"
-            ? "REVIEW"
-            : undefined;
+      : selectedStatus === "Bản nháp"
+        ? "DRAFT"
+        : undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -168,19 +250,23 @@ export default function CuratorStoriesPage() {
           size: 10,
           sortBy: "createdAt",
           sortDir: "DESC",
-          keyword: deferredSearch,
+          keyword: searchQuery.trim(),
           status: backendStatusValue,
           tagId: selectedTagId === "all" ? undefined : selectedTagId,
+          hotspotId: selectedHotspotFilterId,
+          routeId: selectedRouteFilterId,
         });
 
-        const nextStories = response.content.map((story) => ({
-          id: String(story.storyId),
-          title: story.title,
-          status: getStoryStatusLabel(story.status),
-          tagName: getSingleTagName(story.tag?.tagName),
-          orderIndexLabel: getOrderIndexLabel(story.orderIndex),
-          distanceToNextLabel: getDistanceToNextLabel(story.distanceToNext),
-        }));
+        const nextStories = response.content
+          .filter((story) => matchesStoryName(story.title, searchQuery))
+          .map((story) => ({
+            ...story,
+            id: String(story.storyId),
+            statusLabel: getStoryStatusLabel(story.status),
+            tagName: getSingleTagName(story.tag?.tagName),
+            orderIndexLabel: getOrderIndexLabel(story.orderIndex),
+            distanceToNextLabel: getDistanceToNextLabel(story.distanceToNext),
+          }));
 
         if (!cancelled) {
           setStories(nextStories);
@@ -208,8 +294,10 @@ export default function CuratorStoriesPage() {
     };
   }, [
     currentPage,
-    deferredSearch,
+    searchQuery,
     selectedTagId,
+    selectedHotspotFilterId,
+    selectedRouteFilterId,
     backendStatusValue,
     storiesReloadToken,
   ]);
@@ -251,7 +339,7 @@ export default function CuratorStoriesPage() {
   function handlePublishStory(story: StoryItem) {
     setOpenMenuStoryId(null);
 
-    if (story.status === "Đã xuất bản") {
+    if (story.status === "PUBLISHED") {
       toast.info("Story này đã ở trạng thái xuất bản.");
       return;
     }
@@ -276,7 +364,8 @@ export default function CuratorStoriesPage() {
           story.id === storyId
             ? {
                 ...story,
-                status: "Đã xuất bản",
+                status: "PUBLISHED",
+                statusLabel: "Đã xuất bản",
               }
             : story,
         ),
@@ -339,14 +428,58 @@ export default function CuratorStoriesPage() {
     setCurrentPage(1);
   }
 
-  function handleStatusFilterChange(value: StoryStatus | "all") {
-    setSelectedStatus(value);
-    setCurrentPage(1);
+  function handleDraftStatusFilterChange(value: StoryStatus | "all") {
+    setDraftStatus(value);
   }
 
-  function handleTagFilterChange(value: number | "all") {
-    setSelectedTagId(value);
+  function handleDraftTagFilterChange(value: number | "all") {
+    setDraftTagId(value);
+  }
+
+  function handleDraftHotspotFilterChange(value: string) {
+    setDraftHotspotId(value);
+  }
+
+  function handleDraftRouteFilterChange(value: string) {
+    setDraftRouteId(value);
+  }
+
+  function handleToggleFilterPanel() {
+    setIsFilterOpen((current) => {
+      if (current) {
+        return false;
+      }
+
+      setDraftStatus(selectedStatus);
+      setDraftTagId(selectedTagId);
+      setDraftHotspotId(selectedHotspotId);
+      setDraftRouteId(selectedRouteId);
+      return true;
+    });
+  }
+
+  function handleApplyAdvancedFilters() {
+    setSelectedStatus(draftStatus);
+    setSelectedTagId(draftTagId);
+    setSelectedHotspotId(draftHotspotId.trim());
+    setSelectedRouteId(draftRouteId.trim());
     setCurrentPage(1);
+    setIsFilterOpen(false);
+    setStoriesReloadToken((current) => current + 1);
+  }
+
+  function handleResetAdvancedFilters() {
+    setDraftStatus("all");
+    setDraftTagId("all");
+    setDraftHotspotId("");
+    setDraftRouteId("");
+    setSelectedStatus("all");
+    setSelectedTagId("all");
+    setSelectedHotspotId("");
+    setSelectedRouteId("");
+    setCurrentPage(1);
+    setIsFilterOpen(false);
+    setStoriesReloadToken((current) => current + 1);
   }
 
   function handlePageChange(page: number) {
@@ -356,16 +489,39 @@ export default function CuratorStoriesPage() {
 
   useEffect(() => {
     async function loadFilterData() {
-      try {
-        const tagResponse = await tagApi.getTags({
+      const [tagResult, hotspotResult, routeResult] = await Promise.allSettled([
+        tagApi.getTags({
           page: 0,
           size: 100,
           sortBy: "createdAt",
           sortDir: "DESC",
-        });
-        setAvailableTags(tagResponse.content);
-      } catch {
+        }),
+        hotspotApi.getHotspots(),
+        loadAllRouteOptions(),
+      ]);
+
+      if (tagResult.status === "fulfilled") {
+        setAvailableTags(tagResult.value.content);
+      } else {
         setAvailableTags([]);
+      }
+
+      if (hotspotResult.status === "fulfilled") {
+        setAvailableHotspots(
+          hotspotResult.value.map((hotspot) => ({
+            id: hotspot.hotspotId,
+            name:
+              hotspot.hotspotName?.trim() || `Hotspot #${hotspot.hotspotId}`,
+          })),
+        );
+      } else {
+        setAvailableHotspots([]);
+      }
+
+      if (routeResult.status === "fulfilled") {
+        setAvailableRoutes(routeResult.value);
+      } else {
+        setAvailableRoutes([]);
       }
     }
 
@@ -413,7 +569,7 @@ export default function CuratorStoriesPage() {
                 type="button"
                 variant="secondary"
                 size="lg"
-                onClick={() => setIsFilterOpen((current) => !current)}
+                onClick={handleToggleFilterPanel}
                 data-story-filter-toggle
                 className="inline-flex items-center gap-2 rounded-full px-4 py-3 text-slate-700 shadow-sm transition hover:bg-slate-100"
               >
@@ -433,9 +589,9 @@ export default function CuratorStoriesPage() {
                         Trạng thái
                       </label>
                       <select
-                        value={selectedStatus}
+                        value={draftStatus}
                         onChange={(event) =>
-                          handleStatusFilterChange(
+                          handleDraftStatusFilterChange(
                             event.target.value as StoryStatus | "all",
                           )
                         }
@@ -455,9 +611,9 @@ export default function CuratorStoriesPage() {
                         Thẻ
                       </label>
                       <select
-                        value={selectedTagId}
+                        value={draftTagId}
                         onChange={(event) =>
-                          handleTagFilterChange(
+                          handleDraftTagFilterChange(
                             event.target.value === "all"
                               ? "all"
                               : Number(event.target.value),
@@ -474,6 +630,68 @@ export default function CuratorStoriesPage() {
                       </select>
                       <ChevronDown className="pointer-events-none absolute right-4 top-[54%] h-4 w-4 -translate-y-1/2 text-slate-400" />
                     </div>
+
+                    <div className="relative">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        Hotspot
+                      </label>
+                      <select
+                        value={draftHotspotId}
+                        onChange={(event) =>
+                          handleDraftHotspotFilterChange(event.target.value)
+                        }
+                        className="h-11 w-full appearance-none rounded-full border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="">Tất cả hotspot</option>
+                        {availableHotspots.map((hotspot) => (
+                          <option key={hotspot.id} value={String(hotspot.id)}>
+                            {hotspot.name}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-4 top-[54%] h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    </div>
+
+                    <div className="relative">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        Route
+                      </label>
+                      <select
+                        value={draftRouteId}
+                        onChange={(event) =>
+                          handleDraftRouteFilterChange(event.target.value)
+                        }
+                        className="h-11 w-full appearance-none rounded-full border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="">Tất cả route</option>
+                        {availableRoutes.map((route) => (
+                          <option key={route.id} value={String(route.id)}>
+                            {route.name}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-4 top-[54%] h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleResetAdvancedFilters}
+                      className="rounded-full border-slate-200 px-4 text-slate-600 hover:bg-slate-50"
+                    >
+                      Xóa lọc
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleApplyAdvancedFilters}
+                      className="rounded-full px-4"
+                    >
+                      Áp dụng
+                    </Button>
                   </div>
                 </div>
               ) : null}
@@ -556,7 +774,7 @@ export default function CuratorStoriesPage() {
                             </span>
                           </td>
                           <td className="px-4 py-4">
-                            <StatusBadge status={story.status} />
+                            <StatusBadge status={story.statusLabel} />
                           </td>
                           <td className="px-4 py-4 text-right">
                             <div

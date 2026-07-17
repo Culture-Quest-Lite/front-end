@@ -46,10 +46,10 @@ export interface BackendHotspot {
   openingTime?: string | null;
   closingTime?: string | null;
   status?: string;
+  isCheckIn?: boolean | null;
 }
 
 export interface CreateHotspotPayload {
-  storyIds: number[];
   hotspotName: string;
   address?: string;
   description?: string;

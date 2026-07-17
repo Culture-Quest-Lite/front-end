@@ -25,11 +25,13 @@ export interface BackendStory {
   storyId: number;
   tag?: BackendStoryTag | null;
   hotspotId?: number | null;
+  routeId?: number | null;
   orderIndex?: number | null;
   title: string;
   content: string;
   status: string;
   distanceToNext?: number | null;
+  audioScript?: string | null;
   medias?: BackendStoryMedia[];
   createdAt?: string;
   updatedAt?: string;
@@ -38,11 +40,14 @@ export interface BackendStory {
 export interface BackendStorySummary {
   storyId: number;
   tag?: BackendStoryTag | null;
+  hotspotId?: number | null;
+  routeId?: number | null;
   orderIndex?: number | null;
   title: string;
   content: string;
   status: string;
   distanceToNext?: number | null;
+  audioScript?: string | null;
   medias?: BackendStoryMedia[];
   createdAt?: string;
   updatedAt?: string;
@@ -60,10 +65,26 @@ export interface StoryPageResponse {
   };
 }
 
+type GetStoriesResponse = StoryPageResponse | BackendStorySummary[];
+
+export interface GetStoriesParams {
+  page?: number;
+  size?: number;
+  sortBy?: string;
+  sortDir?: string;
+  keyword?: string;
+  status?: string;
+  tagId?: number;
+  hotspotId?: number;
+  routeId?: number;
+}
+
 export interface UpdateStoryFields {
   tagId: number;
+  hotspotId: number;
   title: string;
   content: string;
+  audioScript?: string;
 }
 
 export type UpdateStoryPayload =
@@ -73,49 +94,54 @@ export type UpdateStoryPayload =
     });
 
 export const storyApi = {
-  getStories: async (params: {
-    page: number;
-    size: number;
-    sortBy: string;
-    sortDir: string;
-    keyword?: string;
-    status?: string;
-    tagId?: number;
-    hotspotId?: number;
-  }) => {
+  getStories: async (params: GetStoriesParams) => {
     const searchParams = new URLSearchParams();
-    searchParams.set("page", String(params.page));
-    searchParams.set("size", String(params.size));
-    searchParams.set("sortBy", params.sortBy);
-    searchParams.set("sortDir", params.sortDir);
 
-    const filter: Record<string, unknown> = {};
+    if (typeof params.page === "number") {
+      searchParams.set("page", String(params.page));
+    }
+
+    if (typeof params.size === "number") {
+      searchParams.set("size", String(params.size));
+    }
+
+    if (params.sortBy?.trim()) {
+      searchParams.set("sortBy", params.sortBy.trim());
+    }
+
+    if (params.sortDir?.trim()) {
+      searchParams.set("sortDir", params.sortDir.trim());
+    }
+
     if (params.keyword?.trim()) {
-      filter.keyword = params.keyword.trim();
+      searchParams.set("keyword", params.keyword.trim());
     }
 
     if (params.status?.trim()) {
-      filter.status = params.status.trim();
+      searchParams.set("status", params.status.trim());
     }
 
     if (typeof params.tagId === "number") {
-      filter.tagId = params.tagId;
+      searchParams.set("tagId", String(params.tagId));
     }
 
     if (typeof params.hotspotId === "number") {
-      filter.hotspotId = params.hotspotId;
+      searchParams.set("hotspotId", String(params.hotspotId));
     }
 
-    if (Object.keys(filter).length > 0) {
-      searchParams.set("filter", JSON.stringify(filter));
+    if (typeof params.routeId === "number") {
+      searchParams.set("routeId", String(params.routeId));
     }
 
-    return apiFetch<StoryPageResponse>(
-      `/api/stories?${searchParams.toString()}`,
+    const queryString = searchParams.toString();
+    const response = await apiFetch<GetStoriesResponse>(
+      queryString ? `/api/stories?${queryString}` : "/api/stories",
       {
         sameOrigin: true,
       },
     );
+
+    return normalizeStoryPageResponse(response, params);
   },
 
   createStory: async (payload: FormData) => {
@@ -208,6 +234,30 @@ export const storyApi = {
     return (parsedBody ?? responseText) as BackendStory | string;
   },
 };
+
+function normalizeStoryPageResponse(
+  response: GetStoriesResponse,
+  params: GetStoriesParams,
+): StoryPageResponse {
+  if (!Array.isArray(response)) {
+    return response;
+  }
+
+  const fallbackSize =
+    typeof params.size === "number" && params.size > 0
+      ? params.size
+      : response.length;
+
+  return {
+    content: response,
+    page: {
+      size: fallbackSize,
+      number: typeof params.page === "number" ? params.page : 0,
+      totalElements: response.length,
+      totalPages: response.length > 0 ? 1 : 0,
+    },
+  };
+}
 
 function safeParseStoryResponse<T = { message?: unknown; error?: unknown }>(
   value: string,
