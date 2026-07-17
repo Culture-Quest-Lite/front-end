@@ -3,12 +3,20 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "react-toastify";
-import { Button } from "@/components/ui/button";
 import { CuratorPagination } from "@/components/curator/CuratorPagination";
 import { routeApi, type RouteMediaResponse, type RouteResponse } from "@/services/api/routeApi";
-import { ChevronRight, Clock3, MapPin, Plus, Sparkles, Trash2, TrendingUp } from "lucide-react";
+import {
+  ChevronRight,
+  Clock3,
+  MapPin,
+  MoreHorizontal,
+  PencilLine,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 
-const ROUTES_PER_PAGE = 8;
+const ROUTES_PER_PAGE = 4;
 
 const difficultyLabels: Record<string, string> = {
   EASY: "Dễ",
@@ -52,8 +60,9 @@ function getMediaUrlFromArray(medias?: unknown[]) {
   const mediaItems = Array.isArray(medias) ? medias : [];
   const imageMedia = mediaItems.find((media) => {
     if (!media || typeof media !== "object") return false;
-    const mediaType = String((media as any).mediaType ?? "");
-    const mimeType = String((media as any).mimeType ?? "");
+    const mediaRecord = media as Record<string, unknown>;
+    const mediaType = String(mediaRecord.mediaType ?? "");
+    const mimeType = String(mediaRecord.mimeType ?? "");
     return `${mediaType} ${mimeType}`.toLowerCase().includes("image");
   }) ?? mediaItems[0];
 
@@ -101,12 +110,12 @@ function isPublished(status?: string) {
 
 function Metric({ icon: Icon, label, value }: { icon: typeof MapPin; label: string; value: string }) {
   return (
-    <div className="rounded-[1.35rem] bg-[#F7F5EF] px-4 py-3 shadow-sm">
-      <div className="flex items-center gap-2 text-xs text-slate-500">
-        <Icon className="h-4 w-4 text-red-500" />
+    <div className="rounded-[1rem] bg-[#F7F5EF] px-2.5 py-2 shadow-sm">
+      <div className="flex items-center gap-1 text-[10px] text-slate-500">
+        <Icon className="h-3 w-3 text-red-500" />
         <span>{label}</span>
       </div>
-      <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
+      <p className="mt-1 text-[15px] font-semibold text-slate-900">{value}</p>
     </div>
   );
 }
@@ -115,20 +124,27 @@ function RouteCard({
   route,
   onDelete,
   onPublish,
+  isMenuOpen,
+  setOpenMenuRouteId,
+  isPublishing,
 }: {
   route: RouteResponse;
   onDelete: (id: number) => void;
   onPublish: (id: number) => void;
+  isMenuOpen: boolean;
+  setOpenMenuRouteId: (routeId: number | null) => void;
+  isPublishing: boolean;
 }) {
   const tags = route.tags ?? [];
   const imageUrl = getRouteImage(route);
   const hotspotCount = getHotspotCount(route);
   const normalizedStatus = route.status?.trim().toUpperCase() || "DRAFT";
   const canPublish = normalizedStatus !== "PUBLISHED" && normalizedStatus !== "APPROVED" && normalizedStatus !== "DELETED";
+  const isBusy = isPublishing;
 
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
-      <div className="h-44 w-full bg-[#F7F5EF]">
+    <article className={`flex h-full flex-col overflow-visible rounded-[1.75rem] border border-slate-200/80 bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${isMenuOpen ? "relative z-20" : ""}`}>
+      <div className="h-40 w-full overflow-hidden rounded-t-[1.75rem] bg-[#F7F5EF]">
         {imageUrl ? (
           <img src={imageUrl} alt={route.routeName} className="h-full w-full object-cover" />
         ) : (
@@ -138,62 +154,113 @@ function RouteCard({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-4 p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-slate-950">{route.routeName}</h2>
-            <p className="mt-1 line-clamp-2 text-sm text-slate-500">{route.description || "Chưa có mô tả."}</p>
+      <div className="flex flex-1 flex-col gap-2.5 p-3.5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-semibold leading-6 text-slate-950">
+              {route.routeName}
+            </h2>
+            <p className="mt-0.5 line-clamp-1 text-sm text-slate-500">
+              {route.description || "Chưa có mô tả."}
+            </p>
           </div>
-          <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold shadow-sm ${getStatusClass(route.status)}`}>
-            <span className="h-2 w-2 rounded-full bg-current/75" />
-            {getStatusLabel(route.status)}
-          </span>
+          <div className="flex items-start gap-2">
+            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium shadow-sm ${getStatusClass(route.status)}`}>
+              <span className="h-1.5 w-1.5 rounded-full bg-current/75" />
+              {getStatusLabel(route.status)}
+            </span>
+            <div className="relative" data-route-actions>
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={isMenuOpen}
+                onClick={() =>
+                  setOpenMenuRouteId(isMenuOpen ? null : route.routeId)
+                }
+                className={`rounded-full p-1.5 text-slate-600 transition hover:bg-slate-100 ${isMenuOpen ? "bg-slate-100" : "bg-white/90"}`}
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </button>
+
+              {isMenuOpen ? (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-[calc(100%+0.6rem)] w-44 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
+                >
+                  {canPublish ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setOpenMenuRouteId(null);
+                        onPublish(route.routeId);
+                      }}
+                      disabled={isBusy}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <ShieldCheck className="h-4 w-4" />
+                      <span>{isPublishing ? "Đang kiểm tra..." : "Kiểm tra"}</span>
+                    </button>
+                  ) : null}
+
+                  <Link
+                    href={`/curator/routes/create?id=${route.routeId}`}
+                    role="menuitem"
+                    onClick={() => {
+                      if (isBusy) {
+                        return;
+                      }
+                      setOpenMenuRouteId(null);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                  >
+                    <PencilLine className="h-4 w-4" />
+                    <span>Chỉnh sửa</span>
+                  </Link>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setOpenMenuRouteId(null);
+                      onDelete(route.routeId);
+                    }}
+                    disabled={isBusy}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>Xoá tuyến</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {tags.length > 0 ? tags.map((tag) => (
-            <span key={tag.tagId} className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+            <span key={tag.tagId} className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
               #{tag.tagName}
             </span>
           )) : <span className="text-xs text-slate-400">Chưa có tag</span>}
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-1.5 md:grid-cols-3">
           <Metric icon={MapPin} label="Khoảng cách" value={`${route.totalDistance ?? 0} km`} />
           <Metric icon={Clock3} label="Thời lượng" value={`${route.estimateTime ?? 0} phút`} />
           <Metric icon={Sparkles} label="Độ khó" value={difficultyLabels[route.difficulty] ?? route.difficulty} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
+        <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600">
           <span>{hotspotCount} hotspot</span>
           <span>XP: {route.xp ?? 0}</span>
           <span>Point: {route.point ?? 0}</span>
         </div>
 
-        <div className="mt-auto flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
-          <button
-            type="button"
-            onClick={() => onDelete(route.routeId)}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 transition hover:text-red-700"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Xoá
-          </button>
-
+        <div className="mt-auto flex items-center justify-between gap-3 border-t border-slate-100 pt-2">
           <div className="flex items-center gap-3">
-            {canPublish ? (
-              <button
-                type="button"
-                onClick={() => onPublish(route.routeId)}
-                className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
-              >
-                <TrendingUp className="h-3.5 w-3.5" />
-                Kích hoạt
-              </button>
-            ) : null}
-
             {isPublished(route.status) ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
                 Đang hoạt động
               </span>
             ) : null}
@@ -217,9 +284,34 @@ export default function CuratorRoutesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const [openMenuRouteId, setOpenMenuRouteId] = useState<number | null>(null);
   const [publishingRouteId, setPublishingRouteId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reloadVersion, setReloadVersion] = useState(0);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+
+      if (!event.target.closest("[data-route-actions]")) {
+        setOpenMenuRouteId(null);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpenMenuRouteId(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -267,6 +359,7 @@ export default function CuratorRoutesPage() {
   }, [currentPage, reloadVersion]);
 
   async function handleDelete(routeId: number) {
+    setOpenMenuRouteId(null);
     const ok = window.confirm("Bạn có chắc muốn xoá tuyến này không?");
     if (!ok) return;
 
@@ -280,6 +373,7 @@ export default function CuratorRoutesPage() {
   }
 
   async function handlePublish(routeId: number) {
+    setOpenMenuRouteId(null);
     const ok = window.confirm("Bạn có chắc muốn kích hoạt tuyến này không?");
     if (!ok) return;
 
@@ -305,18 +399,9 @@ export default function CuratorRoutesPage() {
             <p className="cq-page-subtitle max-w-2xl">Xây dựng các tuyến khám phá di sản TP.HCM.</p>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="inline-flex w-fit items-center rounded-full border border-slate-100 bg-[#F7F5EF] p-1">
-              <Link href="/curator/routes" className="rounded-full bg-white px-4 py-2 text-xs font-medium text-slate-950 shadow-sm">Danh sách</Link>
-              <Link href="/curator/routes/create" className="rounded-full px-4 py-2 text-xs font-medium text-slate-500 transition hover:text-slate-900">Trình tạo tuyến</Link>
-            </div>
-
-            <Button asChild variant="secondary" className="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 text-white shadow-sm">
-              <Link href="/curator/routes/create">
-                <Plus className="h-4 w-4" />
-                Tuyến mới
-              </Link>
-            </Button>
+          <div className="inline-flex w-fit items-center rounded-full border border-slate-100 bg-[#F7F5EF] p-1">
+            <Link href="/curator/routes" className="rounded-full bg-white px-4 py-2 text-xs font-medium text-slate-950 shadow-sm">Danh sách</Link>
+            <Link href="/curator/routes/create" className="rounded-full px-4 py-2 text-xs font-medium text-slate-500 transition hover:text-slate-900">Trình tạo tuyến</Link>
           </div>
         </div>
 
@@ -330,7 +415,14 @@ export default function CuratorRoutesPage() {
           <div className="mt-7 grid auto-rows-fr gap-4 xl:grid-cols-2">
             {routes.map((route) => (
               <div key={route.routeId} className={`h-full ${publishingRouteId === route.routeId ? "pointer-events-none opacity-70" : ""}`}>
-                <RouteCard route={route} onDelete={handleDelete} onPublish={handlePublish} />
+                <RouteCard
+                  route={route}
+                  onDelete={handleDelete}
+                  onPublish={handlePublish}
+                  isMenuOpen={openMenuRouteId === route.routeId}
+                  setOpenMenuRouteId={setOpenMenuRouteId}
+                  isPublishing={publishingRouteId === route.routeId}
+                />
               </div>
             ))}
           </div>

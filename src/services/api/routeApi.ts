@@ -18,6 +18,7 @@ export interface RoutePayload {
   estimateTime: number;
   totalDistance: number;
   hotspotIds: number[];
+  storyIds?: number[];
   tagId: number;
   xp: number;
   point: number;
@@ -131,7 +132,7 @@ function normalizePage<T>(raw: RawPageMaybeNested<T>): PageResponse<T> {
   };
 }
 
-/** Build multipart payload matching backend RouteRequest.hotspotIds. */
+/** Build multipart payload for route create/update requests. */
 function buildRouteFormData(payload: RoutePayload) {
   const formData = new FormData();
 
@@ -143,9 +144,15 @@ function buildRouteFormData(payload: RoutePayload) {
   formData.append("difficulty", payload.difficulty);
   formData.append("estimateTime", String(payload.estimateTime));
   formData.append("totalDistance", String(payload.totalDistance));
-  payload.hotspotIds.forEach((hotspotId) => {
-    formData.append("hotspotIds", String(hotspotId));
-  });
+  if ((payload.storyIds?.length ?? 0) > 0) {
+    payload.storyIds?.forEach((storyId) => {
+      formData.append("storyIds", String(storyId));
+    });
+  } else {
+    payload.hotspotIds.forEach((hotspotId) => {
+      formData.append("hotspotIds", String(hotspotId));
+    });
+  }
   formData.append("tagId", String(payload.tagId));
   formData.append("xp", String(payload.xp));
   formData.append("point", String(payload.point));
@@ -269,7 +276,8 @@ export const routeApi = {
   },
 
   updateRoute: async (routeId: number, payload: RoutePayload) => {
-    const { files: _files, ...jsonPayload } = payload;
+    const jsonPayload = { ...payload };
+    delete jsonPayload.files;
 
     const route = await apiFetch<RouteResponse>(`${ROUTE_BASE_URL}/${routeId}`, {
       method: "PUT",
