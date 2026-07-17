@@ -3,18 +3,21 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
+  ArrowRight,
+  BookOpen,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   GripVertical,
-  LoaderCircle,
-  Plus,
-  Search,
-  SlidersHorizontal,
-  Upload,
   Image as ImageIcon,
+  LoaderCircle,
+  MapPin,
+  MapPinned,
+  Search,
+  Sparkles,
+  Upload,
   X,
 } from "lucide-react";
 
@@ -22,35 +25,104 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { buildTagToken, type TagRecord } from "@/lib/tags";
-import { hotspotApi, tagApi, type BackendHotspot } from "@/services/api";
+import {
+  hotspotApi,
+  storyApi,
+  tagApi,
+  type BackendHotspot,
+  type BackendStory,
+} from "@/services/api";
 import {
   routeApi,
   type RouteDifficulty,
   type RoutePayload,
+  type RouteResponse,
+  type RouteStatus,
 } from "@/services/api/routeApi";
 
-type RouteBuilderStep = 1 | 2 | 3 | 4 | 5 | 6;
+type RouteBuilderStep = 1 | 2 | 3 | 4 | 5;
 type StepVisualState = "active" | "completed" | "upcoming";
+type StoryCatalogMap = Record<number, BackendStory[]>;
+type StoryLoadErrorMap = Record<number, string>;
 
-const routeSteps = [
-  { id: 1, label: "Chủ đề" },
-  { id: 2, label: "Chọn hotspot" },
-  { id: 3, label: "Sắp xếp" },
-  { id: 4, label: "Thông tin" },
-  { id: 5, label: "Xem trước" },
-  { id: 6, label: "Lưu tuyến" },
+const routeSteps: Array<{
+  id: RouteBuilderStep;
+  label: string;
+}> = [
+  {
+    id: 1,
+    label: "Thông tin tuyến",
+  },
+  {
+    id: 2,
+    label: "Chọn hotspot",
+  },
+  {
+    id: 3,
+    label: "Cấu hình câu chuyện",
+  },
+  {
+    id: 4,
+    label: "Sắp xếp câu chuyện",
+  },
+  {
+    id: 5,
+    label: "Rà soát",
+  },
 ];
 
-const HOTSPOTS_PER_PAGE = 4;
+const HOTSPOTS_PER_PAGE = 6;
+
+const FORM_INPUT_CLASS =
+  "h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20";
+const FORM_TEXTAREA_CLASS =
+  "w-full min-w-0 resize-none break-words rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20";
+const STEP_SURFACE_CLASS = "min-w-0";
 
 const difficultyOptions: Array<{
   label: string;
   value: RouteDifficulty;
+  description: string;
 }> = [
-    { label: "Dễ", value: "EASY" },
-    { label: "Vừa", value: "MEDIUM" },
-    { label: "Khó", value: "HARD" },
-  ];
+  {
+    label: "Dễ",
+    value: "EASY",
+    description: "Tuyến nhẹ, phù hợp cho phần lớn người tham gia.",
+  },
+  {
+    label: "Trung bình",
+    value: "MEDIUM",
+    description: "Cân bằng giữa thời lượng, di chuyển và lượng nội dung.",
+  },
+  {
+    label: "Khó",
+    value: "HARD",
+    description: "Tuyến dài hơn, cần đầu tư thời gian và sức di chuyển.",
+  },
+];
+
+const routeStatusOptions: Array<{
+  label: string;
+  status: RouteStatus;
+}> = [
+  { label: "Bản nháp", status: "DRAFT" },
+  { label: "Đang ghi", status: "RECORDING" },
+  { label: "Thử nghiệm", status: "TRIAL" },
+  { label: "Chờ duyệt", status: "PENDING" },
+  { label: "Đã xuất bản", status: "PUBLISHED" },
+];
+
+const RouteHotspotMap = dynamic(
+  () => import("@/components/map/map").then((mod) => mod.RouteHotspotMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid h-[360px] place-items-center rounded-3xl border border-emerald-100 bg-emerald-50/60 text-sm text-slate-500">
+        Đang tải bản đồ...
+      </div>
+    ),
+  },
+);
 
 function getHotspotCover(hotspot: BackendHotspot) {
   return (
@@ -59,17 +131,88 @@ function getHotspotCover(hotspot: BackendHotspot) {
     ""
   );
 }
-const RouteHotspotMap = dynamic(
-  () => import("@/components/map/map").then((mod) => mod.RouteHotspotMap),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="grid h-[420px] place-items-center rounded-[1.5rem] border border-slate-200 bg-slate-50 text-sm text-slate-500">
-        Đang tải bản đồ...
+
+function resolveStories(stories?: BackendStory[]) {
+  return [...(stories ?? [])].sort((storyA, storyB) => {
+    const orderDiff =
+      (storyA.orderIndex ?? Number.MAX_SAFE_INTEGER) -
+      (storyB.orderIndex ?? Number.MAX_SAFE_INTEGER);
+
+    if (orderDiff !== 0) {
+      return orderDiff;
+    }
+
+    return storyA.storyId - storyB.storyId;
+  });
+}
+
+function getRouteCoverFromResponse(route: RouteResponse) {
+  return (
+    route.coverImageUrl ||
+    route.thumbnailUrl ||
+    route.imageUrl ||
+    route.medias?.find((media) => media.mediaType === "IMAGE")?.fileUrl ||
+    route.media?.find((media) => media.mediaType === "IMAGE")?.fileUrl ||
+    ""
+  );
+}
+
+function formatDifficultyLabel(value: RouteDifficulty) {
+  return (
+    difficultyOptions.find((item) => item.value === value)?.label ??
+    "Trung bình"
+  );
+}
+
+function parsePositiveNumber(value: string) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function parseNonNegativeInteger(value: string) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function isPublishedHotspot(hotspot: BackendHotspot) {
+  return hotspot.status?.trim().toUpperCase() === "PUBLISHED";
+}
+
+function SummaryRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 text-sm">
+      <span className="text-slate-500">{label}</span>
+      <span className="text-right font-semibold text-slate-900">{value}</span>
+    </div>
+  );
+}
+
+function EmptyStateCard({
+  icon,
+  title,
+  description,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-dashed border-emerald-200 bg-emerald-50/60 px-6 py-10 text-center">
+      <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-white text-emerald-600 shadow-sm">
+        {icon}
       </div>
-    ),
-  },
-);
+      <h3 className="mt-4 text-base font-semibold text-slate-900">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
+    </div>
+  );
+}
+
 function BuilderStep({
   id,
   label,
@@ -89,171 +232,259 @@ function BuilderStep({
       onClick={onClick}
       disabled={!interactive}
       className={cn(
-        "inline-flex items-center gap-2 px-1 py-2 text-sm transition disabled:cursor-default disabled:opacity-100",
+        "inline-flex shrink-0 items-center gap-3 whitespace-nowrap rounded-full px-1 py-1.5 text-sm transition disabled:cursor-default disabled:opacity-100",
         state === "active"
-          ? "rounded-full border border-[#F7DCE8] bg-[linear-gradient(90deg,_#eb489b_0%,_#f58752_58%,_#ffc93c_100%)] px-3 font-semibold text-white shadow-[0_14px_28px_rgba(235,72,155,0.18)]"
+          ? "bg-emerald-600/10 pr-4 text-emerald-700"
           : state === "completed"
-            ? "font-medium text-emerald-700 hover:text-emerald-800"
+            ? "text-emerald-700"
             : interactive
-              ? "font-medium text-slate-500 hover:text-slate-900"
-              : "font-medium text-slate-400",
+              ? "text-slate-500 hover:text-slate-900"
+              : "text-slate-400",
       )}
     >
       <span
         className={cn(
-          "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs",
+          "inline-flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold",
           state === "active"
-            ? "bg-white/20 text-white"
+            ? "bg-emerald-600 text-white shadow-sm"
             : state === "completed"
               ? "bg-emerald-100 text-emerald-700"
-              : "bg-[#F7F5EF] text-slate-500",
+              : "bg-slate-100 text-slate-500",
         )}
       >
         {state === "completed" ? <CheckCircle2 className="h-4 w-4" /> : id}
       </span>
-      <span>{label}</span>
+      <span className="font-medium">{label}</span>
     </button>
   );
 }
 
-function TagThemeCard({
-  tag,
-  selected,
-  onToggle,
-}: {
-  tag: TagRecord;
-  selected: boolean;
-  onToggle: (tagId: number) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onToggle(tag.tagId)}
-      className={cn(
-        "w-full rounded-[1.75rem] border p-5 text-left transition hover:-translate-y-0.5 hover:shadow-lg",
-        selected
-          ? "border-[#f3b0a8] bg-[#fff5f2] shadow-sm"
-          : "border-slate-200/80 bg-card shadow-sm",
-      )}
-      aria-pressed={selected}
-    >
-      <h3 className="cq-card-title sm:text-[0.95rem]">
-        #{buildTagToken(tag.tagName)}
-      </h3>
-      <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-[0.8rem]">
-        Chọn tag này để gắn chủ đề cho tuyến hành trình.
-      </p>
-    </button>
-  );
-}
-
-function HotspotSelectionCard({
+function HotspotLocationCard({
   item,
   selected,
+  storyCount,
   onToggle,
 }: {
   item: BackendHotspot;
   selected: boolean;
+  storyCount: number;
   onToggle: (hotspotId: number) => void;
 }) {
   const image = getHotspotCover(item);
 
   return (
-    <button
-      type="button"
-      onClick={() => onToggle(item.hotspotId)}
-      aria-pressed={selected}
-      className={cn(
-        "group relative overflow-hidden rounded-[1.75rem] border text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg",
-        selected
-          ? "border-[#f3b0a8] bg-[#fff5f2]"
-          : "border-slate-200/80 bg-card",
-      )}
-    >
-      <div
-        className="relative h-36 w-full bg-slate-100 bg-cover bg-center"
-        style={image ? { backgroundImage: `url(${image})` } : undefined}
+    <div className="flex h-[21rem] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-emerald-200 hover:shadow-md">
+      <Link
+        href={`/curator/hotspot/${item.hotspotId}`}
+        className="block flex-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30"
       >
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/10 to-transparent" />
-        <div
+        <div className="relative h-48 bg-slate-100">
+          {image ? (
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url(${image})` }}
+            />
+          ) : (
+            <div className="absolute inset-0 bg-[linear-gradient(135deg,_#d1fae5_0%,_#f0fdf4_52%,_#dcfce7_100%)]" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 via-slate-900/10 to-transparent" />
+          <div className="absolute left-4 top-4">
+            <span className="rounded-md bg-slate-950/70 px-3 py-1 text-[11px] font-medium text-white">
+              {storyCount} câu chuyện
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 px-4 py-3">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold leading-6 text-slate-900 break-words">
+              {item.hotspotName}
+            </h3>
+            <div className="mt-2 flex items-start gap-2 text-sm text-slate-500">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+              <p className="line-clamp-2 break-words text-xs sm:text-sm">
+                {item.address || "Địa chỉ đang cập nhật"}
+              </p>
+            </div>
+          </div>
+        </div>
+      </Link>
+
+      <div className="px-4 pb-4">
+        <Button
+          type="button"
+          onClick={() => onToggle(item.hotspotId)}
+          variant={selected ? "outline" : "secondary"}
           className={cn(
-            "absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full shadow-sm transition",
+            "w-full rounded-full px-4 text-sm",
             selected
-              ? "bg-[#cf3d37] text-white"
-              : "bg-white/90 text-slate-500 group-hover:text-slate-900",
+              ? "border-emerald-100 bg-emerald-50 text-emerald-500 hover:bg-emerald-100 hover:text-emerald-600"
+              : "bg-emerald-600 text-white hover:bg-emerald-700",
           )}
         >
-          {selected ? (
-            <CheckCircle2 className="h-4 w-4" />
+          {selected ? "Đã chọn" : "Thêm"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function StoryAccordionCard({
+  hotspot,
+  stories,
+  expanded,
+  isLoading,
+  loadError,
+  onToggleExpanded,
+}: {
+  hotspot: BackendHotspot;
+  stories: BackendStory[];
+  expanded: boolean;
+  isLoading: boolean;
+  loadError?: string;
+  onToggleExpanded: (hotspotId: number) => void;
+}) {
+  const image = getHotspotCover(hotspot);
+
+  return (
+    <div className="min-w-0">
+      <button
+        type="button"
+        onClick={() => onToggleExpanded(hotspot.hotspotId)}
+        className="flex w-full min-w-0 items-start justify-between gap-4 px-5 py-4 text-left transition hover:bg-slate-50/80"
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <div
+            className="h-14 w-14 shrink-0 rounded-xl bg-slate-100 bg-cover bg-center"
+            style={image ? { backgroundImage: `url(${image})` } : undefined}
+          />
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold leading-6 text-slate-900 break-words sm:text-base">
+              {hotspot.hotspotName}
+            </h3>
+            <p className="mt-1 text-xs leading-5 text-slate-500 break-words">
+              {hotspot.address || "Địa chỉ đang cập nhật"}
+            </p>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-3">
+          <span className="text-xs font-medium text-slate-500">
+            {stories.length} story
+          </span>
+          <ChevronDown
+            className={cn(
+              "h-5 w-5 shrink-0 text-slate-400 transition",
+              expanded && "rotate-180 text-emerald-700",
+            )}
+          />
+        </div>
+      </button>
+
+      {expanded ? (
+        <div className="border-t border-slate-200 px-5 py-4">
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <LoaderCircle className="h-4 w-4 animate-spin text-emerald-600" />
+              Đang tải câu chuyện cho hotspot này...
+            </div>
+          ) : loadError ? (
+            <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {loadError}
+            </div>
+          ) : stories.length > 0 ? (
+            <div className="space-y-4">
+              <div className="divide-y divide-slate-200">
+                {stories.map((story) => (
+                  <div
+                    key={story.storyId}
+                    className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold leading-6 text-slate-900 break-words">
+                        {story.title}
+                      </p>
+                      {story.content?.trim() ? (
+                        <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500 break-words">
+                          {story.content}
+                        </p>
+                      ) : null}
+                    </div>
+                    <Link
+                      href={`/curator/stories/${story.storyId}`}
+                      className="shrink-0 text-sm font-semibold text-slate-400 transition hover:text-emerald-700"
+                      aria-label={`Xem chi tiết story ${story.title}`}
+                    >
+                      ...
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : (
-            <Plus className="h-4 w-4" />
+            <EmptyStateCard
+              icon={<BookOpen className="h-6 w-6" />}
+              title="Chưa có câu chuyện khả dụng"
+              description="Hotspot này hiện chưa có câu chuyện để cấu hình vào tuyến."
+            />
           )}
         </div>
-      </div>
-
-      <div className="p-4">
-        <h3 className="cq-card-title">{item.hotspotName}</h3>
-        <p className="mt-1 line-clamp-2 text-xs text-slate-500">
-          {item.address}
-        </p>
-      </div>
-    </button>
+      ) : null}
+    </div>
   );
 }
 
 function SortableHotspotRow({
-  item,
+  hotspot,
   index,
+  storyCount,
+  selectedStoryCount,
   onDragStart,
   onDragEnd,
   onDrop,
   onDragOver,
   isDragging,
 }: {
-  item: BackendHotspot;
+  hotspot: BackendHotspot;
   index: number;
+  storyCount: number;
+  selectedStoryCount: number;
   onDragStart: (hotspotId: number) => void;
   onDragEnd: () => void;
   onDrop: (targetHotspotId: number) => void;
   onDragOver: (event: React.DragEvent<HTMLDivElement>) => void;
   isDragging: boolean;
 }) {
-  const image = getHotspotCover(item);
+  const image = getHotspotCover(hotspot);
 
   return (
     <div
       draggable
-      onDragStart={() => onDragStart(item.hotspotId)}
+      onDragStart={() => onDragStart(hotspot.hotspotId)}
       onDragEnd={onDragEnd}
+      onDrop={() => onDrop(hotspot.hotspotId)}
       onDragOver={onDragOver}
-      onDrop={() => onDrop(item.hotspotId)}
       className={cn(
-        "rounded-[1.5rem] border border-[#e6ddd2] bg-[#fcfbf8] p-3 shadow-sm transition sm:p-3.5",
-        isDragging && "opacity-60",
+        "px-5 py-4 transition hover:bg-slate-50",
+        isDragging && "bg-slate-50 opacity-60",
       )}
     >
-      <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         <div className="cursor-grab text-slate-400 active:cursor-grabbing">
-          <GripVertical className="h-3.5 w-3.5" />
+          <GripVertical className="h-4 w-4" />
         </div>
-
-        <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#cf3d37] text-sm font-semibold text-white sm:h-9 sm:w-9">
+        <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
           {index + 1}
         </div>
-
         <div
-          role="img"
-          aria-label={item.hotspotName}
-          className="h-10 w-10 shrink-0 rounded-[0.9rem] bg-slate-100 bg-cover bg-center sm:h-12 sm:w-12 sm:rounded-[1rem]"
+          className="h-12 w-12 shrink-0 rounded-xl bg-slate-100 bg-cover bg-center"
           style={image ? { backgroundImage: `url(${image})` } : undefined}
         />
-
-        <div className="min-w-0">
-          <h3 className="truncate text-[0.95rem] font-semibold text-slate-900">
-            {item.hotspotName}
-          </h3>
-          <p className="mt-0.5 text-[0.8rem] text-slate-500">
-            {item.address} · {item.xp ?? 0} XP
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold leading-6 text-slate-900 break-words">
+            {hotspot.hotspotName}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-slate-500 break-words">
+            {selectedStoryCount}/{storyCount} câu chuyện · {hotspot.address}
           </p>
         </div>
       </div>
@@ -261,27 +492,11 @@ function SortableHotspotRow({
   );
 }
 
-function SummaryRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4 text-xs">
-      <span className="text-slate-500 sm:text-sm">{label}</span>
-      <span className="cq-card-title text-right sm:text-[0.95rem]">
-        {value}
-      </span>
-    </div>
-  );
-}
-
 export default function CuratorRouteCreatePage() {
   const searchParams = useSearchParams();
   const routeIdParam = Number(searchParams.get("id"));
-  const editingRouteId = Number.isInteger(routeIdParam) && routeIdParam > 0 ? routeIdParam : null;
+  const editingRouteId =
+    Number.isInteger(routeIdParam) && routeIdParam > 0 ? routeIdParam : null;
   const isEditing = editingRouteId !== null;
 
   const [activeStep, setActiveStep] = useState<RouteBuilderStep>(1);
@@ -289,27 +504,39 @@ export default function CuratorRouteCreatePage() {
   const [tags, setTags] = useState<TagRecord[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [selectedHotspotIds, setSelectedHotspotIds] = useState<number[]>([]);
+  const [hotspotStoriesMap, setHotspotStoriesMap] = useState<StoryCatalogMap>(
+    {},
+  );
+  const [storyLoadErrors, setStoryLoadErrors] = useState<StoryLoadErrorMap>({});
+  const [loadingStoryHotspotIds, setLoadingStoryHotspotIds] = useState<
+    number[]
+  >([]);
+  const [expandedHotspotIds, setExpandedHotspotIds] = useState<number[]>([]);
   const [focusedHotspotId, setFocusedHotspotId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("Mọi trạng thái");
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [hotspotPage, setHotspotPage] = useState(1);
-  const [draggingHotspotId, setDraggingHotspotId] = useState<number | null>(null);
+  const [draggingHotspotId, setDraggingHotspotId] = useState<number | null>(
+    null,
+  );
   const [routeTitle, setRouteTitle] = useState("");
   const [routeDescription, setRouteDescription] = useState("");
-  const [routeDurationInput, setRouteDurationInput] = useState("120");
-  const [routeDistanceInput, setRouteDistanceInput] = useState("3");
-  const [routeXpInput, setRouteXpInput] = useState("100");
-  const [routePointInput, setRoutePointInput] = useState("100");
+  const [routeDurationInput, setRouteDurationInput] = useState("");
+  const [routeDistanceInput, setRouteDistanceInput] = useState("");
+  const [routeXpInput, setRouteXpInput] = useState("");
+  const [routePointInput, setRoutePointInput] = useState("");
   const [routeDifficulty, setRouteDifficulty] =
     useState<RouteDifficulty>("MEDIUM");
-  const [currentRouteStatus, setCurrentRouteStatus] = useState<"DRAFT" | "RECORDING" | "TRIAL" | "PENDING" | "PUBLISHED" | "DELETED">("DRAFT");
+  const [routeStatus, setRouteStatus] = useState<RouteStatus>("DRAFT");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [existingCoverImageUrl, setExistingCoverImageUrl] = useState("");
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingStatus, setSubmittingStatus] = useState<RouteStatus | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
 
-  const filterMenuRef = useRef<HTMLDivElement | null>(null);
+  const coverPreviewObjectUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -324,16 +551,35 @@ export default function CuratorRouteCreatePage() {
           tagApi.getTags({ page: 0, size: 100, status: "ACTIVE" }),
         ]);
 
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
 
         setHotspots(hotspotResponse);
         setTags(tagResponse.content);
+        setHotspotStoriesMap(() => {
+          const seeded: StoryCatalogMap = {};
+
+          hotspotResponse.forEach((hotspot) => {
+            const stories = resolveStories(hotspot.stories);
+
+            if (stories.length > 0) {
+              seeded[hotspot.hotspotId] = stories;
+            }
+          });
+
+          return seeded;
+        });
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Không thể tải dữ liệu.");
+          setError(
+            err instanceof Error ? err.message : "Không thể tải dữ liệu.",
+          );
         }
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     }
 
@@ -345,7 +591,9 @@ export default function CuratorRouteCreatePage() {
   }, []);
 
   useEffect(() => {
-    if (editingRouteId === null || isLoading) return;
+    if (editingRouteId === null || isLoading) {
+      return;
+    }
 
     const routeId = editingRouteId;
     let cancelled = false;
@@ -353,74 +601,146 @@ export default function CuratorRouteCreatePage() {
     async function loadRouteForEdit() {
       try {
         setError(null);
+
         const route = await routeApi.getRouteById(routeId);
-        if (cancelled) return;
+
+        if (cancelled) {
+          return;
+        }
 
         setRouteTitle(route.routeName ?? "");
         setRouteDescription(route.description ?? "");
         setRouteDifficulty(route.difficulty ?? "MEDIUM");
-        setCurrentRouteStatus(route.status);
+        setRouteStatus(route.status ?? "DRAFT");
         setRouteDurationInput(String(route.estimateTime ?? 0));
         setRouteDistanceInput(String(route.totalDistance ?? 0));
         setRouteXpInput(String(route.xp ?? 0));
         setRoutePointInput(String(route.point ?? 0));
+        const routeCoverUrl = getRouteCoverFromResponse(route);
+        setExistingCoverImageUrl(routeCoverUrl);
+        setCoverPreviewUrl(routeCoverUrl);
+
         const tagId = route.tag?.tagId ?? route.tags?.[0]?.tagId;
         setSelectedTagIds(tagId ? [tagId] : []);
-        setSelectedHotspotIds((route.hotspots ?? []).map((item) => item.hotspotId));
+
+        const hotspotIds = (route.hotspots ?? []).map((item) => item.hotspotId);
+        setSelectedHotspotIds(hotspotIds);
+        setExpandedHotspotIds(hotspotIds);
+        setFocusedHotspotId(hotspotIds[0] ?? null);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Không thể tải tuyến để chỉnh sửa.");
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Không thể tải tuyến để chỉnh sửa.",
+          );
         }
       }
     }
 
     void loadRouteForEdit();
-    return () => { cancelled = true; };
+
+    return () => {
+      cancelled = true;
+    };
   }, [editingRouteId, isLoading]);
 
   useEffect(() => {
-    if (!isFilterOpen) return;
+    const missingHotspotIds = selectedHotspotIds.filter(
+      (hotspotId) =>
+        !Object.prototype.hasOwnProperty.call(hotspotStoriesMap, hotspotId) &&
+        !loadingStoryHotspotIds.includes(hotspotId),
+    );
 
-    function handlePointerDown(event: MouseEvent) {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
+    if (missingHotspotIds.length === 0) {
+      return;
+    }
 
-      if (filterMenuRef.current && !filterMenuRef.current.contains(target)) {
-        setIsFilterOpen(false);
+    let cancelled = false;
+
+    async function loadMissingStories() {
+      setLoadingStoryHotspotIds((current) => [
+        ...current,
+        ...missingHotspotIds.filter(
+          (hotspotId) => !current.includes(hotspotId),
+        ),
+      ]);
+
+      const results = await Promise.all(
+        missingHotspotIds.map(async (hotspotId) => {
+          try {
+            const response = await storyApi.getStories({
+              hotspotId,
+              size: 500,
+            });
+
+            return {
+              hotspotId,
+              stories: resolveStories(response.content),
+              error: "",
+            };
+          } catch (err) {
+            return {
+              hotspotId,
+              stories: [] as BackendStory[],
+              error:
+                err instanceof Error
+                  ? err.message
+                  : "Không thể tải câu chuyện của hotspot.",
+            };
+          }
+        }),
+      );
+
+      if (cancelled) {
+        return;
       }
+
+      setHotspotStoriesMap((current) => {
+        const next = { ...current };
+
+        results.forEach(({ hotspotId, stories }) => {
+          next[hotspotId] = stories;
+        });
+
+        return next;
+      });
+
+      setStoryLoadErrors((current) => {
+        const next = { ...current };
+
+        results.forEach(({ hotspotId, error: itemError }) => {
+          if (itemError) {
+            next[hotspotId] = itemError;
+          } else {
+            delete next[hotspotId];
+          }
+        });
+
+        return next;
+      });
+
+      setLoadingStoryHotspotIds((current) =>
+        current.filter((hotspotId) => !missingHotspotIds.includes(hotspotId)),
+      );
     }
 
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setIsFilterOpen(false);
-    }
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleEscape);
+    void loadMissingStories();
 
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleEscape);
+      cancelled = true;
     };
-  }, [isFilterOpen]);
+  }, [hotspotStoriesMap, loadingStoryHotspotIds, selectedHotspotIds]);
 
-  const hotspotStatusOptions = useMemo(
-    () => [
-      "Mọi trạng thái",
-      ...Array.from(
-        new Set(
-          hotspots
-            .map((hotspot) => hotspot.status)
-            .filter((status): status is string => Boolean(status)),
-        ),
-      ),
-    ],
+  const publishedHotspots = useMemo(
+    () => hotspots.filter((hotspot) => isPublishedHotspot(hotspot)),
     [hotspots],
   );
 
   const filteredHotspots = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
-    return hotspots.filter((item) => {
+    return publishedHotspots.filter((item) => {
       const matchesQuery =
         normalizedQuery.length === 0 ||
         [item.hotspotName, item.description, item.address]
@@ -429,139 +749,279 @@ export default function CuratorRouteCreatePage() {
             String(field).toLowerCase().includes(normalizedQuery),
           );
 
-      const matchesStatus =
-        selectedStatus === "Mọi trạng thái" || item.status === selectedStatus;
-
-      return matchesQuery && matchesStatus;
+      return matchesQuery;
     });
-  }, [hotspots, searchQuery, selectedStatus]);
+  }, [publishedHotspots, searchQuery]);
 
-  const selectedHotspots = selectedHotspotIds
-    .map((id) => hotspots.find((item) => item.hotspotId === id))
-    .filter((item): item is BackendHotspot => Boolean(item));
+  const selectedHotspots = useMemo(
+    () =>
+      selectedHotspotIds
+        .map((id) => hotspots.find((item) => item.hotspotId === id))
+        .filter((item): item is BackendHotspot => Boolean(item)),
+    [hotspots, selectedHotspotIds],
+  );
 
+  const selectedTheme = useMemo(
+    () => tags.find((tag) => tag.tagId === selectedTagIds[0]) ?? null,
+    [selectedTagIds, tags],
+  );
+
+  const selectedStoryIdsByHotspot = useMemo(
+    () =>
+      selectedHotspotIds.reduce<Record<number, number[]>>((acc, hotspotId) => {
+        if (
+          !Object.prototype.hasOwnProperty.call(hotspotStoriesMap, hotspotId)
+        ) {
+          return acc;
+        }
+
+        acc[hotspotId] = (hotspotStoriesMap[hotspotId] ?? []).map(
+          (story) => story.storyId,
+        );
+        return acc;
+      }, {}),
+    [hotspotStoriesMap, selectedHotspotIds],
+  );
+
+  const selectedStoryIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          selectedHotspotIds.flatMap(
+            (hotspotId) => selectedStoryIdsByHotspot[hotspotId] ?? [],
+          ),
+        ),
+      ),
+    [selectedHotspotIds, selectedStoryIdsByHotspot],
+  );
+
+  const totalSelectedStories = selectedStoryIds.length;
+  const suggestedDurationMinutes = Math.max(selectedHotspots.length * 30, 60);
+  const suggestedDistanceKilometers = Number(
+    Math.max(selectedHotspots.length * 0.8, 1).toFixed(1),
+  );
+  const suggestedRouteXp = Math.max(
+    totalSelectedStories * 10,
+    selectedHotspots.length * 25,
+    50,
+  );
+  const suggestedRoutePoint = Math.max(selectedHotspots.length * 20, 50);
+  const parsedDurationMinutes = parsePositiveNumber(routeDurationInput);
+  const parsedDistanceKilometers = parsePositiveNumber(routeDistanceInput);
+  const parsedRouteXp = parseNonNegativeInteger(routeXpInput);
+  const parsedRoutePoint = parseNonNegativeInteger(routePointInput);
+  const resolvedDurationMinutes =
+    parsedDurationMinutes ?? suggestedDurationMinutes;
+  const resolvedDistanceKilometers =
+    parsedDistanceKilometers ?? suggestedDistanceKilometers;
+  const resolvedRouteXp = parsedRouteXp ?? suggestedRouteXp;
+  const resolvedRoutePoint = parsedRoutePoint ?? suggestedRoutePoint;
   const hotspotPageCount = Math.max(
     1,
     Math.ceil(filteredHotspots.length / HOTSPOTS_PER_PAGE),
   );
-
   const currentHotspotPage = Math.min(hotspotPage, hotspotPageCount);
-
   const paginatedHotspots = filteredHotspots.slice(
     (currentHotspotPage - 1) * HOTSPOTS_PER_PAGE,
     currentHotspotPage * HOTSPOTS_PER_PAGE,
   );
-
   const hotspotPageNumbers = Array.from(
     { length: hotspotPageCount },
     (_, index) => index + 1,
   );
+  const estimatedDistance = `${resolvedDistanceKilometers} km`;
+  const estimatedDuration = `${resolvedDurationMinutes} phút`;
 
-  const activeFilterCount = Number(selectedStatus !== "Mọi trạng thái");
+  const routeInfoComplete = useMemo(() => {
+    return (
+      Boolean(routeTitle.trim()) &&
+      selectedTagIds.length > 0 &&
+      parsedDurationMinutes !== null &&
+      parsedDistanceKilometers !== null &&
+      parsedRouteXp !== null &&
+      parsedRoutePoint !== null
+    );
+  }, [
+    parsedDistanceKilometers,
+    parsedDurationMinutes,
+    parsedRoutePoint,
+    parsedRouteXp,
+    routeTitle,
+    selectedTagIds,
+  ]);
 
-  const estimatedDistance =
-    selectedHotspots.length > 0
-      ? `~${(selectedHotspots.length * 0.75).toFixed(1)} km`
-      : `~${routeDistanceInput || 0} km`;
+  const hotspotSelectionComplete = selectedHotspots.length >= 4;
+  const storyConfigurationComplete =
+    hotspotSelectionComplete &&
+    selectedHotspots.every(
+      (hotspot) =>
+        (selectedStoryIdsByHotspot[hotspot.hotspotId]?.length ?? 0) > 0,
+    );
+  const organizeComplete = storyConfigurationComplete;
 
-  const estimatedDuration =
-    routeDurationInput.trim().length > 0
-      ? `~${routeDurationInput.trim()} phút`
-      : "~0 phút";
-
-  const maxUnlockedStep: RouteBuilderStep =
-    activeStep === 6
-      ? 6
-      : activeStep === 5
-        ? 5
-        : activeStep === 4
+  const maxUnlockedStep: RouteBuilderStep = !routeInfoComplete
+    ? 1
+    : !hotspotSelectionComplete
+      ? 2
+      : !storyConfigurationComplete
+        ? 3
+        : !organizeComplete
           ? 4
-          : activeStep === 3
-            ? 3
-            : activeStep === 2 && selectedHotspots.length > 0
-              ? 3
-              : activeStep;
+          : 5;
+  const normalizedActiveStep =
+    activeStep > maxUnlockedStep ? maxUnlockedStep : activeStep;
+  const effectiveFocusedHotspotId =
+    focusedHotspotId !== null &&
+    selectedHotspots.some((hotspot) => hotspot.hotspotId === focusedHotspotId)
+      ? focusedHotspotId
+      : (selectedHotspots[0]?.hotspotId ?? null);
+
+  function getStoriesForHotspot(hotspotId: number) {
+    return hotspotStoriesMap[hotspotId] ?? [];
+  }
+
+  function getSelectedStoriesForHotspot(hotspotId: number) {
+    return getStoriesForHotspot(hotspotId);
+  }
+
+  function handleStepChange(step: RouteBuilderStep) {
+    if (step <= maxUnlockedStep) {
+      setActiveStep(step);
+    }
+  }
 
   function handleSearchQueryChange(value: string) {
     setSearchQuery(value);
     setHotspotPage(1);
   }
 
-  function handleStatusChange(value: string) {
-    setSelectedStatus(value);
-    setHotspotPage(1);
+  function handleThemeSelect(value: string) {
+    const tagId = Number(value);
+
+    if (!Number.isInteger(tagId) || tagId <= 0) {
+      setSelectedTagIds([]);
+      return;
+    }
+
+    setSelectedTagIds([tagId]);
   }
 
-  function handleResetHotspotFilters() {
-    setSelectedStatus("Mọi trạng thái");
-    setHotspotPage(1);
-  }
-
-  function handleStepChange(step: RouteBuilderStep) {
-    if (step <= maxUnlockedStep) setActiveStep(step);
-  }
-
-  function toggleTag(tagId: number) {
-    setSelectedTagIds((current) => (current[0] === tagId ? [] : [tagId]));
-  }
-
-  function handleToggleHotspot(hotspotId: number) {
-    setSelectedHotspotIds((current) =>
+  function toggleHotspotExpansion(hotspotId: number) {
+    setExpandedHotspotIds((current) =>
       current.includes(hotspotId)
         ? current.filter((item) => item !== hotspotId)
         : [...current, hotspotId],
     );
   }
 
+  function handleToggleHotspot(hotspotId: number) {
+    const isSelected = selectedHotspotIds.includes(hotspotId);
+
+    if (isSelected) {
+      setSelectedHotspotIds((current) =>
+        current.filter((item) => item !== hotspotId),
+      );
+      setExpandedHotspotIds((current) =>
+        current.filter((item) => item !== hotspotId),
+      );
+      if (focusedHotspotId === hotspotId) {
+        const remainingHotspotIds = selectedHotspotIds.filter(
+          (item) => item !== hotspotId,
+        );
+        setFocusedHotspotId(remainingHotspotIds[0] ?? null);
+      }
+      return;
+    }
+
+    setSelectedHotspotIds((current) => [...current, hotspotId]);
+    setExpandedHotspotIds((current) =>
+      current.includes(hotspotId) ? current : [...current, hotspotId],
+    );
+    setFocusedHotspotId(hotspotId);
+  }
+
   function handleContinue() {
     setError(null);
 
-    if (activeStep === 1) {
-      if (selectedTagIds.length === 0) {
-        setError("Vui lòng chọn ít nhất 1 chủ đề/tag.");
-        return;
-      }
-      setActiveStep(2);
-      return;
-    }
-
-    if (activeStep === 2) {
-      if (selectedHotspots.length < 4) {
-        setError("Tuyến đường phải có ít nhất 4 hotspot.");
-        return;
-      }
-      setActiveStep(3);
-      return;
-    }
-
-    if (activeStep === 3) {
-      if (selectedHotspots.length < 4) {
-        setError("Tuyến đường phải có ít nhất 4 hotspot.");
-        return;
-      }
-      setActiveStep(4);
-      return;
-    }
-
-    if (activeStep === 4) {
+    if (normalizedActiveStep === 1) {
       if (!routeTitle.trim()) {
         setError("Vui lòng nhập tên tuyến.");
         return;
       }
-      setActiveStep(5);
+
+      if (selectedTagIds.length === 0) {
+        setError("Vui lòng chọn chủ đề tuyến.");
+        return;
+      }
+
+      if (parsedDurationMinutes === null) {
+        setError("Vui lòng nhập thời lượng ước tính lớn hơn 0.");
+        return;
+      }
+
+      if (parsedDistanceKilometers === null) {
+        setError("Vui lòng nhập quãng đường ước tính lớn hơn 0.");
+        return;
+      }
+
+      if (parsedRouteXp === null) {
+        setError("Vui lòng nhập XP hợp lệ.");
+        return;
+      }
+
+      if (parsedRoutePoint === null) {
+        setError("Vui lòng nhập point hợp lệ.");
+        return;
+      }
+
+      setActiveStep(2);
       return;
     }
 
-    if (activeStep === 5) {
-      setActiveStep(6);
+    if (normalizedActiveStep === 2) {
+      if (selectedHotspots.length < 4) {
+        setError(
+          "Tuyến cần ít nhất 4 hotspot để tạo thành một hành trình hợp lệ.",
+        );
+        return;
+      }
+
+      setActiveStep(3);
+      return;
+    }
+
+    if (normalizedActiveStep === 3) {
+      const hotspotWithoutStories = selectedHotspots.find(
+        (hotspot) =>
+          (selectedStoryIdsByHotspot[hotspot.hotspotId]?.length ?? 0) === 0,
+      );
+
+      if (hotspotWithoutStories) {
+        setError(
+          `Hotspot ${hotspotWithoutStories.hotspotName} chưa có câu chuyện để đưa vào tuyến.`,
+        );
+        setExpandedHotspotIds((current) =>
+          current.includes(hotspotWithoutStories.hotspotId)
+            ? current
+            : [...current, hotspotWithoutStories.hotspotId],
+        );
+        return;
+      }
+
+      setActiveStep(4);
+      return;
+    }
+
+    if (normalizedActiveStep === 4) {
+      setActiveStep(5);
     }
   }
 
   function handleBack() {
     setError(null);
 
-    if (activeStep > 1) {
-      setActiveStep((activeStep - 1) as RouteBuilderStep);
+    if (normalizedActiveStep > 1) {
+      setActiveStep((normalizedActiveStep - 1) as RouteBuilderStep);
     }
   }
 
@@ -584,11 +1044,12 @@ export default function CuratorRouteCreatePage() {
       const fromIndex = next.indexOf(draggingHotspotId);
       const toIndex = next.indexOf(targetHotspotId);
 
-      if (fromIndex === -1 || toIndex === -1) return current;
+      if (fromIndex === -1 || toIndex === -1) {
+        return current;
+      }
 
       const [moved] = next.splice(fromIndex, 1);
       next.splice(toIndex, 0, moved);
-
       return next;
     });
 
@@ -596,82 +1057,111 @@ export default function CuratorRouteCreatePage() {
   }
 
   function handleRouteFilesSelected(fileList: FileList | null) {
-    if (!fileList) return;
+    if (!fileList) {
+      return;
+    }
 
     const incomingFiles = Array.from(fileList).filter((file) =>
       file.type.startsWith("image/"),
     );
 
-    setSelectedFiles((current) => [
-      ...current,
+    const nextFiles = [
+      ...selectedFiles,
       ...incomingFiles.filter(
         (file) =>
-          !current.some(
+          !selectedFiles.some(
             (item) => item.name === file.name && item.size === file.size,
           ),
       ),
-    ]);
+    ];
+
+    setSelectedFiles(nextFiles);
+    syncCoverPreview(nextFiles);
   }
 
   function removeRouteFile(index: number) {
-    setSelectedFiles((current) =>
-      current.filter((_, itemIndex) => itemIndex !== index),
+    const nextFiles = selectedFiles.filter(
+      (_, itemIndex) => itemIndex !== index,
     );
+    setSelectedFiles(nextFiles);
+    syncCoverPreview(nextFiles);
+  }
+
+  function revokeCoverPreviewObjectUrl() {
+    if (coverPreviewObjectUrlRef.current) {
+      URL.revokeObjectURL(coverPreviewObjectUrlRef.current);
+      coverPreviewObjectUrlRef.current = null;
+    }
+  }
+
+  function syncCoverPreview(files: File[]) {
+    revokeCoverPreviewObjectUrl();
+
+    if (files.length === 0) {
+      setCoverPreviewUrl(existingCoverImageUrl);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(files[0]);
+    coverPreviewObjectUrlRef.current = previewUrl;
+    setCoverPreviewUrl(previewUrl);
   }
 
   function buildPayload(): RoutePayload {
     const routeName = routeTitle.trim();
     const description = routeDescription.trim();
 
-    if (!routeName) throw new Error("Vui lòng nhập tên tuyến.");
-    if (selectedTagIds.length === 0) throw new Error("Vui lòng chọn tag.");
+    if (!routeName) {
+      throw new Error("Vui lòng nhập tên tuyến.");
+    }
+
+    if (selectedTagIds.length === 0) {
+      throw new Error("Vui lòng chọn chủ đề tuyến.");
+    }
+
+    if (parsedDurationMinutes === null) {
+      throw new Error("Vui lòng nhập thời lượng ước tính lớn hơn 0.");
+    }
+
+    if (parsedDistanceKilometers === null) {
+      throw new Error("Vui lòng nhập quãng đường ước tính lớn hơn 0.");
+    }
+
+    if (parsedRouteXp === null) {
+      throw new Error("Vui lòng nhập XP hợp lệ.");
+    }
+
+    if (parsedRoutePoint === null) {
+      throw new Error("Vui lòng nhập point hợp lệ.");
+    }
+
     if (selectedHotspotIds.length < 4) {
-      throw new Error("Tuyến đường phải có ít nhất 4 hotspot.");
+      throw new Error("Tuyến cần ít nhất 4 hotspot.");
     }
 
-    const estimateTime = Number(routeDurationInput);
-    const totalDistance = Number(routeDistanceInput);
-    const xp = Number(routeXpInput);
-    const point = Number(routePointInput);
+    const missingStoryHotspot = selectedHotspots.find(
+      (hotspot) =>
+        (selectedStoryIdsByHotspot[hotspot.hotspotId]?.length ?? 0) === 0,
+    );
 
-    if (!Number.isFinite(estimateTime) || estimateTime <= 0) {
-      throw new Error("Thời lượng phải lớn hơn 0.");
+    if (missingStoryHotspot) {
+      throw new Error(
+        `Hotspot ${missingStoryHotspot.hotspotName} chưa có câu chuyện để đưa vào tuyến.`,
+      );
     }
 
-    if (!Number.isFinite(totalDistance) || totalDistance <= 0) {
-      throw new Error("Khoảng cách phải lớn hơn 0.");
-    }
-
-    if (!Number.isInteger(xp) || xp < 0) {
-      throw new Error("XP phải là số nguyên >= 0.");
-    }
-
-    if (!Number.isInteger(point) || point < 0) {
-      throw new Error("Point phải là số nguyên >= 0.");
-    }
-    console.log("========== CREATE ROUTE ==========");
-    console.log("selectedFiles:", selectedFiles);
-
-    selectedFiles.forEach((file, index) => {
-      console.log(`File ${index}:`, {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-      });
-    });
-
-    console.log("==================================");
     return {
       routeName,
       description,
       difficulty: routeDifficulty,
-      estimateTime,
-      totalDistance,
+      estimateTime: parsedDurationMinutes,
+      totalDistance: parsedDistanceKilometers,
       hotspotIds: selectedHotspotIds,
+      storyIds: selectedStoryIds,
       tagId: selectedTagIds[0],
-      xp,
-      point,
-      status: isEditing ? currentRouteStatus : "DRAFT",
+      xp: parsedRouteXp,
+      point: parsedRoutePoint,
+      status: routeStatus,
       files: isEditing ? undefined : selectedFiles,
     };
   }
@@ -679,14 +1169,15 @@ export default function CuratorRouteCreatePage() {
   async function handleSubmitRoute() {
     try {
       setError(null);
-      setIsSubmitting(true);
+      setSubmittingStatus(routeStatus);
 
       const payload = buildPayload();
-      const response = isEditing && editingRouteId
-        ? await routeApi.updateRoute(editingRouteId, payload)
-        : await routeApi.createRoute(payload);
+      const response =
+        isEditing && editingRouteId
+          ? await routeApi.updateRoute(editingRouteId, payload)
+          : await routeApi.createRoute(payload);
 
-      window.location.href = `/curator/routes/${response.routeId}`;
+      window.location.assign(`/curator/routes/${response.routeId}`);
     } catch (err) {
       setError(
         err instanceof Error
@@ -696,283 +1187,176 @@ export default function CuratorRouteCreatePage() {
             : "Không thể tạo tuyến.",
       );
     } finally {
-      setIsSubmitting(false);
+      setSubmittingStatus(null);
     }
   }
 
-  const previewPositions = [
-    { x: 15, y: 78 },
-    { x: 40, y: 48 },
-    { x: 70, y: 68 },
-    { x: 87, y: 35 },
-    { x: 58, y: 24 },
-    { x: 26, y: 30 },
-  ];
-
-  const previewHotspots = selectedHotspots.map((item, index) => ({
-    item,
-    index,
-    position: previewPositions[index % previewPositions.length],
-  }));
-
-  const previewPolylinePoints = previewHotspots
-    .map(({ position }) => `${position.x},${position.y}`)
-    .join(" ");
-
-  function renderMainContent() {
-    if (activeStep === 1) {
-      return (
-        <div className="space-y-4">
-          <h2 className="text-base font-semibold text-slate-900">
-            Chọn chủ đề tuyến
-          </h2>
-
-          {tags.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              {tags.map((tag) => (
-                <TagThemeCard
-                  key={tag.tagId}
-                  tag={tag}
-                  selected={selectedTagIds.includes(tag.tagId)}
-                  onToggle={toggleTag}
+  function renderRouteInformationStep() {
+    return (
+      <div className={STEP_SURFACE_CLASS}>
+        <div className="min-w-0 space-y-8">
+          <section className="min-w-0 space-y-5">
+            <h2 className="cq-section-title">Thông tin cơ bản</h2>
+            <div className="grid min-w-0 gap-4 md:grid-cols-2 [&>*]:min-w-0">
+              <div className="md:col-span-2">
+                <label className="cq-label mb-2 block">Tên tuyến</label>
+                <Input
+                  value={routeTitle}
+                  onChange={(event) => setRouteTitle(event.target.value)}
+                  placeholder="Ví dụ: Sài Gòn hiện đại qua lăng kính kiến trúc"
+                  className={FORM_INPUT_CLASS}
                 />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-[#faf9f6] px-6 py-10 text-center text-sm text-slate-500">
-              Chưa có tag nào khả dụng.
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    if (activeStep === 2) {
-      return (
-        <div className="space-y-4">
-          <div>
-            <h2 className="text-base font-semibold text-slate-900">
-              Chọn hotspot
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Chọn tối thiểu 4 hotspot để tạo tuyến hành trình.
-            </p>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-            <div className="relative min-w-0 w-full">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                value={searchQuery}
-                onChange={(event) => handleSearchQueryChange(event.target.value)}
-                placeholder="Tìm theo tên hotspot hoặc địa chỉ..."
-                className="h-11 rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-              />
-            </div>
-
-            <div ref={filterMenuRef} className="relative w-full sm:w-auto sm:justify-self-end">
-              <button
-                type="button"
-                onClick={() => setIsFilterOpen((open) => !open)}
-                className="relative ml-auto flex h-11 w-16 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-left shadow-sm transition hover:border-[#F7DCE8] hover:shadow-md"
-              >
-                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FFF1F7] text-[#D94A8D]">
-                  <SlidersHorizontal className="h-4 w-4" />
-                </span>
-                {activeFilterCount > 0 ? (
-                  <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#D94A8D] px-1 text-[10px] font-semibold text-white shadow-sm">
-                    {activeFilterCount}
-                  </span>
-                ) : null}
-                <ChevronDown
-                  className={cn(
-                    "h-4 w-4 shrink-0 text-slate-400 transition",
-                    isFilterOpen && "rotate-180 text-[#D94A8D]",
-                  )}
-                />
-              </button>
-
-              {isFilterOpen ? (
-                <div className="absolute right-0 top-[calc(100%+0.75rem)] z-20 w-[min(24rem,calc(100vw-2rem))] rounded-[1.5rem] border border-[#F3E3EA] bg-white p-4 shadow-[0_20px_45px_rgba(15,23,42,0.12)]">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                    Trạng thái
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {hotspotStatusOptions.map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => handleStatusChange(option)}
-                        className={cn(
-                          "rounded-full border px-3 py-1.5 text-sm transition",
-                          selectedStatus === option
-                            ? "border-[#F7DCE8] bg-[#FFF1F7] font-medium text-[#D94A8D] shadow-sm"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-[#F7DCE8] hover:text-[#D94A8D]",
-                        )}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
-                    <button
-                      type="button"
-                      onClick={handleResetHotspotFilters}
-                      className="text-sm font-medium text-slate-500 transition hover:text-slate-900"
-                    >
-                      Đặt lại
-                    </button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      className="rounded-full px-4 text-white"
-                      onClick={() => setIsFilterOpen(false)}
-                    >
-                      Xong
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.25rem] bg-[#F7F5EF] px-4 py-3 text-xs text-slate-600">
-            <span>
-              {filteredHotspots.length} hotspot phù hợp ·{" "}
-              {selectedHotspots.length} điểm đang được chọn
-            </span>
-            {selectedHotspots.length > 0 ? (
-              <button
-                type="button"
-                onClick={() => setSelectedHotspotIds([])}
-                className="font-medium text-[#cf3d37] transition hover:text-[#bf342f]"
-              >
-                Xóa tất cả lựa chọn
-              </button>
-            ) : null}
-          </div>
-
-          {filteredHotspots.length > 0 ? (
-            <div className="space-y-4">
-              <div className="grid gap-4 xl:grid-cols-2">
-                {paginatedHotspots.map((item) => (
-                  <HotspotSelectionCard
-                    key={item.hotspotId}
-                    item={item}
-                    selected={selectedHotspotIds.includes(item.hotspotId)}
-                    onToggle={handleToggleHotspot}
-                  />
-                ))}
               </div>
 
-              {hotspotPageCount > 1 ? (
-                <div className="flex flex-col gap-3 rounded-[1.25rem] border border-slate-200/80 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm text-slate-500">
-                    Trang {currentHotspotPage} / {hotspotPageCount}
-                  </p>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    {hotspotPageNumbers.map((pageNumber) => (
-                      <button
-                        key={pageNumber}
-                        type="button"
-                        onClick={() => setHotspotPage(pageNumber)}
-                        className={cn(
-                          "inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-full px-3 text-sm transition",
-                          currentHotspotPage === pageNumber
-                            ? "bg-[linear-gradient(90deg,_#eb489b_0%,_#f58752_58%,_#ffc93c_100%)] font-semibold text-white shadow-sm"
-                            : "border border-slate-200 bg-white text-slate-600 hover:border-[#F7DCE8] hover:text-[#D94A8D]",
-                        )}
-                      >
-                        {pageNumber}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-[#faf9f6] px-6 py-10 text-center text-sm text-slate-500">
-              Không tìm thấy hotspot phù hợp.
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    if (activeStep === 3) {
-      return (
-        <div className="space-y-4">
-          <h2 className="text-base font-semibold text-slate-900">
-            Sắp xếp thứ tự
-          </h2>
-
-          {selectedHotspots.length > 0 ? (
-            <div className="space-y-4">
-              {selectedHotspots.map((item, index) => (
-                <SortableHotspotRow
-                  key={item.hotspotId}
-                  item={item}
-                  index={index}
-                  onDragStart={handleSortDragStart}
-                  onDragEnd={handleSortDragEnd}
-                  onDrop={handleSortDrop}
-                  onDragOver={(event) => event.preventDefault()}
-                  isDragging={draggingHotspotId === item.hotspotId}
+              <div className="md:col-span-2">
+                <label className="cq-label mb-2 block">Mô tả</label>
+                <textarea
+                  value={routeDescription}
+                  onChange={(event) => setRouteDescription(event.target.value)}
+                  placeholder="Mô tả ghi chú biên tập, sắc thái nội dung và trải nghiệm mong muốn."
+                  className={cn(FORM_TEXTAREA_CLASS, "min-h-36")}
                 />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-[#faf9f6] px-6 py-10 text-center text-sm text-slate-500">
-              Chưa có hotspot nào để sắp xếp.
-            </div>
-          )}
-        </div>
-      );
-    }
+              </div>
 
-    if (activeStep === 4) {
-      return (
-        <div className="space-y-4">
-          <h2 className="text-[1.1rem] font-semibold text-slate-900">
-            Thông tin tuyến
-          </h2>
-
-          <Input
-            value={routeTitle}
-            onChange={(event) => setRouteTitle(event.target.value)}
-            placeholder="Nhập tên tuyến"
-            aria-label="Tên tuyến"
-            className="h-12 rounded-[1.05rem] border border-[#e6ddd2] bg-[#fcfbf8]"
-          />
-
-          <textarea
-            value={routeDescription}
-            onChange={(event) => setRouteDescription(event.target.value)}
-            placeholder="Mô tả tuyến"
-            className="min-h-28 w-full resize-none rounded-[1.05rem] border border-[#e6ddd2] bg-[#fcfbf8] px-4 py-3 text-base text-slate-900 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
-
-          <div className="rounded-[1.05rem] border border-dashed border-[#e6ddd2] bg-[#fcfbf8] p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Hình ảnh tuyến
-                </h3>
-                <p className="mt-1 text-xs text-slate-500">
-                  Thêm một hoặc nhiều ảnh đại diện cho tuyến bản nháp.
-                </p>
+                <label className="cq-label mb-2 block">Độ khó</label>
+                <select
+                  value={routeDifficulty}
+                  onChange={(event) =>
+                    setRouteDifficulty(event.target.value as RouteDifficulty)
+                  }
+                  className={FORM_INPUT_CLASS}
+                >
+                  {difficultyOptions.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-[#cf3d37]/20 bg-white px-4 py-2 text-sm font-medium text-[#cf3d37] shadow-sm transition hover:bg-[#fff2ef]">
+              <div>
+                <label className="cq-label mb-2 block">Trạng thái</label>
+                <select
+                  value={routeStatus}
+                  onChange={(event) =>
+                    setRouteStatus(event.target.value as RouteStatus)
+                  }
+                  className={FORM_INPUT_CLASS}
+                >
+                  {routeStatusOptions.map((item) => (
+                    <option key={item.status} value={item.status}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="cq-label mb-2 block">
+                  Thời lượng ước tính (phút)
+                </label>
+                <Input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={routeDurationInput}
+                  onChange={(event) =>
+                    setRouteDurationInput(event.target.value)
+                  }
+                  placeholder="Ví dụ: 120"
+                  className={FORM_INPUT_CLASS}
+                />
+              </div>
+
+              <div>
+                <label className="cq-label mb-2 block">Quãng đường (km)</label>
+                <Input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={routeDistanceInput}
+                  onChange={(event) =>
+                    setRouteDistanceInput(event.target.value)
+                  }
+                  placeholder="Ví dụ: 3.5"
+                  className={FORM_INPUT_CLASS}
+                />
+              </div>
+
+              <div>
+                <label className="cq-label mb-2 block">XP</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={routeXpInput}
+                  onChange={(event) => setRouteXpInput(event.target.value)}
+                  placeholder="Ví dụ: 100"
+                  className={FORM_INPUT_CLASS}
+                />
+              </div>
+
+              <div>
+                <label className="cq-label mb-2 block">Point</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={routePointInput}
+                  onChange={(event) => setRoutePointInput(event.target.value)}
+                  placeholder="Ví dụ: 100"
+                  className={FORM_INPUT_CLASS}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="min-w-0 space-y-5">
+            <h2 className="cq-section-title">Chủ đề tuyến</h2>
+            {tags.length > 0 ? (
+              <div className="min-w-0">
+                <label className="cq-label mb-2 block">Tag chủ đề</label>
+                <select
+                  value={selectedTagIds[0] ?? ""}
+                  onChange={(event) => handleThemeSelect(event.target.value)}
+                  className={FORM_INPUT_CLASS}
+                >
+                  <option value="">Chọn chủ đề tuyến</option>
+                  {tags.map((tag) => (
+                    <option key={tag.tagId} value={tag.tagId}>
+                      #{buildTagToken(tag.tagName)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <EmptyStateCard
+                icon={<Sparkles className="h-6 w-6" />}
+                title="Chưa có chủ đề tuyến"
+                description="Hiện chưa có thẻ khả dụng để gắn chủ đề cho tuyến."
+              />
+            )}
+          </section>
+
+          <section className="min-w-0 space-y-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="cq-section-title">Ảnh bìa</h2>
+              <label
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium shadow-sm",
+                  isEditing
+                    ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+                    : "cursor-pointer border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50",
+                )}
+              >
                 <Upload className="h-4 w-4" />
-                Thêm ảnh
+                Tải lên
                 <input
                   type="file"
                   accept="image/*"
                   multiple
+                  disabled={isEditing}
                   className="hidden"
                   onChange={(event) => {
                     handleRouteFilesSelected(event.target.files);
@@ -982,30 +1366,54 @@ export default function CuratorRouteCreatePage() {
               </label>
             </div>
 
+            {isEditing ? (
+              <p className="text-xs text-slate-500">
+                Giữ nguyên ảnh bìa hiện tại khi chỉnh sửa.
+              </p>
+            ) : null}
+
+            <div className="overflow-hidden rounded-3xl border border-dashed border-slate-200 bg-white">
+              {coverPreviewUrl ? (
+                <div
+                  className="h-78 bg-cover bg-center"
+                  style={{ backgroundImage: `url(${coverPreviewUrl})` }}
+                />
+              ) : (
+                <div className="grid h-48 place-items-center px-6 text-center">
+                  <div>
+                    <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-slate-50 text-emerald-600 shadow-sm">
+                      <ImageIcon className="h-5 w-5" />
+                    </div>
+                    <p className="mt-3 text-sm font-medium text-slate-700">
+                      Chưa có ảnh bìa
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {selectedFiles.length > 0 ? (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
                 {selectedFiles.map((file, index) => (
                   <div
                     key={`${file.name}-${file.size}-${index}`}
-                    className="flex items-center gap-3 rounded-[1rem] border border-[#e6ddd2] bg-white p-2.5"
+                    className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm text-slate-700 shadow-sm"
                   >
-                    <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[0.8rem] bg-[#fff2ef] text-[#cf3d37]">
+                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-slate-50 text-emerald-600 shadow-sm">
                       <ImageIcon className="h-5 w-5" />
                     </div>
-
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-slate-900">
+                      <p className="truncate font-medium text-slate-900">
                         {file.name}
                       </p>
                       <p className="text-xs text-slate-500">
                         {(file.size / 1024 / 1024).toFixed(2)} MB
                       </p>
                     </div>
-
                     <button
                       type="button"
                       onClick={() => removeRouteFile(index)}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-rose-50 hover:text-rose-500"
                       aria-label={`Xoá ảnh ${file.name}`}
                     >
                       <X className="h-4 w-4" />
@@ -1014,326 +1422,633 @@ export default function CuratorRouteCreatePage() {
                 ))}
               </div>
             ) : null}
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <Input
-              value={routeDurationInput}
-              onChange={(event) => setRouteDurationInput(event.target.value)}
-              placeholder="Thời lượng/phút"
-              type="number"
-              className="h-12 rounded-[1.05rem] border border-[#e6ddd2] bg-[#fcfbf8]"
-            />
-
-            <Input
-              value={routeDistanceInput}
-              onChange={(event) => setRouteDistanceInput(event.target.value)}
-              placeholder="Khoảng cách/km"
-              type="number"
-              className="h-12 rounded-[1.05rem] border border-[#e6ddd2] bg-[#fcfbf8]"
-            />
-
-            <Input
-              value={routeXpInput}
-              onChange={(event) => setRouteXpInput(event.target.value)}
-              placeholder="XP"
-              type="number"
-              className="h-12 rounded-[1.05rem] border border-[#e6ddd2] bg-[#fcfbf8]"
-            />
-
-            <Input
-              value={routePointInput}
-              onChange={(event) => setRoutePointInput(event.target.value)}
-              placeholder="Point"
-              type="number"
-              className="h-12 rounded-[1.05rem] border border-[#e6ddd2] bg-[#fcfbf8]"
-            />
-
-            <select
-              value={routeDifficulty}
-              onChange={(event) =>
-                setRouteDifficulty(event.target.value as RouteDifficulty)
-              }
-              className="h-12 rounded-[1.05rem] border border-[#e6ddd2] bg-[#fcfbf8] px-4 text-base text-slate-900 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-            >
-              {difficultyOptions.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      );
-    }
-
-    if (activeStep === 5) {
-      return (
-        <div className="space-y-4">
-          <h2 className="text-[1.1rem] font-semibold text-slate-900">
-            Xem trước tuyến
-          </h2>
-
-          <div className="overflow-hidden rounded-[1.75rem] border border-[#d8d2ca] bg-[#f9f8f3] shadow-sm">
-            <RouteHotspotMap
-              hotspots={selectedHotspots}
-              selectedIds={selectedHotspotIds}
-              focusedHotspotId={focusedHotspotId}
-              onToggle={handleToggleHotspot}
-            />
-
-            <div className="border-t border-[#e9e3da] bg-white/80 px-5 py-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {selectedHotspots.map((item, index) => (
-                  <button
-                    key={item.hotspotId}
-                    type="button"
-                    onClick={() => setFocusedHotspotId(item.hotspotId)}
-                    className={cn(
-                      "group w-full rounded-[1.35rem] border bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg",
-                      focusedHotspotId === item.hotspotId
-                        ? "border-[#cf3d37] ring-1 ring-[#cf3d37]/20"
-                        : "border-slate-200"
-                    )}
-                  >
-                    <div className="flex gap-3">
-                      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#fff2ef] text-sm font-semibold text-[#cf3d37]">
-                        {index + 1}
-                      </span>
-                      <div className="min-w-0">
-                        <h3 className="truncate text-sm font-semibold text-slate-900">
-                          {item.hotspotName}
-                        </h3>
-                        {item.address ? (
-                          <p className="mt-1 line-clamp-2 text-xs text-slate-500">
-                            {item.address}
-                          </p>
-                        ) : null}
-                        {item.description ? (
-                          <p className="mt-1 line-clamp-2 text-xs text-slate-500">
-                            {item.description}
-                          </p>
-                        ) : null}
-                        <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600">
-                          {item.xp != null ? (
-                            <span className="rounded-full bg-slate-100 px-2 py-1">
-                              XP {item.xp}
-                            </span>
-                          ) : null}
-                          {item.point != null ? (
-                            <span className="rounded-full bg-slate-100 px-2 py-1">
-                              Point {item.point}
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    return (
-      <div className="space-y-4">
-        <div className="flex min-h-[13rem] flex-col items-center justify-center px-6 py-8 text-center">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-[1.5rem] bg-emerald-100/70">
-            <CheckCircle2 className="h-8 w-8 text-emerald-600" />
-          </div>
-          <h2 className="mt-4 text-[1.45rem] font-semibold tracking-[-0.02em] text-slate-900">
-            {isEditing ? "Sẵn sàng cập nhật tuyến" : "Sẵn sàng tạo bản nháp"}
-          </h2>
-          <p className="mt-2 text-sm text-slate-500">
-            {isEditing ? "Kiểm tra lại thông tin trước khi lưu thay đổi." : "Tuyến sẽ được tạo ở trạng thái bản nháp."}
-          </p>
-          <Button
-            type="button"
-            variant="secondary"
-            size="lg"
-            disabled={isSubmitting}
-            onClick={() => void handleSubmitRoute()}
-            className="mt-5 rounded-full border border-[#cf3d37] bg-[#cf3d37] px-5 text-sm text-white shadow-sm hover:bg-[#bf342f]"
-          >
-            {isSubmitting ? (
-              <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-            ) : null}
-            {isEditing ? "Cập nhật tuyến" : "Tạo bản nháp"}
-          </Button>
+          </section>
         </div>
       </div>
     );
   }
 
+  function renderHotspotSelectionStep() {
+    return (
+      <div className={STEP_SURFACE_CLASS}>
+        <div className="min-w-0 space-y-5">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={searchQuery}
+                onChange={(event) =>
+                  handleSearchQueryChange(event.target.value)
+                }
+                placeholder="Tìm theo tên hotspot hoặc địa chỉ..."
+                className={cn(FORM_INPUT_CLASS, "pl-11")}
+              />
+            </div>
+
+            {selectedHotspots.length > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedHotspotIds([]);
+                  setExpandedHotspotIds([]);
+                  setFocusedHotspotId(null);
+                }}
+                className="rounded-full"
+              >
+                Xóa toàn bộ
+              </Button>
+            ) : null}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
+            <span>
+              {filteredHotspots.length} hotspot đã xuất bản ·{" "}
+              {selectedHotspots.length} điểm đang được chọn
+            </span>
+          </div>
+
+          {filteredHotspots.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {paginatedHotspots.map((item) => (
+                <HotspotLocationCard
+                  key={item.hotspotId}
+                  item={item}
+                  selected={selectedHotspotIds.includes(item.hotspotId)}
+                  storyCount={getStoriesForHotspot(item.hotspotId).length}
+                  onToggle={handleToggleHotspot}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyStateCard
+              icon={<MapPinned className="h-6 w-6" />}
+              title="Không tìm thấy hotspot phù hợp"
+              description="Hiện chỉ hiển thị hotspot có trạng thái đã xuất bản."
+            />
+          )}
+
+          {hotspotPageCount > 1 ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-slate-500">
+                Trang {currentHotspotPage} / {hotspotPageCount}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                {hotspotPageNumbers.map((pageNumber) => (
+                  <button
+                    key={pageNumber}
+                    type="button"
+                    onClick={() => setHotspotPage(pageNumber)}
+                    className={cn(
+                      "inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-full px-3 text-sm transition",
+                      currentHotspotPage === pageNumber
+                        ? "bg-emerald-600 font-semibold text-white shadow-sm"
+                        : "border border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:text-emerald-700",
+                    )}
+                  >
+                    {pageNumber}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  function renderStoryConfigurationStep() {
+    return (
+      <div className={STEP_SURFACE_CLASS}>
+        {selectedHotspots.length > 0 ? (
+          <section className="space-y-4">
+            <h2 className="cq-section-title">Hotspot và story</h2>
+            <div className="divide-y divide-slate-200">
+              {selectedHotspots.map((hotspot) => (
+                <StoryAccordionCard
+                  key={hotspot.hotspotId}
+                  hotspot={hotspot}
+                  stories={getStoriesForHotspot(hotspot.hotspotId)}
+                  expanded={expandedHotspotIds.includes(hotspot.hotspotId)}
+                  isLoading={loadingStoryHotspotIds.includes(hotspot.hotspotId)}
+                  loadError={storyLoadErrors[hotspot.hotspotId]}
+                  onToggleExpanded={toggleHotspotExpansion}
+                />
+              ))}
+            </div>
+          </section>
+        ) : (
+          <EmptyStateCard
+            icon={<BookOpen className="h-6 w-6" />}
+            title="Chưa có hotspot để cấu hình"
+            description="Hãy quay lại bước Chọn hotspot và thêm các điểm đến trước khi chọn câu chuyện."
+          />
+        )}
+      </div>
+    );
+  }
+
+  function renderOrganizeRouteStep() {
+    return (
+      <div className={STEP_SURFACE_CLASS}>
+        <div className="space-y-8">
+          <section className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="cq-section-title">Bản đồ tuyến</h2>
+              <MapPinned className="h-5 w-5 text-emerald-600" />
+            </div>
+
+            {selectedHotspots.length > 0 ? (
+              <RouteHotspotMap
+                hotspots={selectedHotspots}
+                selectedIds={selectedHotspotIds}
+                focusedHotspotId={effectiveFocusedHotspotId}
+                onToggle={setFocusedHotspotId}
+                className="h-[300px] rounded-3xl border border-slate-200"
+              />
+            ) : (
+              <EmptyStateCard
+                icon={<MapPinned className="h-6 w-6" />}
+                title="Chưa có dữ liệu bản đồ"
+                description="Bản đồ sẽ xuất hiện khi tuyến đã có hotspot."
+              />
+            )}
+          </section>
+
+          {selectedHotspots.length > 0 ? (
+            <section className="space-y-4">
+              <h2 className="cq-section-title">Thứ tự hotspot</h2>
+              <div className="overflow-hidden rounded-3xl border border-slate-200">
+                <div className="divide-y divide-slate-200">
+                  {selectedHotspots.map((hotspot, index) => (
+                    <SortableHotspotRow
+                      key={hotspot.hotspotId}
+                      hotspot={hotspot}
+                      index={index}
+                      storyCount={
+                        getStoriesForHotspot(hotspot.hotspotId).length
+                      }
+                      selectedStoryCount={
+                        selectedStoryIdsByHotspot[hotspot.hotspotId]?.length ??
+                        0
+                      }
+                      onDragStart={handleSortDragStart}
+                      onDragEnd={handleSortDragEnd}
+                      onDrop={handleSortDrop}
+                      onDragOver={(event) => event.preventDefault()}
+                      isDragging={draggingHotspotId === hotspot.hotspotId}
+                    />
+                  ))}
+                </div>
+              </div>
+            </section>
+          ) : (
+            <EmptyStateCard
+              icon={<GripVertical className="h-6 w-6" />}
+              title="Chưa có hotspot để sắp xếp"
+              description="Thêm hotspot và câu chuyện trước khi sắp xếp thứ tự tuyến."
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  function renderReviewStep() {
+    return (
+      <div className="space-y-6">
+        <div className="overflow-hidden rounded-[1.75rem] border border-emerald-100 bg-emerald-50/70">
+          {selectedHotspots.length > 0 ? (
+            <RouteHotspotMap
+              hotspots={selectedHotspots}
+              selectedIds={selectedHotspotIds}
+              focusedHotspotId={effectiveFocusedHotspotId}
+              onToggle={setFocusedHotspotId}
+              className="h-[340px] border-b border-emerald-100"
+            />
+          ) : (
+            <div className="border-b border-emerald-100 p-6">
+              <EmptyStateCard
+                icon={<MapPinned className="h-6 w-6" />}
+                title="Chưa có dữ liệu bản đồ"
+                description="Bản đồ xem trước sẽ xuất hiện khi tuyến đã có hotspot."
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div className="max-w-4xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-yellow-900">
+              Tổng quan tuyến
+            </p>
+            <h2 className="mt-3 text-xl font-semibold tracking-[-0.03em] text-slate-900 sm:text-2xl">
+              {routeTitle || "Tuyến chưa có tên"}
+            </h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Chủ đề:{" "}
+              <span className="font-medium text-slate-900">
+                {selectedTheme
+                  ? `#${buildTagToken(selectedTheme.tagName)}`
+                  : "Chưa chọn"}
+              </span>
+            </p>
+          </div>
+
+          <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:justify-end">
+            <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
+              {formatDifficultyLabel(routeDifficulty)}
+            </span>
+            <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700">
+              {routeStatus}
+            </span>
+            <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700">
+              {selectedHotspots.length} hotspot
+            </span>
+            <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700">
+              {totalSelectedStories} story
+            </span>
+          </div>
+        </div>
+
+        <div className="border-t border-dashed border-slate-200 pt-6">
+          <div className="grid max-w-5xl gap-x-5 gap-y-4 px-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-4 xl:grid-cols-5">
+            <div className="space-y-1">
+              <p className="cq-label">Chủ đề</p>
+              <p className="text-sm font-normal text-slate-900">
+                {selectedTheme
+                  ? `#${buildTagToken(selectedTheme.tagName)}`
+                  : "Chưa chọn"}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="cq-label">Độ khó</p>
+              <p className="text-sm font-normal text-slate-900">
+                {formatDifficultyLabel(routeDifficulty)}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="cq-label">Hotspot</p>
+              <p className="text-sm font-normal text-slate-900">
+                {selectedHotspots.length} điểm
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="cq-label">Câu chuyện</p>
+              <p className="text-sm font-normal text-slate-900">
+                {totalSelectedStories} story
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="cq-label">Ảnh bìa</p>
+              <p className="text-sm font-normal text-slate-900">
+                {coverPreviewUrl ? "Đã chọn" : "Chưa có"}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="cq-label">Trạng thái gửi lên</p>
+              <p className="text-sm font-normal text-slate-900">
+                {routeStatus}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="cq-label">Thời lượng ước tính</p>
+              <p className="text-sm font-normal text-slate-900">
+                {estimatedDuration}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="cq-label">Quãng đường ước tính</p>
+              <p className="text-sm font-normal text-slate-900">
+                {estimatedDistance}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="cq-label">XP</p>
+              <p className="text-sm font-normal text-slate-900">
+                {resolvedRouteXp}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="cq-label">Point</p>
+              <p className="text-sm font-normal text-slate-900">
+                {resolvedRoutePoint}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-dashed border-slate-200 pt-6">
+          <div className="rounded-[1.5rem] bg-slate-50/80 px-4 py-4 sm:px-5">
+            <p className="cq-label">Mô tả tuyến</p>
+            <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+              {routeDescription?.trim()
+                ? routeDescription
+                : "Chưa có mô tả tuyến."}
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-dashed border-slate-200 pt-6">
+          <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+            <div className="rounded-[1.5rem] bg-slate-50/80 p-4 sm:p-5">
+              <p className="cq-label">Ảnh bìa tuyến</p>
+              <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white">
+                {coverPreviewUrl ? (
+                  <div
+                    className="h-56 bg-cover bg-center"
+                    style={{ backgroundImage: `url(${coverPreviewUrl})` }}
+                  />
+                ) : (
+                  <div className="grid h-56 place-items-center px-6 text-center text-sm text-slate-500">
+                    Chưa có ảnh bìa
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-[1.5rem] bg-slate-50/80 p-4 sm:p-5">
+              <p className="cq-label">Tiến độ các bước</p>
+              <div className="mt-4 space-y-4">
+                <SummaryRow
+                  label="Thông tin tuyến"
+                  value={routeInfoComplete ? "Hoàn tất" : "Chờ"}
+                />
+                <SummaryRow
+                  label="Chọn hotspot"
+                  value={hotspotSelectionComplete ? "Hoàn tất" : "Chờ"}
+                />
+                <SummaryRow
+                  label="Cấu hình câu chuyện"
+                  value={storyConfigurationComplete ? "Hoàn tất" : "Chờ"}
+                />
+                <SummaryRow
+                  label="Sắp xếp câu chuyện"
+                  value={organizeComplete ? "Hoàn tất" : "Chờ"}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-dashed border-slate-200 pt-6">
+          <div>
+            <p className="cq-label">Hotspot và câu chuyện theo thứ tự tuyến</p>
+            {selectedHotspots.length > 0 ? (
+              <div className="mt-4 divide-y divide-slate-200">
+                {selectedHotspots.map((hotspot, index) => (
+                  <div
+                    key={hotspot.hotspotId}
+                    className="flex items-start gap-4 py-5 first:pt-0 last:pb-0"
+                  >
+                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold leading-6 text-slate-900 break-words">
+                          {hotspot.hotspotName}
+                        </p>
+                        <span className="text-xs font-medium text-slate-500">
+                          {
+                            getSelectedStoriesForHotspot(hotspot.hotspotId)
+                              .length
+                          }{" "}
+                          story
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm leading-6 text-slate-500 break-words">
+                        {hotspot.address || "Địa chỉ đang cập nhật"}
+                      </p>
+
+                      <div className="mt-4 space-y-3">
+                        {getSelectedStoriesForHotspot(hotspot.hotspotId).map(
+                          (story) => (
+                            <div
+                              key={`${hotspot.hotspotId}-${story.storyId}`}
+                              className="rounded-[1.25rem] bg-slate-50/80 px-4 py-3"
+                            >
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium leading-6 text-slate-900 break-words">
+                                    {story.title}
+                                  </p>
+                                  {story.content?.trim() ? (
+                                    <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500 break-words">
+                                      {story.content}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <Link
+                                  href={`/curator/stories/${story.storyId}`}
+                                  className="shrink-0 text-sm font-semibold text-slate-400 transition hover:text-emerald-700"
+                                  aria-label={`Xem chi tiết story ${story.title}`}
+                                >
+                                  ...
+                                </Link>
+                              </div>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-5">
+                <EmptyStateCard
+                  icon={<BookOpen className="h-6 w-6" />}
+                  title="Chưa có hotspot để rà soát"
+                  description="Hoàn thành các bước trước để xem tổng hợp hành trình."
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderMainContent() {
+    if (normalizedActiveStep === 1) {
+      return renderRouteInformationStep();
+    }
+
+    if (normalizedActiveStep === 2) {
+      return renderHotspotSelectionStep();
+    }
+
+    if (normalizedActiveStep === 3) {
+      return renderStoryConfigurationStep();
+    }
+
+    if (normalizedActiveStep === 4) {
+      return renderOrganizeRouteStep();
+    }
+
+    return renderReviewStep();
+  }
+
+  function renderStickyActions() {
+    if (normalizedActiveStep === 5) {
+      return (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={handleBack}
+            disabled={submittingStatus !== null}
+            className="w-full rounded-full border-slate-200 px-5"
+          >
+            Quay lại
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="lg"
+            onClick={() => void handleSubmitRoute()}
+            disabled={submittingStatus !== null}
+            className="w-full rounded-full bg-emerald-600 px-5 text-white hover:bg-emerald-700"
+          >
+            {submittingStatus !== null ? (
+              <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+            ) : null}
+            {isEditing ? "Cập nhật tuyến" : "Tạo tuyến"}
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          disabled={normalizedActiveStep === 1 || submittingStatus !== null}
+          onClick={handleBack}
+          className="w-full rounded-full border-slate-200 px-5"
+        >
+          Quay lại
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="lg"
+          onClick={handleContinue}
+          disabled={submittingStatus !== null}
+          className="w-full rounded-full bg-emerald-600 px-5 text-white hover:bg-emerald-700"
+        >
+          Tiếp tục
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }
+
+  useEffect(() => {
+    return () => {
+      revokeCoverPreviewObjectUrl();
+    };
+  }, []);
+
   if (isLoading) {
     return (
-      <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-500">
-        Đang tải dữ liệu...
+      <div className="rounded-3xl border border-dashed border-emerald-200 bg-white px-6 py-12 text-center text-sm text-slate-500">
+        Đang tải dữ liệu trình tạo tuyến...
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-28">
       <section className="space-y-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between pl-3">
           <div>
-            <h1 className="cq-page-title">Tuyến hành trình</h1>
-            <p className="cq-page-subtitle max-w-2xl">
-              Xây dựng các tuyến khám phá di sản TP.HCM.
+            <h1 className="text-lg font-semibold tracking-[-0.03em] text-foreground sm:text-xl">
+              {isEditing ? "Chỉnh sửa tuyến" : "Tạo tuyến"}
+            </h1>
+            <p className="mt-0.5 max-w-3xl text-[11px] leading-4 text-muted-foreground sm:text-xs">
+              Tạo tuyến du lịch văn hóa theo hotspot và câu chuyện.
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="inline-flex w-fit items-center rounded-full border border-slate-100 bg-[#F7F5EF] p-1">
-              <Link
-                href="/curator/routes"
-                className="rounded-full px-4 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
-              >
-                Danh sách
-              </Link>
-              <Link
-                href="/curator/routes/create"
-                className="rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-950 shadow-sm"
-              >
-                Trình tạo tuyến
-              </Link>
-            </div>
+          <div className="inline-flex w-fit items-center rounded-full border border-slate-100 bg-[#F7F5EF] p-1">
+            <Link
+              href="/curator/routes"
+              className="rounded-full px-4 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
+            >
+              Danh sách
+            </Link>
+            <Link
+              href="/curator/routes/create"
+              className="rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-950 shadow-sm"
+            >
+              Trình tạo tuyến
+            </Link>
           </div>
         </div>
 
         {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <div className="rounded-3xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700">
             {error}
           </div>
         ) : null}
 
-        <div className="rounded-[1.75rem] border border-slate-200/80 bg-card p-4 shadow-sm sm:p-5">
-          <div className="flex flex-wrap items-center gap-2 lg:gap-3">
-            {routeSteps.map((step) => {
-              const stepState: StepVisualState =
-                activeStep === step.id
-                  ? "active"
-                  : step.id < activeStep
-                    ? "completed"
-                    : "upcoming";
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+          <div className="border-b border-slate-100 pb-6">
+            <div className="flex flex-col gap-2">
+              <p className="text-[13px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Quy trình biên tập
+              </p>
+            </div>
 
-              return (
-                <div key={step.id} className="flex items-center gap-2 lg:gap-3">
-                  <BuilderStep
-                    id={step.id}
-                    label={step.label}
-                    state={stepState}
-                    interactive={step.id <= maxUnlockedStep}
-                    onClick={
-                      step.id <= maxUnlockedStep
-                        ? () => handleStepChange(step.id as RouteBuilderStep)
-                        : undefined
-                    }
-                  />
-                  {step.id < routeSteps.length ? (
-                    <ChevronRight className="h-4 w-4 text-slate-400" />
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+            <div className="mt-5 overflow-x-auto pb-1">
+              <div className="flex min-w-max items-center gap-2 lg:gap-3">
+                {routeSteps.map((step) => {
+                  const stepState: StepVisualState =
+                    normalizedActiveStep === step.id
+                      ? "active"
+                      : step.id < normalizedActiveStep
+                        ? "completed"
+                        : "upcoming";
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.75fr)_29rem]">
-          <div className="rounded-[1.75rem] border border-slate-200/80 bg-card p-5 shadow-sm sm:p-6">
-            {renderMainContent()}
-          </div>
-
-          <div className="space-y-4">
-            <div className="rounded-[1.75rem] border border-slate-200/80 bg-card p-5 shadow-sm sm:p-6">
-              <h2 className="text-base font-semibold text-slate-900">
-                Tóm tắt
-              </h2>
-
-              <div className="mt-5 space-y-4">
-                <SummaryRow label="Số tag" value={selectedTagIds.length} />
-                <SummaryRow
-                  label="Số hotspot"
-                  value={selectedHotspots.length}
-                />
-                <SummaryRow label="Khoảng cách" value={estimatedDistance} />
-                <SummaryRow label="Thời lượng" value={estimatedDuration} />
-                <SummaryRow label="Độ khó" value={routeDifficulty} />
+                  return (
+                    <div
+                      key={step.id}
+                      className="flex shrink-0 items-center gap-2 lg:gap-3"
+                    >
+                      <BuilderStep
+                        id={step.id}
+                        label={step.label}
+                        state={stepState}
+                        interactive={step.id <= maxUnlockedStep}
+                        onClick={
+                          step.id <= maxUnlockedStep
+                            ? () => handleStepChange(step.id)
+                            : undefined
+                        }
+                      />
+                      {step.id < routeSteps.length ? (
+                        <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
-
-              {activeStep === 2 ? (
-                <div className="mt-5 border-t border-slate-200 pt-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="cq-label">Hotspot đã chọn</p>
-                    {selectedHotspots.length > 0 ? (
-                      <span className="text-xs font-medium text-slate-500">
-                        {selectedHotspots.length} điểm
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-3 space-y-3">
-                    {selectedHotspots.length > 0 ? (
-                      selectedHotspots.map((item) => (
-                        <div
-                          key={item.hotspotId}
-                          className="flex items-start gap-3 rounded-[1.25rem] bg-[#F7F5EF] p-3"
-                        >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-xs font-semibold text-slate-700 shadow-sm">
-                            {(item.hotspotName ?? "H").charAt(0)}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-slate-900">
-                              {item.hotspotName}
-                            </p>
-                            <p className="mt-0.5 truncate text-xs text-slate-500">
-                              {item.address}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleHotspot(item.hotspotId)}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm transition hover:text-slate-900"
-                            aria-label={`Bỏ chọn ${item.hotspotName}`}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="rounded-[1.25rem] bg-[#F7F5EF] p-4 text-xs leading-5 text-slate-500">
-                        Chưa có hotspot nào được chọn.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : null}
             </div>
+          </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                disabled={activeStep === 1}
-                onClick={handleBack}
-                className="rounded-full px-4 py-2 shadow-sm"
-              >
-                Quay lại
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="lg"
-                onClick={handleContinue}
-                disabled={activeStep === 6 || isSubmitting}
-                className="rounded-full px-4 py-2 shadow-sm"
-              >
-                Tiếp tục
-              </Button>
-            </div>
+          <div className="pt-6">{renderMainContent()}</div>
+
+          <div className="mt-8 border-t border-slate-100 pt-6">
+            <p className="mb-3 text-sm font-semibold text-slate-900">
+              Điều hướng
+            </p>
+            {renderStickyActions()}
           </div>
         </div>
       </section>

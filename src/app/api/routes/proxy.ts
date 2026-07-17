@@ -4,7 +4,7 @@ const BACKEND_API_BASE_URL =
   process.env.ROUTE_API_BASE_URL ??
   process.env.API_BASE_URL ??
   process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://13.158.40.56:8080";
+  "http://3.113.215.65:8080";
 
 const ACCESS_TOKEN_COOKIE_KEY = "culture-quest-access-token";
 
@@ -21,7 +21,7 @@ export async function forwardRouteRequest(
       ? await request.arrayBuffer()
       : undefined;
 
-    const backendUrl = buildBackendUrl(request, routePath);
+    const backendUrl = buildBackendUrl(request, method, routePath);
     const response = await fetch(backendUrl, {
       method,
       headers,
@@ -55,7 +55,11 @@ function shouldForwardBody(method: RouteMethod) {
   return method === "POST" || method === "PUT" || method === "PATCH";
 }
 
-function buildBackendUrl(request: NextRequest, routePath: string[]) {
+function buildBackendUrl(
+  request: NextRequest,
+  method: RouteMethod,
+  routePath: string[],
+) {
   const normalizedBaseUrl = BACKEND_API_BASE_URL.endsWith("/")
     ? BACKEND_API_BASE_URL.slice(0, -1)
     : BACKEND_API_BASE_URL;
@@ -65,7 +69,10 @@ function buildBackendUrl(request: NextRequest, routePath: string[]) {
       ? `/${routePath.map((segment) => encodeURIComponent(segment)).join("/")}`
       : "";
 
-  return `${normalizedBaseUrl}/api/v1/routes${joinedPath}${request.nextUrl.search}`;
+  const routeBasePath =
+    method === "POST" && routePath.length === 0 ? "/api/v2/routes" : "/api/v1/routes";
+
+  return `${normalizedBaseUrl}${routeBasePath}${joinedPath}${request.nextUrl.search}`;
 }
 
 function buildBackendHeaders(request: NextRequest) {

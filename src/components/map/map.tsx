@@ -10,6 +10,7 @@ type Props = {
   selectedIds: number[];
   focusedHotspotId?: number | null;
   onToggle: (hotspotId: number) => void;
+  className?: string;
 };
 
 export function RouteHotspotMap({
@@ -17,8 +18,8 @@ export function RouteHotspotMap({
   selectedIds,
   focusedHotspotId,
   onToggle,
+  className,
 }: Props) {
-  const mapRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -53,7 +54,7 @@ export function RouteHotspotMap({
       markerEl.type = "button";
       markerEl.innerText = isSelected ? "✓" : "●";
       markerEl.className =
-        "h-8 w-8 rounded-full border-2 border-white bg-red-600 text-white text-sm font-bold shadow-lg";
+        "h-8 w-8 rounded-full border-2 border-white bg-emerald-600 text-white text-sm font-bold shadow-lg";
 
       markerEl.onclick = () => onToggle(hotspot.hotspotId);
 
@@ -94,18 +95,18 @@ export function RouteHotspotMap({
       });
     }
 
-    mapRef.current = map;
-
     return () => {
       map.remove();
-      mapRef.current = null;
     };
-  }, [hotspots, selectedIds, onToggle]);
+  }, [focusedHotspotId, hotspots, onToggle, selectedIds]);
 
   return (
     <div
       ref={containerRef}
-      className="h-[420px] w-full overflow-hidden rounded-[1.5rem] border border-slate-200"
+      className={
+        className ??
+        "h-[420px] w-full overflow-hidden rounded-[1.5rem] border border-slate-200"
+      }
     />
   );
 }
