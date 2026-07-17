@@ -15,7 +15,12 @@ import { ArrowLeft, ImagePlus, Save, Video, Volume2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { storyApi, tagApi } from "@/services/api";
+import {
+  storyApi,
+  tagApi,
+  type BackendStoryMedia,
+  type UpdateStoryFields,
+} from "@/services/api";
 import { toast } from "react-toastify";
 
 type MediaType = "image" | "audio" | "video";
@@ -28,6 +33,8 @@ type MediaItem = {
   type: MediaType;
   file?: File;
   fileUrl?: string;
+  mimeType?: string;
+  mediaId?: number;
   isExisting?: boolean;
 };
 
@@ -50,6 +57,14 @@ const mediaTypeOptions: MediaTypeOption[] = [
   { type: "video", label: "Video", icon: Video, accept: "video/*" },
   { type: "image", label: "Hình ảnh", icon: ImagePlus, accept: "image/*" },
 ];
+
+function createEmptyMediaCollection(): MediaCollection {
+  return {
+    image: [],
+    audio: [],
+    video: [],
+  };
+}
 
 function countWords(value: string) {
   const trimmedValue = value.trim();
@@ -86,10 +101,117 @@ function getMediaSummary(type: MediaType, items: MediaItem[]) {
   return `${items.length} video`;
 }
 
-function hasLocalMediaFiles(mediaByType: MediaCollection) {
-  return Object.values(mediaByType)
-    .flat()
-    .some((item) => item.file instanceof File);
+function getMediaTypeFromStoryMedia(media: BackendStoryMedia): MediaType {
+  const mediaType = media.mediaType?.trim().toUpperCase();
+  const mimeType = media.mimeType?.trim().toLowerCase();
+  const fileUrl = media.fileUrl?.trim() ?? "";
+
+  if (
+    mediaType === "VIDEO" ||
+    mimeType?.startsWith("video/") ||
+    /\.(mp4|webm|ogg|mov)$/i.test(fileUrl)
+  ) {
+    return "video";
+  }
+
+  if (
+    mediaType === "AUDIO" ||
+    mimeType?.startsWith("audio/") ||
+    /\.(mp3|wav|ogg|m4a)$/i.test(fileUrl)
+  ) {
+    return "audio";
+  }
+
+  return "image";
+}
+
+function extractFileNameFromUrl(fileUrl?: string) {
+  const trimmedUrl = fileUrl?.trim();
+  if (!trimmedUrl) {
+    return null;
+  }
+
+  const normalizedPath = trimmedUrl.split("?")[0]?.split("#")[0] ?? "";
+  const rawFileName = normalizedPath.split("/").pop()?.trim();
+
+  if (!rawFileName) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(rawFileName);
+  } catch {
+    return rawFileName;
+  }
+}
+
+function buildExistingMediaName(media: BackendStoryMedia) {
+  return (
+    media.fileName?.trim() ||
+    extractFileNameFromUrl(media.fileUrl) ||
+    `Media #${media.mediaId}`
+  );
+}
+
+function buildMediaItemFromFile(type: MediaType, file: File): MediaItem {
+  return {
+    id: `${type}-${file.name}-${file.lastModified}-${file.size}`,
+    name: file.name,
+    sizeLabel: formatFileSize(file.size),
+    type,
+    file,
+    mimeType: file.type || undefined,
+    isExisting: false,
+  };
+}
+
+async function resolveMediaItemToFile(item: MediaItem) {
+  if (item.file instanceof File) {
+    return item.file;
+  }
+
+  if (!item.fileUrl) {
+    throw new Error(`Không thể chuẩn bị lại file "${item.name}" để cập nhật.`);
+  }
+
+  const response = await fetch(item.fileUrl, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Không thể tải lại file "${item.name}" từ hệ thống để cập nhật.`,
+    );
+  }
+
+  const blob = await response.blob();
+
+  return new File([blob], item.name, {
+    type: blob.type || item.mimeType || undefined,
+    lastModified: Date.now(),
+  });
+}
+
+function appendStoryFields(formData: FormData, fields: UpdateStoryFields) {
+  formData.append("title", fields.title);
+  formData.append("content", fields.content);
+  formData.append("tagId", String(fields.tagId));
+}
+
+async function buildStoryUpdateFormData(
+  fields: UpdateStoryFields,
+  mediaItems?: MediaItem[],
+) {
+  const formData = new FormData();
+  appendStoryFields(formData, fields);
+
+  if (!mediaItems) {
+    return formData;
+  }
+
+  const files = await Promise.all(mediaItems.map(resolveMediaItemToFile));
+  files.forEach((file) => formData.append("files", file));
+  return formData;
 }
 
 function SectionCard({
@@ -141,15 +263,14 @@ export default function EditStoryPage() {
   const [title, setTitle] = useState("");
   const [tagId, setTagId] = useState("");
   const [content, setContent] = useState("");
-  const [mediaByType, setMediaByType] = useState<MediaCollection>({
-    image: [],
-    audio: [],
-    video: [],
-  });
+  const [mediaByType, setMediaByType] = useState<MediaCollection>(
+    createEmptyMediaCollection,
+  );
   const [tagOptions, setTagOptions] = useState<TagOption[]>([]);
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [isLoadingStory, setIsLoadingStory] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasMediaChanges, setHasMediaChanges] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
@@ -178,36 +299,29 @@ export default function EditStoryPage() {
       }
 
       setMediaByType((current) => {
-        const reservedCount = countMediaItems(current) - current[type].length;
-        const availableSlots = Math.max(MAX_MEDIA_TOTAL - reservedCount, 0);
+        const availableSlots = Math.max(MAX_MEDIA_TOTAL - countMediaItems(current), 0);
         const limitedFiles = nextFiles.slice(0, availableSlots);
-        const nextItems = limitedFiles.map((file) => ({
-          id: `${type}-${file.name}-${file.lastModified}`,
-          name: file.name,
-          sizeLabel: formatFileSize(file.size),
-          type,
-          file,
-          isExisting: false,
-        }));
-
-        if (type === "image") {
-          return {
-            ...current,
-            image: [...current.image, ...nextItems].slice(0, availableSlots),
-          };
+        if (limitedFiles.length === 0) {
+          return current;
         }
+
+        const nextItems = limitedFiles.map((file) =>
+          buildMediaItemFromFile(type, file),
+        );
 
         return {
           ...current,
-          [type]: nextItems.slice(0, 1),
+          [type]: [...current[type], ...nextItems],
         };
       });
+      setHasMediaChanges(true);
 
       event.target.value = "";
     };
   }
 
   function handleRemoveMedia(type: MediaType, itemId: string) {
+    setHasMediaChanges(true);
     setMediaByType((current) => ({
       ...current,
       [type]: current[type].filter((item) => item.id !== itemId),
@@ -252,48 +366,40 @@ export default function EditStoryPage() {
         setTitle(story.title);
         setContent(story.content);
         setTagId(String(story.tag?.tagId ?? ""));
+        setHasMediaChanges(false);
 
-        // Populate existing media
-        if (story.medias && story.medias.length > 0) {
-          const mediaCollection: MediaCollection = {
-            image: [],
-            audio: [],
-            video: [],
-          };
+        const mediaCollection = createEmptyMediaCollection();
 
-          story.medias.forEach((media) => {
-            let mediaType: MediaType = "image";
-            const mediaTypeStr = media.mediaType?.trim().toUpperCase();
-            const mimeType = media.mimeType?.trim().toLowerCase();
+        [...(story.medias ?? [])]
+          .sort((left, right) => {
+            const displayOrderDiff =
+              (left.displayOrder ?? Number.MAX_SAFE_INTEGER) -
+              (right.displayOrder ?? Number.MAX_SAFE_INTEGER);
 
-            if (
-              mediaTypeStr === "VIDEO" ||
-              mimeType?.startsWith("video/") ||
-              /\.(mp4|webm|ogg|mov)$/i.test(media.fileUrl ?? "")
-            ) {
-              mediaType = "video";
-            } else if (
-              mediaTypeStr === "AUDIO" ||
-              mimeType?.startsWith("audio/") ||
-              /\.(mp3|wav|ogg|m4a)$/i.test(media.fileUrl ?? "")
-            ) {
-              mediaType = "audio";
+            if (displayOrderDiff !== 0) {
+              return displayOrderDiff;
             }
+
+            return left.mediaId - right.mediaId;
+          })
+          .forEach((media) => {
+            const mediaType = getMediaTypeFromStoryMedia(media);
 
             mediaCollection[mediaType].push({
               id: `media-${media.mediaId}`,
-              name: media.fileName ?? `Media #${media.mediaId}`,
+              name: buildExistingMediaName(media),
               sizeLabel: media.fileSize
                 ? formatFileSize(media.fileSize)
                 : "N/A",
               type: mediaType,
               fileUrl: media.fileUrl?.trim() || undefined,
+              mimeType: media.mimeType?.trim() || undefined,
+              mediaId: media.mediaId,
               isExisting: true,
             });
           });
 
-          setMediaByType(mediaCollection);
-        }
+        setMediaByType(mediaCollection);
       } catch (error) {
         console.error("Unable to load story", error);
         setSubmitError("Không thể tải dữ liệu câu chuyện.");
@@ -319,24 +425,18 @@ export default function EditStoryPage() {
       return;
     }
 
-    if (hasLocalMediaFiles(mediaByType)) {
-      setSubmitError(
-        "Media hiện chưa hỗ trợ cập nhật ở màn hình chỉnh sửa này.",
-      );
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
-      const payload = {
-        files: [],
+      const fields: UpdateStoryFields = {
         title: trimmedTitle,
         content: trimmedContent,
         tagId: parsedTagId,
       };
-
-      console.log("[updateStory] Sending payload:", payload);
+      const mediaItems = hasMediaChanges
+        ? Object.values(mediaByType).flat()
+        : undefined;
+      const payload = await buildStoryUpdateFormData(fields, mediaItems);
 
       const response = await storyApi.updateStory(storyId, payload);
       setSubmitSuccess("Câu chuyện đã được cập nhật thành công.");
@@ -464,8 +564,9 @@ export default function EditStoryPage() {
               >
                 <div className="flex flex-col gap-5">
                   <p className="text-xs text-slate-500">
-                    Media hiện chỉ hiển thị để tham chiếu. Khi lưu câu chuyện,
-                    hệ thống sẽ giữ nguyên media đang có.
+                    Bạn có thể thêm media mới hoặc xóa media hiện có. Khi có
+                    thay đổi media, hệ thống sẽ gửi lại đúng danh sách file còn
+                    lại theo request <code>PUT /api/v1/stories/{"{id}"}</code>.
                   </p>
                   {mediaTypeOptions.map((typeOption) => {
                     const Icon = typeOption.icon;
@@ -498,16 +599,26 @@ export default function EditStoryPage() {
                                 </div>
                                 <div className="text-xs text-slate-500">
                                   {item.sizeLabel}
-                                  {item.isExisting && " (hiện tại)"}
+                                  {item.isExisting ? " (hiện tại)" : " (mới thêm)"}
                                 </div>
                               </div>
+                              {item.fileUrl ? (
+                                <a
+                                  href={item.fileUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="mr-2 rounded border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-100"
+                                >
+                                  Mở file
+                                </a>
+                              ) : null}
                               <button
                                 type="button"
                                 onClick={() =>
                                   handleRemoveMedia(typeOption.type, item.id)
                                 }
                                 className="rounded p-1 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
-                                disabled={isSubmitting || item.isExisting}
+                                disabled={isSubmitting}
                               >
                                 <X className="h-4 w-4 text-red-600" />
                               </button>
@@ -519,8 +630,8 @@ export default function EditStoryPage() {
                             onClick={() =>
                               handleMediaButtonClick(typeOption.type)
                             }
-                            className="rounded-lg border border-dashed border-slate-300 px-3 py-2 text-center text-sm font-semibold text-slate-600 opacity-50"
-                            disabled
+                            className="rounded-lg border border-dashed border-slate-300 px-3 py-2 text-center text-sm font-semibold text-slate-600 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                            disabled={isSubmitting || totalMediaCount >= MAX_MEDIA_TOTAL}
                           >
                             + Thêm {typeOption.label}
                           </button>
@@ -545,6 +656,7 @@ export default function EditStoryPage() {
                     accept={
                       mediaTypeOptions.find((m) => m.type === "audio")?.accept
                     }
+                    multiple
                     onChange={handleMediaChange("audio")}
                     className="hidden"
                   />
@@ -554,6 +666,7 @@ export default function EditStoryPage() {
                     accept={
                       mediaTypeOptions.find((m) => m.type === "video")?.accept
                     }
+                    multiple
                     onChange={handleMediaChange("video")}
                     className="hidden"
                   />

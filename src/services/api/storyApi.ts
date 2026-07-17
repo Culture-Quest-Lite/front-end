@@ -60,12 +60,17 @@ export interface StoryPageResponse {
   };
 }
 
-export interface UpdateStoryPayload {
-  files: string[];
+export interface UpdateStoryFields {
   tagId: number;
   title: string;
   content: string;
 }
+
+export type UpdateStoryPayload =
+  | FormData
+  | (UpdateStoryFields & {
+      files?: string[];
+    });
 
 export const storyApi = {
   getStories: async (params: {
