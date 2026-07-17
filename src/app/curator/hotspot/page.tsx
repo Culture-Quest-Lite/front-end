@@ -53,6 +53,7 @@ type HotspotViewItem = HotspotItem & {
   rawXp?: number | null;
   rawPoint?: number | null;
   rawCheckInRadius?: number | null;
+  rawIsCheckIn?: boolean | null;
   rawCreatedAt?: string;
   rawHistoryInformation?: string;
   rawTagNames: string[];
@@ -1112,6 +1113,7 @@ function buildHotspotCards(
       badge: statusMeta.label,
       rawPoint: hotspot.point,
       rawCheckInRadius: hotspot.checkInRadius,
+      rawIsCheckIn: hotspot.isCheckIn,
       rawCreatedAt: hotspot.createdAt ?? hotspot.updatedAt ?? "",
       gps:
         typeof hotspot.latitude === "number" &&

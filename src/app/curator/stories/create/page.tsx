@@ -16,7 +16,7 @@ import { ArrowLeft, ImagePlus, Save, Video, Volume2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { storyApi, tagApi } from "@/services/api";
+import { hotspotApi, storyApi, tagApi } from "@/services/api";
 
 type MediaType = "image" | "audio" | "video";
 type MediaCollection = Record<MediaType, MediaItem[]>;
@@ -37,6 +37,11 @@ type MediaTypeOption = {
 };
 
 type TagOption = {
+  id: number;
+  label: string;
+};
+
+type HotspotOption = {
   id: number;
   label: string;
 };
@@ -138,13 +143,16 @@ export default function CreateStoryPage() {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
   const [tagId, setTagId] = useState("");
+  const [hotspotId, setHotspotId] = useState("");
   const [content, setContent] = useState("");
+  const [audioScript, setAudioScript] = useState("");
   const [mediaByType, setMediaByType] = useState<MediaCollection>({
     image: [],
     audio: [],
     video: [],
   });
   const [tagOptions, setTagOptions] = useState<TagOption[]>([]);
+  const [hotspotOptions, setHotspotOptions] = useState<HotspotOption[]>([]);
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -212,20 +220,47 @@ export default function CreateStoryPage() {
       setIsLoadingOptions(true);
 
       try {
-        const tags = await tagApi.getTags({
-          page: 0,
-          size: 100,
-          sortBy: "tagName",
-          sortDir: "ASC",
-        });
-        setTagOptions(
-          tags.content.map((tag) => ({
-            id: tag.tagId,
-            label: tag.tagName,
-          })),
-        );
+        const [tagsResult, hotspotsResult] = await Promise.allSettled([
+          tagApi.getTags({
+            page: 0,
+            size: 100,
+            sortBy: "tagName",
+            sortDir: "ASC",
+          }),
+          hotspotApi.getHotspots(),
+        ]);
+
+        if (tagsResult.status === "fulfilled") {
+          setTagOptions(
+            tagsResult.value.content.map((tag) => ({
+              id: tag.tagId,
+              label: tag.tagName,
+            })),
+          );
+        } else {
+          console.error("Unable to load tag options", tagsResult.reason);
+          setTagOptions([]);
+        }
+
+        if (hotspotsResult.status === "fulfilled") {
+          setHotspotOptions(
+            [...hotspotsResult.value]
+              .map((hotspot) => ({
+                id: hotspot.hotspotId,
+                label:
+                  hotspot.hotspotName?.trim() || `Hotspot #${hotspot.hotspotId}`,
+              }))
+              .sort((left, right) => left.label.localeCompare(right.label)),
+          );
+        } else {
+          console.error(
+            "Unable to load hotspot options",
+            hotspotsResult.reason,
+          );
+          setHotspotOptions([]);
+        }
       } catch (error) {
-        console.error("Unable to load tag options", error);
+        console.error("Unable to load story form options", error);
       } finally {
         setIsLoadingOptions(false);
       }
@@ -241,10 +276,14 @@ export default function CreateStoryPage() {
 
     const trimmedTitle = title.trim();
     const trimmedContent = content.trim();
+    const normalizedAudioScript = audioScript.trim();
     const parsedTagId = Number(tagId);
+    const parsedHotspotId = Number(hotspotId);
 
-    if (!trimmedTitle || !trimmedContent || !parsedTagId) {
-      setSubmitError("Vui lòng điền đầy đủ tiêu đề, thẻ và nội dung.");
+    if (!trimmedTitle || !trimmedContent || !parsedTagId || !parsedHotspotId) {
+      setSubmitError(
+        "Vui lòng điền đầy đủ tiêu đề, thẻ, địa điểm và nội dung.",
+      );
       return;
     }
 
@@ -255,6 +294,8 @@ export default function CreateStoryPage() {
       formData.append("title", trimmedTitle);
       formData.append("content", trimmedContent);
       formData.append("tagId", String(parsedTagId));
+      formData.append("hotspotId", String(parsedHotspotId));
+      formData.append("audioScript", normalizedAudioScript);
 
       Object.values(mediaByType)
         .flat()
@@ -285,7 +326,7 @@ export default function CreateStoryPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 pb-8">
+    <div className="mx-auto max-w-5xl space-y-6 pb-8">
       <div className="flex items-center gap-3 text-slate-700">
         <Link
           href="/curator/stories"
@@ -293,11 +334,11 @@ export default function CreateStoryPage() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
-        <div className="space-y-1">
-          <h1 className="text-[1.5rem] font-semibold tracking-[-0.02em] text-slate-950 sm:text-[1.7rem]">
+        <div>
+          <h1 className="text-lg font-semibold tracking-[-0.03em] text-foreground sm:text-xl">
             Tạo câu chuyện mới
           </h1>
-          <p className="text-sm leading-6 text-slate-500">
+          <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground sm:text-xs">
             Soạn một micro-story 100-300 từ theo tag đã chọn.
           </p>
         </div>
@@ -322,31 +363,62 @@ export default function CreateStoryPage() {
               />
             </div>
 
-            <div>
-              <FieldLabel htmlFor="story-tag-id" required>
-                Thẻ
-              </FieldLabel>
-              <select
-                id="story-tag-id"
-                value={tagId}
-                onChange={(event) => setTagId(event.target.value)}
-                disabled={isLoadingOptions}
-                className={cn(
-                  "h-12 w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-700 shadow-sm outline-none transition",
-                  "focus:border-primary focus:ring-2 focus:ring-primary/20",
-                  !tagId && "text-slate-400",
-                  isLoadingOptions && "cursor-wait",
-                )}
-              >
-                <option value="" disabled>
-                  {isLoadingOptions ? "Đang tải thẻ..." : "Chọn thẻ..."}
-                </option>
-                {tagOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <FieldLabel htmlFor="story-tag-id" required>
+                  Thẻ
+                </FieldLabel>
+                <select
+                  id="story-tag-id"
+                  value={tagId}
+                  onChange={(event) => setTagId(event.target.value)}
+                  disabled={isLoadingOptions}
+                  className={cn(
+                    "h-12 w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-700 shadow-sm outline-none transition",
+                    "focus:border-primary focus:ring-2 focus:ring-primary/20",
+                    !tagId && "text-slate-400",
+                    isLoadingOptions && "cursor-wait",
+                  )}
+                >
+                  <option value="" disabled>
+                    {isLoadingOptions ? "Đang tải thẻ..." : "Chọn thẻ..."}
                   </option>
-                ))}
-              </select>
+                  {tagOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <FieldLabel htmlFor="story-hotspot-id" required>
+                  Địa điểm
+                </FieldLabel>
+                <select
+                  id="story-hotspot-id"
+                  value={hotspotId}
+                  onChange={(event) => setHotspotId(event.target.value)}
+                  disabled={isLoadingOptions}
+                  className={cn(
+                    "h-12 w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-700 shadow-sm outline-none transition",
+                    "focus:border-primary focus:ring-2 focus:ring-primary/20",
+                    !hotspotId && "text-slate-400",
+                    isLoadingOptions && "cursor-wait",
+                  )}
+                >
+                  <option value="" disabled>
+                    {isLoadingOptions
+                      ? "Đang tải địa điểm..."
+                      : "Chọn địa điểm..."}
+                  </option>
+                  {hotspotOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </SectionCard>
@@ -365,6 +437,16 @@ export default function CreateStoryPage() {
             onChange={(event) => setContent(event.target.value)}
             placeholder="Kể câu chuyện về địa điểm này..."
             className="h-32 w-full resize-none rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+          />
+        </SectionCard>
+
+        <SectionCard title="Kịch bản audio">
+          <textarea
+            id="story-audio-script"
+            value={audioScript}
+            onChange={(event) => setAudioScript(event.target.value)}
+            placeholder="Nhập audioScript nếu story có lời dẫn hoặc nội dung đọc..."
+            className="h-28 w-full resize-none rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
         </SectionCard>
 

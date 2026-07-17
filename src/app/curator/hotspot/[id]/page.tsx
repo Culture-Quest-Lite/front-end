@@ -513,9 +513,6 @@ export async function renderHotspotDetailPage({
                         <div className="flex flex-col justify-between p-4 sm:p-5">
                           <div>
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600">
-                                Câu chuyện {storyOrderLabel}
-                              </span>
                               {story.tag?.tagName?.trim() ? (
                                 <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
                                   {story.tag.tagName.trim()}
@@ -549,11 +546,7 @@ export async function renderHotspotDetailPage({
                               <span className="rounded-full bg-slate-100 px-2.5 py-1">
                                 {storyMediaSummary}
                               </span>
-                              {storyDistanceLabel ? (
-                                <span className="rounded-full bg-slate-100 px-2.5 py-1">
-                                  Khoảng cách tiếp: {storyDistanceLabel}
-                                </span>
-                              ) : null}
+
                               {updatedAtLabel ? (
                                 <span className="rounded-full bg-slate-100 px-2.5 py-1">
                                   Cập nhật: {updatedAtLabel}
