@@ -68,11 +68,7 @@ export default function CuratorDashboardPage() {
   }, [loading, router, session]);
 
   if (loading) {
-    return (
-      <div className="cq-page-subtitle p-8">
-        Đang kiểm tra quyền truy cập...
-      </div>
-    );
+    return null;
   }
 
   if (!session) {

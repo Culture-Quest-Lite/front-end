@@ -95,11 +95,7 @@ export default function AdminDashboardPage() {
   }, [session]);
 
   if (loading) {
-    return (
-      <div className="cq-page-subtitle p-8">
-        Đang kiểm tra quyền truy cập...
-      </div>
-    );
+    return null;
   }
 
   if (!session) {
