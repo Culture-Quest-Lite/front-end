@@ -72,6 +72,7 @@ const routeSteps: Array<{
 ];
 
 const HOTSPOTS_PER_PAGE = 6;
+const ROUTE_SUCCESS_TOAST_KEY = "curator-route-success-toast";
 
 const FORM_INPUT_CLASS =
   "h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20";
@@ -176,6 +177,16 @@ function parseNonNegativeInteger(value: string) {
 
 function isPublishedHotspot(hotspot: BackendHotspot) {
   return hotspot.status?.trim().toUpperCase() === "PUBLISHED";
+}
+
+function isStorySelectable(
+  story: BackendStory,
+  editingRouteId: number | null,
+) {
+  return (
+    story.routeId == null ||
+    (editingRouteId !== null && story.routeId === editingRouteId)
+  );
 }
 
 function SummaryRow({
@@ -332,17 +343,21 @@ function HotspotLocationCard({
 function StoryAccordionCard({
   hotspot,
   stories,
+  selectedStoryIds,
   expanded,
   isLoading,
   loadError,
   onToggleExpanded,
+  onToggleStory,
 }: {
   hotspot: BackendHotspot;
   stories: BackendStory[];
+  selectedStoryIds: number[];
   expanded: boolean;
   isLoading: boolean;
   loadError?: string;
   onToggleExpanded: (hotspotId: number) => void;
+  onToggleStory: (hotspotId: number, storyId: number) => void;
 }) {
   const image = getHotspotCover(hotspot);
 
@@ -399,16 +414,34 @@ function StoryAccordionCard({
                     key={story.storyId}
                     className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0"
                   >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold leading-6 text-slate-900 break-words">
-                        {story.title}
-                      </p>
-                      {story.content?.trim() ? (
-                        <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500 break-words">
-                          {story.content}
-                        </p>
-                      ) : null}
-                    </div>
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedStoryIds.includes(story.storyId)}
+                        onChange={() =>
+                          onToggleStory(hotspot.hotspotId, story.storyId)
+                        }
+                        aria-label={`Chọn story ${story.title}`}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold leading-6 text-slate-900 break-words">
+                            {story.title}
+                          </p>
+                          {story.tag?.tagName?.trim() ? (
+                            <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">
+                              #{buildTagToken(story.tag.tagName)}
+                            </span>
+                          ) : null}
+                        </div>
+                        {story.content?.trim() ? (
+                          <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500 break-words">
+                            {story.content}
+                          </p>
+                        ) : null}
+                      </div>
+                    </label>
                     <Link
                       href={`/curator/stories/${story.storyId}`}
                       className="shrink-0 text-sm font-semibold text-slate-400 transition hover:text-emerald-700"
@@ -507,6 +540,8 @@ export default function CuratorRouteCreatePage() {
   const [hotspotStoriesMap, setHotspotStoriesMap] = useState<StoryCatalogMap>(
     {},
   );
+  const [manualSelectedStoryIdsByHotspot, setManualSelectedStoryIdsByHotspot] =
+    useState<Record<number, number[]>>({});
   const [storyLoadErrors, setStoryLoadErrors] = useState<StoryLoadErrorMap>({});
   const [loadingStoryHotspotIds, setLoadingStoryHotspotIds] = useState<
     number[]
@@ -772,15 +807,40 @@ export default function CuratorRouteCreatePage() {
         if (
           !Object.prototype.hasOwnProperty.call(hotspotStoriesMap, hotspotId)
         ) {
+          const manualStoryIds = manualSelectedStoryIdsByHotspot[hotspotId];
+
+          if (manualStoryIds) {
+            acc[hotspotId] = manualStoryIds;
+          }
           return acc;
         }
 
-        acc[hotspotId] = (hotspotStoriesMap[hotspotId] ?? []).map(
-          (story) => story.storyId,
+        const selectableStories = (hotspotStoriesMap[hotspotId] ?? []).filter(
+          (story) => isStorySelectable(story, editingRouteId),
         );
+        const selectableStoryIds = new Set(
+          selectableStories.map((story) => story.storyId),
+        );
+        const manualStoryIds = manualSelectedStoryIdsByHotspot[hotspotId];
+        const defaultStoryIds =
+          editingRouteId === null
+            ? []
+            : selectableStories
+                .filter((story) => story.routeId === editingRouteId)
+                .map((story) => story.storyId);
+        const resolvedStoryIds = (
+          manualStoryIds === undefined ? defaultStoryIds : manualStoryIds
+        ).filter((storyId) => selectableStoryIds.has(storyId));
+
+        acc[hotspotId] = resolvedStoryIds;
         return acc;
       }, {}),
-    [hotspotStoriesMap, selectedHotspotIds],
+    [
+      editingRouteId,
+      hotspotStoriesMap,
+      manualSelectedStoryIdsByHotspot,
+      selectedHotspotIds,
+    ],
   );
 
   const selectedStoryIds = useMemo(
@@ -880,8 +940,20 @@ export default function CuratorRouteCreatePage() {
     return hotspotStoriesMap[hotspotId] ?? [];
   }
 
+  function getSelectableStoriesForHotspot(hotspotId: number) {
+    return getStoriesForHotspot(hotspotId).filter((story) =>
+      isStorySelectable(story, editingRouteId),
+    );
+  }
+
   function getSelectedStoriesForHotspot(hotspotId: number) {
-    return getStoriesForHotspot(hotspotId);
+    const selectedStoryIds = new Set(
+      selectedStoryIdsByHotspot[hotspotId] ?? [],
+    );
+
+    return getSelectableStoriesForHotspot(hotspotId).filter((story) =>
+      selectedStoryIds.has(story.storyId),
+    );
   }
 
   function handleStepChange(step: RouteBuilderStep) {
@@ -924,6 +996,15 @@ export default function CuratorRouteCreatePage() {
       setExpandedHotspotIds((current) =>
         current.filter((item) => item !== hotspotId),
       );
+      setManualSelectedStoryIdsByHotspot((current) => {
+        if (!Object.prototype.hasOwnProperty.call(current, hotspotId)) {
+          return current;
+        }
+
+        const next = { ...current };
+        delete next[hotspotId];
+        return next;
+      });
       if (focusedHotspotId === hotspotId) {
         const remainingHotspotIds = selectedHotspotIds.filter(
           (item) => item !== hotspotId,
@@ -938,6 +1019,21 @@ export default function CuratorRouteCreatePage() {
       current.includes(hotspotId) ? current : [...current, hotspotId],
     );
     setFocusedHotspotId(hotspotId);
+  }
+
+  function handleToggleStorySelection(hotspotId: number, storyId: number) {
+    setManualSelectedStoryIdsByHotspot((current) => {
+      const currentStoryIds =
+        current[hotspotId] ?? selectedStoryIdsByHotspot[hotspotId] ?? [];
+      const nextStoryIds = currentStoryIds.includes(storyId)
+        ? currentStoryIds.filter((item) => item !== storyId)
+        : [...currentStoryIds, storyId];
+
+      return {
+        ...current,
+        [hotspotId]: nextStoryIds,
+      };
+    });
   }
 
   function handleContinue() {
@@ -1177,7 +1273,16 @@ export default function CuratorRouteCreatePage() {
           ? await routeApi.updateRoute(editingRouteId, payload)
           : await routeApi.createRoute(payload);
 
-      window.location.assign(`/curator/routes/${response.routeId}`);
+      if (isEditing) {
+        window.location.assign(`/curator/routes/${response.routeId}`);
+        return;
+      }
+
+      sessionStorage.setItem(
+        ROUTE_SUCCESS_TOAST_KEY,
+        "Tạo tuyến đường thành công.",
+      );
+      window.location.assign("/curator/routes");
     } catch (err) {
       setError(
         err instanceof Error
@@ -1476,7 +1581,7 @@ export default function CuratorRouteCreatePage() {
                   key={item.hotspotId}
                   item={item}
                   selected={selectedHotspotIds.includes(item.hotspotId)}
-                  storyCount={getStoriesForHotspot(item.hotspotId).length}
+                  storyCount={getSelectableStoriesForHotspot(item.hotspotId).length}
                   onToggle={handleToggleHotspot}
                 />
               ))}
@@ -1529,11 +1634,15 @@ export default function CuratorRouteCreatePage() {
                 <StoryAccordionCard
                   key={hotspot.hotspotId}
                   hotspot={hotspot}
-                  stories={getStoriesForHotspot(hotspot.hotspotId)}
+                  stories={getSelectableStoriesForHotspot(hotspot.hotspotId)}
+                  selectedStoryIds={
+                    selectedStoryIdsByHotspot[hotspot.hotspotId] ?? []
+                  }
                   expanded={expandedHotspotIds.includes(hotspot.hotspotId)}
                   isLoading={loadingStoryHotspotIds.includes(hotspot.hotspotId)}
                   loadError={storyLoadErrors[hotspot.hotspotId]}
                   onToggleExpanded={toggleHotspotExpansion}
+                  onToggleStory={handleToggleStorySelection}
                 />
               ))}
             </div>
@@ -1587,7 +1696,7 @@ export default function CuratorRouteCreatePage() {
                       hotspot={hotspot}
                       index={index}
                       storyCount={
-                        getStoriesForHotspot(hotspot.hotspotId).length
+                        getSelectableStoriesForHotspot(hotspot.hotspotId).length
                       }
                       selectedStoryCount={
                         selectedStoryIdsByHotspot[hotspot.hotspotId]?.length ??
