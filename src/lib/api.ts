@@ -117,20 +117,26 @@ export async function apiFetch<T>(
     }
 
     if (!response.ok) {
+      const errorBody = body as { message?: unknown; error?: unknown } | null;
       const message =
-        (body &&
-          typeof body === "object" &&
-          ((body as any).message || (body as any).error)) ??
+        (errorBody &&
+          typeof errorBody === "object" &&
+          (errorBody.message || errorBody.error)) ??
         (typeof body === "string" && body.trim() !== ""
           ? body
           : response.statusText);
-      console.error("[apiFetch] Request failed", {
+      const logDetails = {
         url,
         status: response.status,
         body,
         authProxyVersion,
         contentType,
-      });
+      };
+      if (response.status >= 500) {
+        console.error("[apiFetch] Request failed", logDetails);
+      } else {
+        console.warn("[apiFetch] Request failed", logDetails);
+      }
 
       const error = new Error(
         typeof message === "string" ? message : "Request failed",
