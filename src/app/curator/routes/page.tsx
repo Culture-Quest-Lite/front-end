@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "react-toastify";
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 
 const ROUTES_PER_PAGE = 4;
+const ROUTE_SUCCESS_TOAST_KEY = "curator-route-success-toast";
 
 const difficultyLabels: Record<string, string> = {
   EASY: "Dễ",
@@ -130,7 +132,7 @@ function RouteCard({
 }: {
   route: RouteResponse;
   onDelete: (id: number) => void;
-  onPublish: (id: number) => void;
+  onPublish: (route: RouteResponse) => void;
   isMenuOpen: boolean;
   setOpenMenuRouteId: (routeId: number | null) => void;
   isPublishing: boolean;
@@ -144,9 +146,15 @@ function RouteCard({
 
   return (
     <article className={`flex h-full flex-col overflow-visible rounded-[1.75rem] border border-slate-200/80 bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${isMenuOpen ? "relative z-20" : ""}`}>
-      <div className="h-40 w-full overflow-hidden rounded-t-[1.75rem] bg-[#F7F5EF]">
+      <div className="relative h-40 w-full overflow-hidden rounded-t-[1.75rem] bg-[#F7F5EF]">
         {imageUrl ? (
-          <img src={imageUrl} alt={route.routeName} className="h-full w-full object-cover" />
+          <Image
+            src={imageUrl}
+            alt={route.routeName}
+            fill
+            sizes="(min-width: 1280px) 50vw, 100vw"
+            className="object-cover"
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">
             Chưa có hình ảnh
@@ -155,7 +163,7 @@ function RouteCard({
       </div>
 
       <div className="flex flex-1 flex-col gap-2.5 p-3.5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <h2 className="text-sm font-semibold leading-6 text-slate-950">
               {route.routeName}
@@ -164,77 +172,10 @@ function RouteCard({
               {route.description || "Chưa có mô tả."}
             </p>
           </div>
-          <div className="flex items-start gap-2">
-            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium shadow-sm ${getStatusClass(route.status)}`}>
-              <span className="h-1.5 w-1.5 rounded-full bg-current/75" />
-              {getStatusLabel(route.status)}
-            </span>
-            <div className="relative" data-route-actions>
-              <button
-                type="button"
-                aria-haspopup="menu"
-                aria-expanded={isMenuOpen}
-                onClick={() =>
-                  setOpenMenuRouteId(isMenuOpen ? null : route.routeId)
-                }
-                className={`rounded-full p-1.5 text-slate-600 transition hover:bg-slate-100 ${isMenuOpen ? "bg-slate-100" : "bg-white/90"}`}
-              >
-                <MoreHorizontal className="h-3.5 w-3.5" />
-              </button>
-
-              {isMenuOpen ? (
-                <div
-                  role="menu"
-                  className="absolute right-0 top-[calc(100%+0.6rem)] w-44 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
-                >
-                  {canPublish ? (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setOpenMenuRouteId(null);
-                        onPublish(route.routeId);
-                      }}
-                      disabled={isBusy}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <ShieldCheck className="h-4 w-4" />
-                      <span>{isPublishing ? "Đang kiểm tra..." : "Kiểm tra"}</span>
-                    </button>
-                  ) : null}
-
-                  <Link
-                    href={`/curator/routes/create?id=${route.routeId}`}
-                    role="menuitem"
-                    onClick={() => {
-                      if (isBusy) {
-                        return;
-                      }
-                      setOpenMenuRouteId(null);
-                    }}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-                  >
-                    <PencilLine className="h-4 w-4" />
-                    <span>Chỉnh sửa</span>
-                  </Link>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setOpenMenuRouteId(null);
-                      onDelete(route.routeId);
-                    }}
-                    disabled={isBusy}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    <span>Xoá tuyến</span>
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
+          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium shadow-sm ${getStatusClass(route.status)}`}>
+            <span className="h-1.5 w-1.5 rounded-full bg-current/75" />
+            {getStatusLabel(route.status)}
+          </span>
         </div>
 
         <div className="flex flex-wrap gap-1.5">
@@ -257,7 +198,7 @@ function RouteCard({
           <span>Point: {route.point ?? 0}</span>
         </div>
 
-        <div className="mt-auto flex items-center justify-between gap-3 border-t border-slate-100 pt-2">
+        <div className="mt-auto flex items-end justify-between gap-3 border-t border-slate-100 pt-2">
           <div className="flex items-center gap-3">
             {isPublished(route.status) ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
@@ -273,6 +214,72 @@ function RouteCard({
               <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
+
+          <div className="relative shrink-0" data-route-actions>
+            <button
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={isMenuOpen}
+              onClick={() =>
+                setOpenMenuRouteId(isMenuOpen ? null : route.routeId)
+              }
+              className={`rounded-full p-1.5 text-slate-600 transition hover:bg-slate-100 ${isMenuOpen ? "bg-slate-100" : "bg-white/90"}`}
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </button>
+
+            {isMenuOpen ? (
+              <div
+                role="menu"
+                className="absolute bottom-[calc(100%+0.6rem)] right-0 w-44 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
+              >
+                {canPublish ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setOpenMenuRouteId(null);
+                      onPublish(route);
+                    }}
+                    disabled={isBusy}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    <span>{isPublishing ? "Đang kiểm tra..." : "Kiểm tra"}</span>
+                  </button>
+                ) : null}
+
+                <Link
+                  href={`/curator/routes/create?id=${route.routeId}`}
+                  role="menuitem"
+                  onClick={() => {
+                    if (isBusy) {
+                      return;
+                    }
+                    setOpenMenuRouteId(null);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                >
+                  <PencilLine className="h-4 w-4" />
+                  <span>Chỉnh sửa</span>
+                </Link>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setOpenMenuRouteId(null);
+                    onDelete(route.routeId);
+                  }}
+                  disabled={isBusy}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span>Xoá tuyến</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     </article>
@@ -286,8 +293,21 @@ export default function CuratorRoutesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [openMenuRouteId, setOpenMenuRouteId] = useState<number | null>(null);
   const [publishingRouteId, setPublishingRouteId] = useState<number | null>(null);
+  const [pendingPublishRoute, setPendingPublishRoute] =
+    useState<RouteResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reloadVersion, setReloadVersion] = useState(0);
+
+  useEffect(() => {
+    const successMessage = sessionStorage.getItem(ROUTE_SUCCESS_TOAST_KEY);
+
+    if (!successMessage) {
+      return;
+    }
+
+    sessionStorage.removeItem(ROUTE_SUCCESS_TOAST_KEY);
+    toast.success(successMessage);
+  }, []);
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
@@ -372,15 +392,35 @@ export default function CuratorRoutesPage() {
     }
   }
 
-  async function handlePublish(routeId: number) {
+  function handlePublishRequest(route: RouteResponse) {
     setOpenMenuRouteId(null);
-    const ok = window.confirm("Bạn có chắc muốn kích hoạt tuyến này không?");
-    if (!ok) return;
+    const normalizedStatus = route.status?.trim().toUpperCase();
+
+    if (normalizedStatus === "PUBLISHED" || normalizedStatus === "APPROVED") {
+      toast.info("Tuyến này đã ở trạng thái xuất bản.");
+      return;
+    }
+
+    if (normalizedStatus === "DELETED") {
+      toast.error("Không thể kích hoạt tuyến đã bị xóa.");
+      return;
+    }
+
+    setPendingPublishRoute(route);
+  }
+
+  async function handleConfirmPublishRoute() {
+    if (!pendingPublishRoute) {
+      return;
+    }
+
+    const routeId = pendingPublishRoute.routeId;
 
     setPublishingRouteId(routeId);
 
     try {
       await routeApi.publishRoute(routeId);
+      setPendingPublishRoute(null);
       toast.success("Đã kích hoạt tuyến.");
       setReloadVersion((value) => value + 1);
     } catch (err) {
@@ -418,7 +458,7 @@ export default function CuratorRoutesPage() {
                 <RouteCard
                   route={route}
                   onDelete={handleDelete}
-                  onPublish={handlePublish}
+                  onPublish={handlePublishRequest}
                   isMenuOpen={openMenuRouteId === route.routeId}
                   setOpenMenuRouteId={setOpenMenuRouteId}
                   isPublishing={publishingRouteId === route.routeId}
@@ -434,6 +474,55 @@ export default function CuratorRoutesPage() {
           </div>
         ) : null}
       </section>
+
+      {pendingPublishRoute ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 px-4 py-6 backdrop-blur-sm">
+          <div
+            className="absolute inset-0"
+            onClick={() => setPendingPublishRoute(null)}
+            aria-hidden="true"
+          />
+
+          <div className="relative z-10 w-full max-w-[22rem] rounded-[1.75rem] border border-slate-200 bg-white px-5 py-7 text-center shadow-[0_24px_60px_rgba(15,23,42,0.18)] sm:px-6 sm:py-8">
+            <div className="space-y-3">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                <ShieldCheck className="h-10 w-10" />
+              </div>
+              <h2 className="text-[1.125rem] font-semibold leading-tight tracking-[-0.02em] text-slate-900 sm:text-[1.25rem]">
+                Bạn có chắc muốn kiểm tra?
+              </h2>
+              <p className="mx-auto max-w-[16.5rem] text-[0.8125rem] leading-5 text-slate-500 sm:text-[0.875rem]">
+                Tuyến{" "}
+                <span className="font-semibold text-slate-900">
+                  {pendingPublishRoute.routeName}
+                </span>{" "}
+                sẽ được kích hoạt ngay lập tức.
+              </p>
+            </div>
+
+            <div className="mt-7 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingPublishRoute(null)}
+                disabled={publishingRouteId === pendingPublishRoute.routeId}
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-slate-100 px-4 text-[0.8125rem] font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-200 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleConfirmPublishRoute()}
+                disabled={publishingRouteId === pendingPublishRoute.routeId}
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-emerald-500 bg-emerald-500 px-4 text-[0.8125rem] font-semibold text-white transition hover:border-emerald-600 hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
+              >
+                {publishingRouteId === pendingPublishRoute.routeId
+                  ? "Đang kiểm tra..."
+                  : "Kiểm tra"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
