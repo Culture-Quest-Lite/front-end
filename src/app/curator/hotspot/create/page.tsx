@@ -73,7 +73,7 @@ const defaultSelectedMedia: HotspotMediaCollection = {
 };
 
 const HOTSPOT_BACKEND_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://3.113.215.65:8080";
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://api.culturequestlite.com";
 
 export default function Page() {
   return (
