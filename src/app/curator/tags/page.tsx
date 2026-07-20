@@ -36,12 +36,17 @@ type TagItem = {
   backendId: number | null;
   slug: string;
   name: string;
-  usageCount: number;
+  routeCount: number;
+  storyCount: number;
   color: string;
   status: string;
   createdAt: string | null;
   updatedAt: string | null;
 };
+
+function getTagTotalUsage(tag: Pick<TagItem, "routeCount" | "storyCount">) {
+  return tag.routeCount + tag.storyCount;
+}
 
 function mapTagRecordToTagItem(tag: TagRecord): TagItem {
   return {
@@ -49,7 +54,8 @@ function mapTagRecordToTagItem(tag: TagRecord): TagItem {
     backendId: tag.tagId,
     slug: buildTagSlug(tag.tagName) || `tag-${tag.tagId}`,
     name: tag.tagName,
-    usageCount: tag.hotspotCount,
+    routeCount: tag.routeCount,
+    storyCount: tag.storyCount,
     color: getTagColor(tag.tagId - 1),
     status: tag.tagStatus,
     createdAt: tag.createdAt,
@@ -106,6 +112,8 @@ export default function CuratorTagsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalElements, setTotalElements] = useState(0);
+  const [pageSize, setPageSize] = useState(TAGS_PAGE_SIZE);
+  const [serverPageNumber, setServerPageNumber] = useState(0);
   const [reloadVersion, setReloadVersion] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -121,7 +129,7 @@ export default function CuratorTagsPage() {
   const deferredSearch = useDeferredValue(searchQuery);
   const effectiveSearchQuery = deferredSearch.trim();
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const maxTagCount = Math.max(...tags.map((tag) => tag.usageCount), 1);
+  const maxTagCount = Math.max(...tags.map((tag) => getTagTotalUsage(tag)), 1);
   const isEditing = editingTagId !== null;
   const showEmptyState = !isLoadingTags && tags.length === 0;
   const editingTag =
@@ -153,6 +161,8 @@ export default function CuratorTagsPage() {
 
         setTags(response.content.map(mapTagRecordToTagItem));
         setTotalElements(response.page.totalElements);
+        setPageSize(response.page.size);
+        setServerPageNumber(response.page.number);
 
         const nextTotalPages = Math.max(1, response.page.totalPages || 1);
         const nextCurrentPage =
@@ -232,7 +242,7 @@ export default function CuratorTagsPage() {
   function handleEditTag(tag: TagItem) {
     setEditingTagId(tag.id);
     setFormName(tag.name);
-    setFormUsageCount(String(tag.usageCount));
+    setFormUsageCount(String(getTagTotalUsage(tag)));
     setFormColor(tag.color);
     setFormError(null);
     setIsEditorOpen(true);
@@ -381,8 +391,18 @@ export default function CuratorTagsPage() {
           <section className="rounded-[1.75rem] border border-slate-200/80 bg-card p-4 shadow-sm sm:p-5">
             <div className="rounded-[1.5rem] border border-slate-200 bg-white p-4">
               <h3 className="cq-card-title">
-                Thống kê sử dụng thẻ ở địa điểm trong hệ thống
+                Thống kê sử dụng thẻ trong hệ thống
               </h3>
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 sm:text-sm">
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-sky-500" />
+                  Tuyến
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                  Câu chuyện
+                </span>
+              </div>
 
               <div className="mt-4 space-y-4">
                 {isLoadingTags ? (
@@ -391,11 +411,24 @@ export default function CuratorTagsPage() {
 
                 {tags.map((tag) => {
                   const colorState = getTagColorState(tag.color);
+                  const totalUsage = getTagTotalUsage(tag);
+                  const totalUsageWidth =
+                    totalUsage > 0
+                      ? `${(totalUsage / maxTagCount) * 100}%`
+                      : "0%";
+                  const routeSegmentWidth =
+                    totalUsage > 0
+                      ? `${(tag.routeCount / totalUsage) * 100}%`
+                      : "0%";
+                  const storySegmentWidth =
+                    totalUsage > 0
+                      ? `${(tag.storyCount / totalUsage) * 100}%`
+                      : "0%";
 
                   return (
                     <div
                       key={`${tag.id}-stats`}
-                      className="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)_40px] items-center gap-4"
+                      className="grid gap-3 sm:grid-cols-[minmax(0,auto)_minmax(0,1fr)_minmax(220px,auto)] sm:items-center sm:gap-4"
                     >
                       <Link
                         href={buildTagDetailHref(tag.backendId ?? tag.id)}
@@ -411,17 +444,37 @@ export default function CuratorTagsPage() {
 
                       <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
                         <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${(tag.usageCount / maxTagCount) * 100}%`,
-                            backgroundColor: tag.color,
-                          }}
-                        />
+                          className="flex h-full overflow-hidden rounded-full"
+                          style={{ width: totalUsageWidth }}
+                        >
+                          {tag.routeCount > 0 ? (
+                            <div
+                              className="h-full bg-sky-500"
+                              style={{ width: routeSegmentWidth }}
+                            />
+                          ) : null}
+                          {tag.storyCount > 0 ? (
+                            <div
+                              className="h-full bg-amber-500"
+                              style={{ width: storySegmentWidth }}
+                            />
+                          ) : null}
+                        </div>
                       </div>
 
-                      <span className="text-right text-xs text-slate-500 sm:text-sm">
-                        {tag.usageCount}
-                      </span>
+                      <div className="flex flex-wrap items-center justify-start gap-2 text-xs text-slate-500 sm:justify-end sm:text-sm">
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-700">
+                          {totalUsage} tổng
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-sky-500" />
+                          Tuyến: {tag.routeCount}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-amber-500" />
+                          Câu chuyện: {tag.storyCount}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
@@ -445,11 +498,21 @@ export default function CuratorTagsPage() {
                   </p>
                 </div>
 
-                <span className="text-sm text-slate-500">
-                  {isLoadingTags
-                    ? "Đang tải dữ liệu..."
-                    : `${totalElements} kết quả`}
-                </span>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                  <span>
+                    {isLoadingTags ? "Đang tải dữ liệu..." : `${totalElements} kết quả`}
+                  </span>
+                  {!isLoadingTags ? (
+                    <>
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                        Trang {serverPageNumber + 1}/{Math.max(totalPages, 1)}
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                        Kích thước trang {pageSize}
+                      </span>
+                    </>
+                  ) : null}
+                </div>
               </div>
 
               <div className="rounded-[1.5rem] border border-slate-200 bg-white">
@@ -465,148 +528,160 @@ export default function CuratorTagsPage() {
                 ) : null}
 
                 {!isLoadingTags && tags.length > 0 ? (
-                  <table className="w-full table-fixed border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50/90">
-                        <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                          Thẻ
-                        </th>
-                        <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                          Số lượng
-                        </th>
-                        <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                          Trạng thái
-                        </th>
-                        <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                          Ngày cập nhật
-                        </th>
-                        <th className="px-4 py-4 text-center whitespace-nowrap text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                          Thao tác
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {tags.map((tag) => {
-                        const colorState = getTagColorState(tag.color);
+                  <div className="w-full">
+                    <table className="w-full table-fixed border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50/90">
+                          <th className="w-[28%] px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                            Thẻ
+                          </th>
+                          <th className="w-[10%] px-3 py-4 text-center text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                            Tuyến
+                          </th>
+                          <th className="w-[12%] px-3 py-4 text-center text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                            Câu chuyện
+                          </th>
+                          <th className="w-[16%] px-3 py-4 text-center text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                            Trạng thái
+                          </th>
+                          <th className="w-[15%] px-3 py-4 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                            Ngày tạo
+                          </th>
+                          <th className="w-[8%] px-3 py-4 text-center text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                            Thao tác
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tags.map((tag) => {
+                          const colorState = getTagColorState(tag.color);
 
-                        return (
-                          <tr
-                            key={`${tag.id}-row`}
-                            className={cn(
-                              "border-t border-slate-200 align-middle",
-                              openMenuTagId === tag.id && "relative z-20",
-                            )}
-                          >
-                            <td className="px-4 py-4 text-left">
-                              <Link
-                                href={buildTagDetailHref(
-                                  tag.backendId ?? tag.id,
-                                )}
-                                className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition hover:opacity-85 sm:text-sm"
-                                style={{
-                                  color: tag.color,
-                                  backgroundColor: colorState.chipBg,
-                                  borderColor: colorState.chipBorder,
-                                }}
-                              >
-                                {buildTagChipLabel(tag.name)}
-                              </Link>
-                            </td>
-
-                            <td className="px-4 py-4 text-left">
-                              <span className="text-sm font-semibold text-slate-700">
-                                {tag.usageCount}
-                              </span>
-                            </td>
-
-                            <td className="px-4 py-4 text-left">
-                              <span
-                                className={cn(
-                                  "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium",
-                                  getTagStatusTone(tag.status),
-                                )}
-                              >
-                                {formatTagStatus(tag.status)}
-                              </span>
-                            </td>
-
-                            <td className="px-4 py-4 text-left text-sm text-slate-500">
-                              {formatTagDateTime(tag.updatedAt)}
-                            </td>
-
-                            <td className="px-4 py-4 text-center">
-                              <div
-                                className="relative flex justify-center overflow-visible"
-                                data-tag-actions
-                              >
-                                <button
-                                  type="button"
-                                  aria-haspopup="menu"
-                                  aria-expanded={openMenuTagId === tag.id}
-                                  onClick={() =>
-                                    setOpenMenuTagId(
-                                      openMenuTagId === tag.id ? null : tag.id,
-                                    )
-                                  }
-                                  className={cn(
-                                    "inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700",
-                                    openMenuTagId === tag.id && "bg-slate-100",
-                                  )}
-                                  aria-label={`Tác vụ cho ${tag.name}`}
-                                >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </button>
-
-                                {openMenuTagId === tag.id ? (
-                                  <div
-                                    role="menu"
-                                    className="absolute right-0 top-[calc(100%+0.6rem)] w-44 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)] z-30"
+                          return (
+                            <tr
+                              key={`${tag.id}-row`}
+                              className={cn(
+                                "border-t border-slate-200 align-top",
+                                openMenuTagId === tag.id && "relative z-20",
+                              )}
+                            >
+                              <td className="px-4 py-4 text-left">
+                                <div className="space-y-2 break-words">
+                                  <Link
+                                    href={buildTagDetailHref(
+                                      tag.backendId ?? tag.id,
+                                    )}
+                                    className="inline-flex max-w-full items-center rounded-full border px-3 py-1.5 text-xs font-medium leading-5 transition hover:opacity-85 sm:text-sm"
+                                    style={{
+                                      color: tag.color,
+                                      backgroundColor: colorState.chipBg,
+                                      borderColor: colorState.chipBorder,
+                                    }}
                                   >
-                                    <Link
-                                      href={buildTagDetailHref(
-                                        tag.backendId ?? tag.id,
-                                      )}
-                                      role="menuitem"
-                                      onClick={() => setOpenMenuTagId(null)}
-                                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-                                    >
-                                      <Eye className="h-4 w-4" />
-                                      <span>Xem chi tiết</span>
-                                    </Link>
+                                    {buildTagChipLabel(tag.name)}
+                                  </Link>
+                                  <p className="break-all text-xs text-slate-400">
+                                    {tag.slug}
+                                  </p>
+                                </div>
+                              </td>
 
-                                    <button
-                                      type="button"
-                                      role="menuitem"
-                                      onClick={() => {
-                                        setOpenMenuTagId(null);
-                                        handleEditTag(tag);
-                                      }}
-                                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-                                    >
-                                      <Pencil className="h-4 w-4" />
-                                      <span>Chỉnh sửa</span>
-                                    </button>
+                              <td className="px-3 py-4 text-center text-sm font-semibold text-slate-700">
+                                {tag.routeCount}
+                              </td>
 
-                                    <button
-                                      type="button"
-                                      role="menuitem"
-                                      onClick={() =>
-                                        handleDeleteRequest(tag.id)
-                                      }
-                                      className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-slate-100 px-3 pt-3 pb-2.5 text-left text-sm font-medium text-red-500 transition hover:bg-red-50"
+                              <td className="px-3 py-4 text-center text-sm font-semibold text-slate-700">
+                                {tag.storyCount}
+                              </td>
+
+                              <td className="px-3 py-4 text-center">
+                                <span
+                                  className={cn(
+                                    "inline-flex max-w-full items-center justify-center rounded-full border px-2.5 py-1 text-center text-xs font-medium leading-5",
+                                    getTagStatusTone(tag.status),
+                                  )}
+                                >
+                                  {formatTagStatus(tag.status)}
+                                </span>
+                              </td>
+
+                              <td className="px-3 py-4 text-left text-xs leading-5 text-slate-500 sm:text-sm">
+                                {formatTagDateTime(tag.createdAt)}
+                              </td>
+
+                              <td className="px-3 py-4 text-center">
+                                <div
+                                  className="relative flex justify-center overflow-visible"
+                                  data-tag-actions
+                                >
+                                  <button
+                                    type="button"
+                                    aria-haspopup="menu"
+                                    aria-expanded={openMenuTagId === tag.id}
+                                    onClick={() =>
+                                      setOpenMenuTagId(
+                                        openMenuTagId === tag.id ? null : tag.id,
+                                      )
+                                    }
+                                    className={cn(
+                                      "inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700",
+                                      openMenuTagId === tag.id && "bg-slate-100",
+                                    )}
+                                    aria-label={`Tác vụ cho ${tag.name}`}
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </button>
+
+                                  {openMenuTagId === tag.id ? (
+                                    <div
+                                      role="menu"
+                                      className="absolute right-0 top-[calc(100%+0.6rem)] w-44 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)] z-30"
                                     >
-                                      <Trash2 className="h-4 w-4" />
-                                      <span>Xóa</span>
-                                    </button>
-                                  </div>
-                                ) : null}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                                      <Link
+                                        href={buildTagDetailHref(
+                                          tag.backendId ?? tag.id,
+                                        )}
+                                        role="menuitem"
+                                        onClick={() => setOpenMenuTagId(null)}
+                                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                        <span>Xem chi tiết</span>
+                                      </Link>
+
+                                      <button
+                                        type="button"
+                                        role="menuitem"
+                                        onClick={() => {
+                                          setOpenMenuTagId(null);
+                                          handleEditTag(tag);
+                                        }}
+                                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                        <span>Chỉnh sửa</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        role="menuitem"
+                                        onClick={() =>
+                                          handleDeleteRequest(tag.id)
+                                        }
+                                        className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-slate-100 px-3 pt-3 pb-2.5 text-left text-sm font-medium text-red-500 transition hover:bg-red-50"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                        <span>Xóa</span>
+                                      </button>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 ) : null}
 
                 {showEmptyState ? (

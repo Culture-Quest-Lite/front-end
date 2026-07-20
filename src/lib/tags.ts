@@ -2,7 +2,9 @@ export interface TagRecord {
   tagId: number;
   tagName: string;
   tagStatus: string;
+  routeCount: number;
   hotspotCount: number;
+  storyCount: number;
   createdAt: string;
   updatedAt: string;
 }
