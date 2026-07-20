@@ -1,0 +1,244 @@
+import { apiFetch } from "@/lib/api";
+
+export interface LoginResponse {
+  accessToken: string;
+  tokenType: string;
+  expiresIn: number;
+}
+
+export interface TokenData {
+  id: string;
+  email: string;
+  name: string;
+  role: "admin" | "curator" | "explorer" | "partner";
+  token: string;
+}
+
+export interface RegisterRequest {
+  username: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
+
+export interface VerifyOtpRequest {
+  email: string;
+  otp: string;
+}
+
+export interface ResendOtpRequest {
+  email: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface OAuthLoginRequest {
+  code: string;
+  redirectUri: string;
+}
+
+// Đăng nhập
+export const authApi = {
+  // Đăng nhập với username/password
+  login: async (
+    username: string,
+    password: string
+  ): Promise<LoginResponse> => {
+    return apiFetch<LoginResponse>("/api/auth/login", {
+      method: "POST",
+      headers: {
+        "X-Client-Type": "web",
+      },
+      body: { username, password },
+      sameOrigin: true,
+    });
+  },
+
+  // Đăng ký tài khoản
+  register: async (data: RegisterRequest) => {
+    return apiFetch("/api/auth/register", {
+      method: "POST",
+      body: data,
+      sameOrigin: true,
+    });
+  },
+
+  // Xác thực email bằng OTP
+  verifyOtp: async (data: VerifyOtpRequest) => {
+    return apiFetch("/api/auth/verify-otp", {
+      method: "POST",
+      body: data,
+      sameOrigin: true,
+    });
+  },
+
+  // Gửi lại OTP
+  resendOtp: async (data: ResendOtpRequest) => {
+    return apiFetch("/api/auth/resend-otp", {
+      method: "POST",
+      body: data,
+      sameOrigin: true,
+    });
+  },
+
+  // Đăng xuất
+  logout: async () => {
+    return apiFetch("/api/auth/logout", {
+      method: "POST",
+      headers: {
+        "X-Client-Type": "web",
+      },
+      sameOrigin: true,
+    });
+  },
+
+  // Yêu cầu reset mật khẩu
+  forgotPassword: async (data: ForgotPasswordRequest) => {
+    return apiFetch("/api/auth/forgot-password", {
+      method: "POST",
+      body: data,
+      sameOrigin: true,
+    });
+  },
+
+  // Reset mật khẩu bằng token
+  resetPassword: async (data: ResetPasswordRequest) => {
+    return apiFetch("/api/auth/reset-password", {
+      method: "POST",
+      body: data,
+      sameOrigin: true,
+    });
+  },
+
+  // Đổi mật khẩu (khi đã đăng nhập)
+  changePassword: async (data: ChangePasswordRequest) => {
+    return apiFetch("/api/auth/change-password", {
+      method: "POST",
+      body: data,
+      sameOrigin: true,
+    });
+  },
+
+  // Đăng nhập Google OAuth2
+  loginByGoogle: async (data: OAuthLoginRequest) => {
+    return apiFetch("/api/auth/login-by-google", {
+      method: "POST",
+      headers: {
+        "X-Client-Type": "web",
+      },
+      body: data,
+      sameOrigin: true,
+    });
+  },
+
+  // Đăng nhập Facebook OAuth2
+  loginByFacebook: async (data: OAuthLoginRequest) => {
+    return apiFetch("/api/auth/login-by-facebook", {
+      method: "POST",
+      headers: {
+        "X-Client-Type": "web",
+      },
+      body: data,
+      sameOrigin: true,
+    });
+  },
+};
+
+// Parse JWT token
+export function parseJwt(token: string) {
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    console.error("Failed to parse JWT:", error);
+    return null;
+  }
+}
+
+// Extract user info from access token
+export function extractUserFromToken(accessToken: string): Omit<TokenData, "token"> | null {
+  const decoded = parseJwt(accessToken);
+  if (!decoded) {
+    console.error("Failed to decode token");
+    return null;
+  }
+
+  let role: "admin" | "curator" | "partner" | "explorer" = "explorer"; // đổi default
+
+  if (decoded.realm_access?.roles && Array.isArray(decoded.realm_access.roles)) {
+    const roles = decoded.realm_access.roles.map((r: string) => r.toUpperCase());
+    if (roles.includes("ADMIN")) {
+      role = "admin";
+    } else if (roles.includes("CURATOR")) {
+      role = "curator";
+    } else if (roles.includes("EXPLORER")) {
+      role = "explorer";
+    } else if (roles.includes("PARTNER")) {
+      role = "partner";
+    }
+  }
+
+  
+  // Kiểm tra resource_access (alternative Keycloak format)
+  if (decoded.resource_access && typeof decoded.resource_access === "object") {
+    for (const resourceData of Object.values(decoded.resource_access)) {
+      if (resourceData && typeof resourceData === "object" && "roles" in resourceData) {
+        const resourceRoles = (resourceData as { roles?: unknown }).roles;
+        if (Array.isArray(resourceRoles)) {
+          if (resourceRoles.includes("admin") || resourceRoles.includes("ADMIN")) {
+            role = "admin";
+            break;
+          } else if (resourceRoles.includes("curator") || resourceRoles.includes("CURATOR")) {
+            role = "curator";
+          } else if (resourceRoles.includes("partner") || resourceRoles.includes("PARTNER")) {
+            role = "partner";
+          }
+        }
+      }
+    }
+  }
+  
+  // Kiểm tra role field trực tiếp
+  if (decoded.role) {
+    const decodedRole = String(decoded.role).toLowerCase();
+    if (decodedRole === "admin") {
+      role = "admin";
+    } else if (decodedRole === "curator") {
+      role = "curator";
+    } else if (decodedRole === "partner") {
+      role = "partner";
+    }
+  }
+
+ const userInfo = {
+    id: decoded.sub || decoded.id || "",
+    email: decoded.email || "",
+    name: decoded.preferred_username || decoded.name || "",
+    role,
+  };
+
+  return userInfo;
+}
+
+export default authApi;

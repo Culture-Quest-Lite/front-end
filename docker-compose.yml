@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+        NEXT_PUBLIC_KEYCLOAK_URL: ${NEXT_PUBLIC_KEYCLOAK_URL}
+        NEXT_PUBLIC_KEYCLOAK_REALM: ${NEXT_PUBLIC_KEYCLOAK_REALM}
+        NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: ${NEXT_PUBLIC_KEYCLOAK_CLIENT_ID}
+        NEXT_PUBLIC_GOONG_API_KEY: ${NEXT_PUBLIC_GOONG_API_KEY}
+        NEXT_PUBLIC_GOONG_MAPTILES_KEY: ${NEXT_PUBLIC_GOONG_MAPTILES_KEY}
+    image: ${IMAGE_FULL:-culture-quest-frontend}:${IMAGE_TAG:-latest}
+    container_name: culture-quest-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
