@@ -80,7 +80,7 @@ export default function TravelLogin() {
   const [password, setPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(() => hasOAuthCallbackCode());
+  const [loading, setLoading] = useState(false);
   const loginRequestInFlight = useRef(false);
 
   useEffect(() => {
@@ -88,15 +88,17 @@ export default function TravelLogin() {
     const code = params.get("code");
     if (code) {
       window.history.replaceState(null, "", window.location.pathname);
-      
+
       const redirectUri = window.location.origin;
       const provider = sessionStorage.getItem("login_provider");
-      const loginPromise = provider === "facebook"
-        ? loginByFacebook(code, redirectUri)
-        : loginByGoogle(code, redirectUri);
 
-      loginPromise
-        .then((response) => {
+      void (async () => {
+        setLoading(true);
+        try {
+          const response = provider === "facebook"
+            ? await loginByFacebook(code, redirectUri)
+            : await loginByGoogle(code, redirectUri);
+
           const accessToken = response.accessToken;
           saveAccessToken(accessToken, response.expiresIn);
           const session = createSessionFromToken(accessToken);
@@ -106,19 +108,32 @@ export default function TravelLogin() {
               window.location.href = redirectPath;
             } else {
               clearAuthSession();
-              alert("Tài khoản này không có quyền truy cập khu vực quản trị.");
+              setError("Bạn không có quyền truy cập");
               setLoading(false);
             }
           } else {
-            alert("Bạn không có quyền truy cập trang quản trị này!");
+            clearAuthSession();
+            setError("Không thể xử lý thông tin người dùng. Vui lòng thử lại.");
             setLoading(false);
           }
-        })
-        .catch((err) => {
-          const providerName = provider === "facebook" ? "Facebook" : "Google";
-          alert(`Đăng nhập bằng ${providerName} thất bại: ` + (err instanceof Error ? err.message : String(err)));
+        } catch (err) {
+          const status = (err as { status?: number }).status;
+          if (status === 403) {
+            setError(
+              err instanceof Error && err.message
+                ? err.message
+                : "Bạn không có quyền truy cập"
+            );
+          } else {
+            const providerName = provider === "facebook" ? "Facebook" : "Google";
+            setError(
+              `Đăng nhập bằng ${providerName} thất bại: ` +
+                (err instanceof Error ? err.message : String(err))
+            );
+          }
           setLoading(false);
-        });
+        }
+      })();
     }
   }, []);
 
@@ -564,12 +579,4 @@ function getRedirectPathForRole(role: "admin" | "curator" | "explorer" | "partne
   }
 
   return null;
-}
-
-function hasOAuthCallbackCode() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  return new URLSearchParams(window.location.search).has("code");
 }
