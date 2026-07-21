@@ -500,7 +500,9 @@ export default function CuratorTagsPage() {
 
                 <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
                   <span>
-                    {isLoadingTags ? "Đang tải dữ liệu..." : `${totalElements} kết quả`}
+                    {isLoadingTags
+                      ? "Đang tải dữ liệu..."
+                      : `${totalElements} kết quả`}
                   </span>
                   {!isLoadingTags ? (
                     <>
@@ -579,9 +581,6 @@ export default function CuratorTagsPage() {
                                   >
                                     {buildTagChipLabel(tag.name)}
                                   </Link>
-                                  <p className="break-all text-xs text-slate-400">
-                                    {tag.slug}
-                                  </p>
                                 </div>
                               </td>
 
@@ -619,12 +618,15 @@ export default function CuratorTagsPage() {
                                     aria-expanded={openMenuTagId === tag.id}
                                     onClick={() =>
                                       setOpenMenuTagId(
-                                        openMenuTagId === tag.id ? null : tag.id,
+                                        openMenuTagId === tag.id
+                                          ? null
+                                          : tag.id,
                                       )
                                     }
                                     className={cn(
                                       "inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700",
-                                      openMenuTagId === tag.id && "bg-slate-100",
+                                      openMenuTagId === tag.id &&
+                                        "bg-slate-100",
                                     )}
                                     aria-label={`Tác vụ cho ${tag.name}`}
                                   >

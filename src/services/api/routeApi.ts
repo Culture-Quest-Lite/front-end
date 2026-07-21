@@ -33,6 +33,7 @@ export interface RouteHotspotResponse {
   hotspotName?: string;
   address?: string;
   xp?: number;
+  point?: number;
   index?: number;
   orderIndex?: number;
   distanceToNext?: number | null;

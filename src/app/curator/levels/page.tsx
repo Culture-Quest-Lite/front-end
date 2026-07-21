@@ -2,13 +2,7 @@
 
 import Link from "next/link";
 import { useDeferredValue, useEffect, useState } from "react";
-import {
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  Search,
-  Trash2,
-} from "lucide-react";
+import { MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 
 import { CuratorPagination } from "@/components/curator/CuratorPagination";
@@ -378,8 +372,8 @@ export default function CuratorLevelsPage() {
           <div className="space-y-2">
             <h1 className="cq-page-title">Cấp bậc thành viên</h1>
             <p className="cq-page-subtitle max-w-2xl">
-              Đồng bộ dữ liệu cấp bậc từ hệ thống gamification và hiển thị trực
-              tiếp trong bảng quản trị.
+              Đồng bộ dữ liệu cấp bậc từ hệ thống cấp bậc và hiển thị trực tiếp
+              trong bảng quản trị.
             </p>
           </div>
 
@@ -472,7 +466,7 @@ export default function CuratorLevelsPage() {
                         "border-t border-slate-200 align-middle",
                         openMenuLevelId === level.id && "relative z-20",
                       )}
-                      >
+                    >
                       <td className="px-4 py-4 text-left">
                         <p className="break-words text-sm font-semibold text-slate-950">
                           {level.name}
