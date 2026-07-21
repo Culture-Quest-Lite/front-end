@@ -57,7 +57,8 @@ function PageHeader() {
               Chi tiết thẻ
             </h1>
             <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground sm:text-xs">
-              Trang này đã map đầy đủ dữ liệu từ API get tag theo id.
+              Xem thông tin chi tiết và các câu chuyện được phân loại theo thẻ
+              này.
             </p>
           </div>
         </div>
@@ -179,16 +180,13 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
                 <Tag className="h-4 w-4" />
                 <span>{buildTagChipLabel(backendTag.tagName)}</span>
               </div>
-              <h2 className="text-xl font-semibold tracking-[-0.03em] text-slate-900 sm:text-2xl">
+              <h2 className="text-xl font-semibold tracking-[-0.03em] text-slate-900 sm:text-1xl">
                 {backendTag.tagName}
               </h2>
             </div>
           </div>
 
           <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:justify-end">
-            <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700">
-              Mã #{backendTag.tagId}
-            </span>
             <span
               className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${getTagStatusTone(backendTag.tagStatus)}`}
             >
@@ -199,8 +197,11 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
 
         <div className="mt-6 border-t border-dashed border-slate-200 pt-6">
           <div className="grid max-w-5xl gap-x-5 gap-y-4 px-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-5">
-            <DetailItem label="Mã thẻ" value={`#${backendTag.tagId}`} />
-            <DetailItem label="Số tuyến" value={String(backendTag.routeCount)} />
+            <DetailItem label="Mã thẻ" value={`${backendTag.tagId}`} />
+            <DetailItem
+              label="Số tuyến"
+              value={String(backendTag.routeCount)}
+            />
             <DetailItem
               label="Số câu chuyện"
               value={String(backendTag.storyCount)}

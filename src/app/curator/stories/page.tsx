@@ -30,6 +30,8 @@ import {
 
 type StoryStatus = "Đã xuất bản" | "Chờ duyệt" | "Bản nháp" | "Bị từ chối";
 
+const STORY_SUCCESS_TOAST_KEY = "curator-story-success-toast";
+
 const storyActions = [
   { key: "edit", label: "Chỉnh sửa", icon: PencilLine },
   { key: "detail", label: "Xem chi tiết", icon: Eye },
@@ -211,7 +213,9 @@ export default function CuratorStoriesPage() {
   const [availableTags, setAvailableTags] = useState<
     { tagId: number; tagName: string }[] | []
   >([]);
-  const [availableHotspots, setAvailableHotspots] = useState<FilterOption[]>([]);
+  const [availableHotspots, setAvailableHotspots] = useState<FilterOption[]>(
+    [],
+  );
   const [availableRoutes, setAvailableRoutes] = useState<FilterOption[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [openMenuStoryId, setOpenMenuStoryId] = useState<string | null>(null);
@@ -229,6 +233,17 @@ export default function CuratorStoriesPage() {
   const [storiesReloadToken, setStoriesReloadToken] = useState(0);
   const selectedHotspotFilterId = parseOptionalFilterId(selectedHotspotId);
   const selectedRouteFilterId = parseOptionalFilterId(selectedRouteId);
+
+  useEffect(() => {
+    const successMessage = sessionStorage.getItem(STORY_SUCCESS_TOAST_KEY);
+
+    if (!successMessage) {
+      return;
+    }
+
+    sessionStorage.removeItem(STORY_SUCCESS_TOAST_KEY);
+    toast.success(successMessage);
+  }, []);
 
   const backendStatusValue =
     selectedStatus === "Đã xuất bản"
@@ -535,7 +550,7 @@ export default function CuratorStoriesPage() {
           <div className="space-y-2">
             <h1 className="cq-page-title">Quản lý câu chuyện</h1>
             <p className="cq-page-subtitle max-w-2xl">
-              Quản lý micro-story theo nội dung, thẻ và trạng thái biên tập.
+              Quản lý câu chuyện theo nội dung, thẻ và trạng thái biên tập.
             </p>
           </div>
 
@@ -633,7 +648,7 @@ export default function CuratorStoriesPage() {
 
                     <div className="relative">
                       <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                        Hotspot
+                        Địa điểm
                       </label>
                       <select
                         value={draftHotspotId}
@@ -642,7 +657,7 @@ export default function CuratorStoriesPage() {
                         }
                         className="h-11 w-full appearance-none rounded-full border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                       >
-                        <option value="">Tất cả hotspot</option>
+                        <option value="">Tất cả địa điểm</option>
                         {availableHotspots.map((hotspot) => (
                           <option key={hotspot.id} value={String(hotspot.id)}>
                             {hotspot.name}
@@ -654,7 +669,7 @@ export default function CuratorStoriesPage() {
 
                     <div className="relative">
                       <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                        Route
+                        Tuyến đường
                       </label>
                       <select
                         value={draftRouteId}
@@ -663,7 +678,7 @@ export default function CuratorStoriesPage() {
                         }
                         className="h-11 w-full appearance-none rounded-full border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                       >
-                        <option value="">Tất cả route</option>
+                        <option value="">Tất cả tuyến đường</option>
                         {availableRoutes.map((route) => (
                           <option key={route.id} value={String(route.id)}>
                             {route.name}
@@ -703,11 +718,11 @@ export default function CuratorStoriesPage() {
           <div>
             {loadStoriesError ? (
               <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 px-5 py-8 text-center text-sm text-rose-700">
-                Không thể tải story: {loadStoriesError}
+                Không thể tải câu chuyện: {loadStoriesError}
               </div>
             ) : isLoadingStories ? (
               <div className="rounded-[1.5rem] border border-slate-200 bg-white px-5 py-8 text-center text-sm text-slate-600">
-                Đang tải dữ liệu story...
+                Đang tải dữ liệu câu chuyện...
               </div>
             ) : stories.length > 0 ? (
               <div className="rounded-[1.5rem] border border-slate-200 bg-white overflow-visible">
@@ -933,7 +948,7 @@ export default function CuratorStoriesPage() {
                   Bạn có chắc muốn duyệt bài?
                 </h2>
                 <p className="mx-auto max-w-[16.5rem] text-[0.8125rem] leading-5 text-slate-500 sm:text-[0.875rem]">
-                  Story{" "}
+                  Câu chuyện{" "}
                   <span className="font-semibold text-slate-900">
                     {pendingPublishStory.title}
                   </span>{" "}
@@ -1015,7 +1030,7 @@ export default function CuratorStoriesPage() {
                 >
                   {deletingStoryId === pendingDeleteStory.id
                     ? "Đang xóa..."
-                    : "Xóa story"}
+                    : "Xóa câu chuyện"}
                 </Button>
               </div>
             </div>

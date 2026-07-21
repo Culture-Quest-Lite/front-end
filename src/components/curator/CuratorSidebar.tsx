@@ -50,7 +50,7 @@ const menuGroups: Array<{
         icon: LayoutGrid,
       },
       {
-        title: "Tags",
+        title: "Thẻ",
         href: "/curator/tags",
         icon: Tag,
       },

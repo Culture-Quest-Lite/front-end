@@ -88,10 +88,7 @@ function mapLevelRecordToFormValues(record: BackendLevelRecord) {
   };
 }
 
-export function LevelEditorForm({
-  mode,
-  levelId,
-}: LevelEditorFormProps) {
+export function LevelEditorForm({ mode, levelId }: LevelEditorFormProps) {
   const router = useRouter();
   const isEditMode = mode === "edit";
   const [name, setName] = useState("");
@@ -205,9 +202,7 @@ export function LevelEditorForm({
       }
 
       toast.success(
-        isEditMode
-          ? "Cập nhật cấp bậc thành công."
-          : "Tạo cấp bậc thành công.",
+        isEditMode ? "Cập nhật cấp bậc thành công." : "Tạo cấp bậc thành công.",
       );
       router.push("/curator/levels");
       router.refresh();
@@ -240,8 +235,8 @@ export function LevelEditorForm({
             </h1>
             <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground sm:text-xs">
               {isEditMode
-                ? "Cập nhật thông tin cấp bậc trong hệ thống gamification."
-                : "Thêm cấp bậc mới cho hệ thống gamification."}
+                ? "Cập nhật thông tin cấp bậc trong hệ thống."
+                : "Thêm cấp bậc mới cho hệ thống ."}
             </p>
           </div>
         </div>
@@ -276,18 +271,15 @@ export function LevelEditorForm({
               <h2 className="cq-section-title">Thông tin cấp bậc</h2>
               <p className="mt-1 text-xs text-slate-500">
                 {isEditMode
-                  ? "Chỉnh sửa các trường bắt buộc để cập nhật level."
-                  : "Điền các trường bắt buộc để tạo mới một level."}
+                  ? "Chỉnh sửa các trường bắt buộc để cập nhật cấp bậc người dùng."
+                  : "Điền các trường bắt buộc để tạo mới một cấp bậc người dùng."}
               </p>
             </div>
           </div>
 
           <div className="mt-5 grid gap-4">
             <div>
-              <label
-                htmlFor="level-name"
-                className="cq-label mb-2 block"
-              >
+              <label htmlFor="level-name" className="cq-label mb-2 block">
                 Tên cấp bậc
               </label>
               <Input
@@ -306,7 +298,7 @@ export function LevelEditorForm({
                 htmlFor="level-required-xp"
                 className="cq-label mb-2 block"
               >
-                XP yêu cầu
+                Điểm XP yêu cầu
               </label>
               <Input
                 id="level-required-xp"
@@ -340,9 +332,7 @@ export function LevelEditorForm({
             </div>
 
             {submitError ? (
-              <p className="text-xs font-medium text-rose-700">
-                {submitError}
-              </p>
+              <p className="text-xs font-medium text-rose-700">{submitError}</p>
             ) : null}
           </div>
         </div>

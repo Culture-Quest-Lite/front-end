@@ -248,7 +248,8 @@ export default function CreateStoryPage() {
               .map((hotspot) => ({
                 id: hotspot.hotspotId,
                 label:
-                  hotspot.hotspotName?.trim() || `Hotspot #${hotspot.hotspotId}`,
+                  hotspot.hotspotName?.trim() ||
+                  `Hotspot #${hotspot.hotspotId}`,
               }))
               .sort((left, right) => left.label.localeCompare(right.label)),
           );
@@ -339,7 +340,7 @@ export default function CreateStoryPage() {
             Tạo câu chuyện mới
           </h1>
           <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground sm:text-xs">
-            Soạn một micro-story 100-300 từ theo tag đã chọn.
+            Soạn một câu chuyện 100-300 từ theo thẻ đã chọn.
           </p>
         </div>
       </div>
@@ -445,7 +446,7 @@ export default function CreateStoryPage() {
             id="story-audio-script"
             value={audioScript}
             onChange={(event) => setAudioScript(event.target.value)}
-            placeholder="Nhập audioScript nếu story có lời dẫn hoặc nội dung đọc..."
+            placeholder="Nhập kịch bản audio nếu câu chuyện có lời dẫn hoặc nội dung đọc..."
             className="h-28 w-full resize-none rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
         </SectionCard>
@@ -515,7 +516,7 @@ export default function CreateStoryPage() {
                         onClick={() => handleMediaButtonClick(option.type)}
                         className="shrink-0 text-xs font-semibold text-slate-900 transition hover:text-[#CF3F34]"
                       >
-                        Đổi
+                        Thêm
                       </button>
                     </div>
 

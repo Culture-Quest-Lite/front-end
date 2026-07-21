@@ -470,17 +470,11 @@ export async function renderHotspotDetailPage({
                     story.updatedAt ?? story.createdAt,
                   );
                   const storyMediaSummary = buildStoryMediaSummary(story);
-                  const storyOrderLabel = formatStoryOrderIndex(
-                    story.orderIndex,
-                  );
-                  const storyDistanceLabel = formatStoryDistance(
-                    story.distanceToNext,
-                  );
 
                   return (
                     <article
                       key={story.storyId}
-                      className="overflow-hidden border border-slate-200 bg-white shadow-sm"
+                      className="overflow-hidden border border-slate-200 bg-white"
                     >
                       <div className="grid gap-0 lg:grid-cols-[220px_minmax(0,1fr)]">
                         <div className="relative min-h-[170px] overflow-hidden bg-slate-100 lg:min-h-[190px]">
@@ -865,24 +859,6 @@ function truncateText(value: string, maxLength: number) {
   }
 
   return `${value.slice(0, maxLength).trimEnd()}...`;
-}
-
-function formatStoryOrderIndex(value?: number | null) {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "Chưa sắp";
-  }
-
-  return String(value);
-}
-
-function formatStoryDistance(value?: number | null) {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "";
-  }
-
-  return new Intl.NumberFormat("vi-VN", {
-    maximumFractionDigits: 2,
-  }).format(value);
 }
 
 function buildStoryMediaSummary(story: BackendStory) {

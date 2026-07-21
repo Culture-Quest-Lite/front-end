@@ -5,7 +5,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "react-toastify";
 import { CuratorPagination } from "@/components/curator/CuratorPagination";
-import { routeApi, type RouteMediaResponse, type RouteResponse } from "@/services/api/routeApi";
+import {
+  routeApi,
+  type RouteMediaResponse,
+  type RouteResponse,
+} from "@/services/api/routeApi";
 import {
   ChevronRight,
   Clock3,
@@ -29,7 +33,7 @@ const difficultyLabels: Record<string, string> = {
 const statusLabels: Record<string, string> = {
   DRAFT: "Bản nháp",
   PENDING: "Chờ duyệt",
-  PUBLISHED: "Đã publish",
+  PUBLISHED: "Công khai",
   APPROVED: "Đã duyệt",
   REJECTED: "Từ chối",
   DELETED: "Đã xoá",
@@ -51,7 +55,9 @@ function getStatusLabel(status?: string) {
 
 function getStatusClass(status?: string) {
   const normalized = status?.trim().toUpperCase() || "DRAFT";
-  return statusClasses[normalized] ?? "border-slate-200 bg-slate-50 text-slate-600";
+  return (
+    statusClasses[normalized] ?? "border-slate-200 bg-slate-50 text-slate-600"
+  );
 }
 
 function getMediaUrl(media?: RouteMediaResponse) {
@@ -60,13 +66,14 @@ function getMediaUrl(media?: RouteMediaResponse) {
 
 function getMediaUrlFromArray(medias?: unknown[]) {
   const mediaItems = Array.isArray(medias) ? medias : [];
-  const imageMedia = mediaItems.find((media) => {
-    if (!media || typeof media !== "object") return false;
-    const mediaRecord = media as Record<string, unknown>;
-    const mediaType = String(mediaRecord.mediaType ?? "");
-    const mimeType = String(mediaRecord.mimeType ?? "");
-    return `${mediaType} ${mimeType}`.toLowerCase().includes("image");
-  }) ?? mediaItems[0];
+  const imageMedia =
+    mediaItems.find((media) => {
+      if (!media || typeof media !== "object") return false;
+      const mediaRecord = media as Record<string, unknown>;
+      const mediaType = String(mediaRecord.mediaType ?? "");
+      const mimeType = String(mediaRecord.mimeType ?? "");
+      return `${mediaType} ${mimeType}`.toLowerCase().includes("image");
+    }) ?? mediaItems[0];
 
   return imageMedia && typeof imageMedia === "object"
     ? getMediaUrl(imageMedia as RouteMediaResponse)
@@ -87,7 +94,11 @@ function getHotspotImage(hotspot?: unknown) {
     (firstHotspot.mediaUrl as string) ||
     (firstHotspot.url as string);
 
-  return url?.trim() ? url : getMediaUrlFromArray(firstHotspot.medias as unknown[] ?? firstHotspot.media as unknown[]);
+  return url?.trim()
+    ? url
+    : getMediaUrlFromArray(
+        (firstHotspot.medias as unknown[]) ?? (firstHotspot.media as unknown[]),
+      );
 }
 
 function getRouteImage(route: RouteResponse) {
@@ -110,14 +121,22 @@ function isPublished(status?: string) {
   return normalized === "PUBLISHED" || normalized === "APPROVED";
 }
 
-function Metric({ icon: Icon, label, value }: { icon: typeof MapPin; label: string; value: string }) {
+function Metric({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof MapPin;
+  label: string;
+  value: string;
+}) {
   return (
-    <div className="rounded-[1rem] bg-[#F7F5EF] px-2.5 py-2 shadow-sm">
-      <div className="flex items-center gap-1 text-[10px] text-slate-500">
+    <div className="rounded-[0.95rem] bg-[#F7F5EF] px-2.5 py-1.5 shadow-sm">
+      <div className="flex items-center gap-1 text-[9px] text-slate-500">
         <Icon className="h-3 w-3 text-red-500" />
         <span>{label}</span>
       </div>
-      <p className="mt-1 text-[15px] font-semibold text-slate-900">{value}</p>
+      <p className="mt-0.5 text-[13px] font-semibold text-slate-900">{value}</p>
     </div>
   );
 }
@@ -141,12 +160,17 @@ function RouteCard({
   const imageUrl = getRouteImage(route);
   const hotspotCount = getHotspotCount(route);
   const normalizedStatus = route.status?.trim().toUpperCase() || "DRAFT";
-  const canPublish = normalizedStatus !== "PUBLISHED" && normalizedStatus !== "APPROVED" && normalizedStatus !== "DELETED";
+  const canPublish =
+    normalizedStatus !== "PUBLISHED" &&
+    normalizedStatus !== "APPROVED" &&
+    normalizedStatus !== "DELETED";
   const isBusy = isPublishing;
 
   return (
-    <article className={`flex h-full flex-col overflow-visible rounded-[1.75rem] border border-slate-200/80 bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${isMenuOpen ? "relative z-20" : ""}`}>
-      <div className="relative h-40 w-full overflow-hidden rounded-t-[1.75rem] bg-[#F7F5EF]">
+    <article
+      className={`flex h-full flex-col overflow-visible rounded-[1.5rem] border border-slate-200/80 bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${isMenuOpen ? "relative z-20" : ""}`}
+    >
+      <div className="relative h-54 w-full overflow-hidden rounded-t-[1.5rem] bg-[#F7F5EF]">
         {imageUrl ? (
           <Image
             src={imageUrl}
@@ -162,56 +186,77 @@ function RouteCard({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-2.5 p-3.5">
-        <div className="flex items-start justify-between gap-2">
+      <div className="flex flex-1 flex-col gap-2 p-3">
+        <div className="flex items-start justify-between gap-1.5">
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-semibold leading-6 text-slate-950">
+            <h2 className="text-[13px] font-semibold leading-5 text-slate-950">
               {route.routeName}
             </h2>
-            <p className="mt-0.5 line-clamp-1 text-sm text-slate-500">
+            <p className="mt-0.5 line-clamp-2 text-[12px] leading-5 text-slate-500">
               {route.description || "Chưa có mô tả."}
             </p>
           </div>
-          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium shadow-sm ${getStatusClass(route.status)}`}>
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium shadow-sm ${getStatusClass(route.status)}`}
+          >
             <span className="h-1.5 w-1.5 rounded-full bg-current/75" />
             {getStatusLabel(route.status)}
           </span>
         </div>
 
-        <div className="flex flex-wrap gap-1.5">
-          {tags.length > 0 ? tags.map((tag) => (
-            <span key={tag.tagId} className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-              #{tag.tagName}
-            </span>
-          )) : <span className="text-xs text-slate-400">Chưa có tag</span>}
+        <div className="flex flex-wrap gap-1">
+          {tags.length > 0 ? (
+            tags.map((tag) => (
+              <span
+                key={tag.tagId}
+                className="rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700"
+              >
+                #{tag.tagName}
+              </span>
+            ))
+          ) : (
+            <span className="text-xs text-slate-400">Chưa có tag</span>
+          )}
         </div>
 
-        <div className="grid gap-1.5 md:grid-cols-3">
-          <Metric icon={MapPin} label="Khoảng cách" value={`${route.totalDistance ?? 0} km`} />
-          <Metric icon={Clock3} label="Thời lượng" value={`${route.estimateTime ?? 0} phút`} />
-          <Metric icon={Sparkles} label="Độ khó" value={difficultyLabels[route.difficulty] ?? route.difficulty} />
+        <div className="grid gap-1.25 md:grid-cols-3">
+          <Metric
+            icon={MapPin}
+            label="Khoảng cách"
+            value={`${route.totalDistance ?? 0} km`}
+          />
+          <Metric
+            icon={Clock3}
+            label="Thời lượng"
+            value={`${route.estimateTime ?? 0} phút`}
+          />
+          <Metric
+            icon={Sparkles}
+            label="Độ khó"
+            value={difficultyLabels[route.difficulty] ?? route.difficulty}
+          />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600">
-          <span>{hotspotCount} hotspot</span>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-600">
+          <span>{hotspotCount} địa điểm</span>
           <span>XP: {route.xp ?? 0}</span>
-          <span>Point: {route.point ?? 0}</span>
+          <span>Điểm: {route.point ?? 0}</span>
         </div>
 
-        <div className="mt-auto flex items-end justify-between gap-3 border-t border-slate-100 pt-2">
-          <div className="flex items-center gap-3">
+        <div className="mt-auto flex items-end justify-between gap-2 border-t border-slate-100 pt-2">
+          <div className="flex flex-wrap items-center gap-2">
             {isPublished(route.status) ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
                 Đang hoạt động
               </span>
             ) : null}
 
             <Link
               href={`/curator/routes/${route.routeId}`}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-[#e35a48] transition hover:text-[#c74735]"
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#e35a48] transition hover:text-[#c74735]"
             >
               Mở tuyến
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
 
@@ -223,15 +268,15 @@ function RouteCard({
               onClick={() =>
                 setOpenMenuRouteId(isMenuOpen ? null : route.routeId)
               }
-              className={`rounded-full p-1.5 text-slate-600 transition hover:bg-slate-100 ${isMenuOpen ? "bg-slate-100" : "bg-white/90"}`}
+              className={`rounded-full p-1.25 text-slate-600 transition hover:bg-slate-100 ${isMenuOpen ? "bg-slate-100" : "bg-white/90"}`}
             >
-              <MoreHorizontal className="h-3.5 w-3.5" />
+              <MoreHorizontal className="h-3 w-3" />
             </button>
 
             {isMenuOpen ? (
               <div
                 role="menu"
-                className="absolute bottom-[calc(100%+0.6rem)] right-0 w-44 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
+                className="absolute bottom-[calc(100%+0.6rem)] right-0 w-40 rounded-[1.25rem] border border-slate-200 bg-white p-1.5 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
               >
                 {canPublish ? (
                   <button
@@ -242,10 +287,12 @@ function RouteCard({
                       onPublish(route);
                     }}
                     disabled={isBusy}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <ShieldCheck className="h-4 w-4" />
-                    <span>{isPublishing ? "Đang kiểm tra..." : "Kiểm tra"}</span>
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    <span>
+                      {isPublishing ? "Đang kiểm tra..." : "Kiểm tra"}
+                    </span>
                   </button>
                 ) : null}
 
@@ -258,9 +305,9 @@ function RouteCard({
                     }
                     setOpenMenuRouteId(null);
                   }}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-slate-700 transition hover:bg-slate-100"
                 >
-                  <PencilLine className="h-4 w-4" />
+                  <PencilLine className="h-3.5 w-3.5" />
                   <span>Chỉnh sửa</span>
                 </Link>
 
@@ -272,9 +319,9 @@ function RouteCard({
                     onDelete(route.routeId);
                   }}
                   disabled={isBusy}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-3.5 w-3.5" />
                   <span>Xoá tuyến</span>
                 </button>
               </div>
@@ -292,7 +339,9 @@ export default function CuratorRoutesPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [openMenuRouteId, setOpenMenuRouteId] = useState<number | null>(null);
-  const [publishingRouteId, setPublishingRouteId] = useState<number | null>(null);
+  const [publishingRouteId, setPublishingRouteId] = useState<number | null>(
+    null,
+  );
   const [pendingPublishRoute, setPendingPublishRoute] =
     useState<RouteResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -366,7 +415,9 @@ export default function CuratorRoutesPage() {
         if (cancelled) return;
         setRoutes([]);
         setTotalPages(1);
-        setError(err instanceof Error ? err.message : "Không thể tải danh sách tuyến.");
+        setError(
+          err instanceof Error ? err.message : "Không thể tải danh sách tuyến.",
+        );
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -424,7 +475,9 @@ export default function CuratorRoutesPage() {
       toast.success("Đã kích hoạt tuyến.");
       setReloadVersion((value) => value + 1);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể kích hoạt tuyến.");
+      toast.error(
+        err instanceof Error ? err.message : "Không thể kích hoạt tuyến.",
+      );
     } finally {
       setPublishingRouteId(null);
     }
@@ -436,25 +489,48 @@ export default function CuratorRoutesPage() {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="cq-page-title">Tuyến hành trình</h1>
-            <p className="cq-page-subtitle max-w-2xl">Xây dựng các tuyến khám phá di sản TP.HCM.</p>
+            <p className="cq-page-subtitle max-w-2xl">
+              Xây dựng các tuyến khám phá di sản TP.HCM.
+            </p>
           </div>
 
           <div className="inline-flex w-fit items-center rounded-full border border-slate-100 bg-[#F7F5EF] p-1">
-            <Link href="/curator/routes" className="rounded-full bg-white px-4 py-2 text-xs font-medium text-slate-950 shadow-sm">Danh sách</Link>
-            <Link href="/curator/routes/create" className="rounded-full px-4 py-2 text-xs font-medium text-slate-500 transition hover:text-slate-900">Trình tạo tuyến</Link>
+            <Link
+              href="/curator/routes"
+              className="rounded-full bg-white px-3.5 py-1.5 text-[11px] font-medium text-slate-950 shadow-sm"
+            >
+              Danh sách
+            </Link>
+            <Link
+              href="/curator/routes/create"
+              className="rounded-full px-3.5 py-1.5 text-[11px] font-medium text-slate-500 transition hover:text-slate-900"
+            >
+              Trình tạo tuyến
+            </Link>
           </div>
         </div>
 
-        {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
+        {error ? (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {error}
+          </div>
+        ) : null}
 
         {isLoading ? (
-          <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-500">Đang tải danh sách tuyến...</div>
+          <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-500">
+            Đang tải danh sách tuyến...
+          </div>
         ) : routes.length === 0 ? (
-          <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-500">Chưa có tuyến nào.</div>
+          <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-500">
+            Chưa có tuyến nào.
+          </div>
         ) : (
           <div className="mt-7 grid auto-rows-fr gap-4 xl:grid-cols-2">
             {routes.map((route) => (
-              <div key={route.routeId} className={`h-full ${publishingRouteId === route.routeId ? "pointer-events-none opacity-70" : ""}`}>
+              <div
+                key={route.routeId}
+                className={`mx-auto h-full w-full max-w-[30rem] ${publishingRouteId === route.routeId ? "pointer-events-none opacity-70" : ""}`}
+              >
                 <RouteCard
                   route={route}
                   onDelete={handleDelete}
@@ -470,7 +546,11 @@ export default function CuratorRoutesPage() {
 
         {routes.length > 0 ? (
           <div className="mt-auto flex justify-end pt-6">
-            <CuratorPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+            <CuratorPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
           </div>
         ) : null}
       </section>
