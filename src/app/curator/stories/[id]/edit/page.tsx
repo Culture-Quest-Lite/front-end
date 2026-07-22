@@ -24,6 +24,8 @@ import {
 } from "@/services/api";
 import { toast } from "react-toastify";
 
+const STORY_SUCCESS_TOAST_KEY = "curator-story-success-toast";
+
 type MediaType = "image" | "audio" | "video";
 type MediaCollection = Record<MediaType, MediaItem[]>;
 
@@ -495,8 +497,11 @@ export default function EditStoryPage() {
 
       const response = await storyApi.updateStory(storyId, payload);
       setSubmitSuccess("Câu chuyện đã được cập nhật thành công.");
-      toast.success("Câu chuyện đã được cập nhật thành công.");
-      router.push(`/curator/stories/${storyId}`);
+      sessionStorage.setItem(
+        STORY_SUCCESS_TOAST_KEY,
+        "Cập nhật câu chuyện thành công.",
+      );
+      router.push("/curator/stories");
       return response;
     } catch (error) {
       const errorMessage =

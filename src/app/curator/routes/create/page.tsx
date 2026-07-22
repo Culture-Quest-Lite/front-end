@@ -23,6 +23,11 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  buildRouteSegments,
+  formatDistanceKilometers,
+  formatDistanceMeters,
+} from "@/lib/route-geometry";
 import { cn } from "@/lib/utils";
 import { buildTagToken, type TagRecord } from "@/lib/tags";
 import {
@@ -55,7 +60,7 @@ const routeSteps: Array<{
   },
   {
     id: 2,
-    label: "Chọn hotspot",
+    label: "Chọn địa điểm",
   },
   {
     id: 3,
@@ -71,7 +76,7 @@ const routeSteps: Array<{
   },
 ];
 
-const HOTSPOTS_PER_PAGE = 6;
+const HOTSPOTS_PER_PAGE = 8;
 const ROUTE_SUCCESS_TOAST_KEY = "curator-route-success-toast";
 
 const FORM_INPUT_CLASS =
@@ -165,6 +170,36 @@ function formatDifficultyLabel(value: RouteDifficulty) {
   );
 }
 
+function formatRouteStatusLabel(value: RouteStatus) {
+  return (
+    routeStatusOptions.find((item) => item.status === value)?.label ?? value
+  );
+}
+
+function getDifficultyBadgeClass(value: RouteDifficulty) {
+  if (value === "MEDIUM") {
+    return "bg-rose-100 text-rose-700";
+  }
+
+  if (value === "EASY") {
+    return "bg-emerald-100 text-emerald-700";
+  }
+
+  return "bg-amber-100 text-amber-700";
+}
+
+function getRouteStatusBadgeClass(value: RouteStatus) {
+  if (value === "PUBLISHED") {
+    return "bg-emerald-100 text-emerald-700";
+  }
+
+  if (value === "PENDING") {
+    return "bg-amber-100 text-amber-700";
+  }
+
+  return "bg-slate-100 text-slate-700";
+}
+
 function parsePositiveNumber(value: string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
@@ -179,10 +214,7 @@ function isPublishedHotspot(hotspot: BackendHotspot) {
   return hotspot.status?.trim().toUpperCase() === "PUBLISHED";
 }
 
-function isStorySelectable(
-  story: BackendStory,
-  editingRouteId: number | null,
-) {
+function isStorySelectable(story: BackendStory, editingRouteId: number | null) {
   return (
     story.routeId == null ||
     (editingRouteId !== null && story.routeId === editingRouteId)
@@ -284,12 +316,12 @@ function HotspotLocationCard({
   const image = getHotspotCover(item);
 
   return (
-    <div className="flex h-[21rem] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-emerald-200 hover:shadow-md">
+    <div className="flex h-[17.25rem] flex-col overflow-hidden rounded-[1rem] border border-slate-200 bg-white shadow-sm transition hover:border-emerald-200 hover:shadow-md">
       <Link
         href={`/curator/hotspot/${item.hotspotId}`}
         className="block flex-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30"
       >
-        <div className="relative h-48 bg-slate-100">
+        <div className="relative h-32 bg-slate-100">
           {image ? (
             <div
               className="absolute inset-0 bg-cover bg-center"
@@ -299,21 +331,21 @@ function HotspotLocationCard({
             <div className="absolute inset-0 bg-[linear-gradient(135deg,_#d1fae5_0%,_#f0fdf4_52%,_#dcfce7_100%)]" />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 via-slate-900/10 to-transparent" />
-          <div className="absolute left-4 top-4">
-            <span className="rounded-md bg-slate-950/70 px-3 py-1 text-[11px] font-medium text-white">
+          <div className="absolute left-3 top-3">
+            <span className="rounded-md bg-slate-950/70 px-2.5 py-1 text-[10px] font-medium text-white">
               {storyCount} câu chuyện
             </span>
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 px-4 py-3">
+        <div className="flex flex-col gap-2 px-3.5 py-3">
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold leading-6 text-slate-900 break-words">
+            <h3 className="line-clamp-2 text-[13px] font-semibold leading-5 text-slate-900 break-words">
               {item.hotspotName}
             </h3>
-            <div className="mt-2 flex items-start gap-2 text-sm text-slate-500">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-              <p className="line-clamp-2 break-words text-xs sm:text-sm">
+            <div className="mt-1.5 flex items-start gap-2 text-slate-500">
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+              <p className="line-clamp-2 break-words text-[11px] leading-5">
                 {item.address || "Địa chỉ đang cập nhật"}
               </p>
             </div>
@@ -326,11 +358,12 @@ function HotspotLocationCard({
           type="button"
           onClick={() => onToggle(item.hotspotId)}
           variant={selected ? "outline" : "secondary"}
+          size="sm"
           className={cn(
             "w-full rounded-full px-4 text-sm",
             selected
               ? "border-emerald-100 bg-emerald-50 text-emerald-500 hover:bg-emerald-100 hover:text-emerald-600"
-              : "bg-emerald-600 text-white hover:bg-emerald-700",
+              : "border border-pink-100 bg-pink-50 text-pink-700 hover:bg-pink-100",
           )}
         >
           {selected ? "Đã chọn" : "Thêm"}
@@ -366,14 +399,14 @@ function StoryAccordionCard({
       <button
         type="button"
         onClick={() => onToggleExpanded(hotspot.hotspotId)}
-        className="flex w-full min-w-0 items-start justify-between gap-4 px-5 py-4 text-left transition hover:bg-slate-50/80"
+        className="flex w-full min-w-0 items-start justify-between gap-4 bg-slate-100/85 px-5 py-4 text-left transition hover:bg-slate-100"
       >
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <div
             className="h-14 w-14 shrink-0 rounded-xl bg-slate-100 bg-cover bg-center"
             style={image ? { backgroundImage: `url(${image})` } : undefined}
           />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1 px-1 py-1">
             <h3 className="text-sm font-semibold leading-6 text-slate-900 break-words sm:text-base">
               {hotspot.hotspotName}
             </h3>
@@ -400,7 +433,7 @@ function StoryAccordionCard({
           {isLoading ? (
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <LoaderCircle className="h-4 w-4 animate-spin text-emerald-600" />
-              Đang tải câu chuyện cho hotspot này...
+              Đang tải câu chuyện cho địa điểm này...
             </div>
           ) : loadError ? (
             <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -457,7 +490,7 @@ function StoryAccordionCard({
             <EmptyStateCard
               icon={<BookOpen className="h-6 w-6" />}
               title="Chưa có câu chuyện khả dụng"
-              description="Hotspot này hiện chưa có câu chuyện để cấu hình vào tuyến."
+              description="Địa điểm này hiện chưa có câu chuyện để cấu hình vào tuyến."
             />
           )}
         </div>
@@ -471,6 +504,7 @@ function SortableHotspotRow({
   index,
   storyCount,
   selectedStoryCount,
+  distanceToNextLabel,
   onDragStart,
   onDragEnd,
   onDrop,
@@ -481,6 +515,7 @@ function SortableHotspotRow({
   index: number;
   storyCount: number;
   selectedStoryCount: number;
+  distanceToNextLabel?: string | null;
   onDragStart: (hotspotId: number) => void;
   onDragEnd: () => void;
   onDrop: (targetHotspotId: number) => void;
@@ -518,6 +553,7 @@ function SortableHotspotRow({
           </p>
           <p className="mt-1 text-xs leading-5 text-slate-500 break-words">
             {selectedStoryCount}/{storyCount} câu chuyện · {hotspot.address}
+            {distanceToNextLabel ? ` · Tới điểm kế: ${distanceToNextLabel}` : ""}
           </p>
         </div>
       </div>
@@ -721,7 +757,7 @@ export default function CuratorRouteCreatePage() {
               error:
                 err instanceof Error
                   ? err.message
-                  : "Không thể tải câu chuyện của hotspot.",
+                  : "Không thể tải câu chuyện của câu chuyện.",
             };
           }
         }),
@@ -856,9 +892,38 @@ export default function CuratorRouteCreatePage() {
   );
 
   const totalSelectedStories = selectedStoryIds.length;
+  const routeSegments = useMemo(
+    () => buildRouteSegments(selectedHotspots),
+    [selectedHotspots],
+  );
+  const routeDistanceToNextByHotspotId = useMemo(
+    () =>
+      routeSegments.reduce<Record<number, string>>((acc, segment) => {
+        if (typeof segment.from.hotspotId === "number") {
+          acc[segment.from.hotspotId] = formatDistanceMeters(
+            segment.distanceMeters,
+          );
+        }
+
+        return acc;
+      }, {}),
+    [routeSegments],
+  );
+  const totalComputedRouteDistanceMeters = useMemo(
+    () =>
+      routeSegments.reduce(
+        (sum, segment) => sum + segment.distanceMeters,
+        0,
+      ),
+    [routeSegments],
+  );
   const suggestedDurationMinutes = Math.max(selectedHotspots.length * 30, 60);
   const suggestedDistanceKilometers = Number(
-    Math.max(selectedHotspots.length * 0.8, 1).toFixed(1),
+    (
+      totalComputedRouteDistanceMeters > 0
+        ? totalComputedRouteDistanceMeters / 1000
+        : Math.max(selectedHotspots.length * 0.8, 1)
+    ).toFixed(totalComputedRouteDistanceMeters > 0 ? 2 : 1),
   );
   const suggestedRouteXp = Math.max(
     totalSelectedStories * 10,
@@ -889,26 +954,16 @@ export default function CuratorRouteCreatePage() {
     { length: hotspotPageCount },
     (_, index) => index + 1,
   );
-  const estimatedDistance = `${resolvedDistanceKilometers} km`;
+  const estimatedDistance = formatDistanceKilometers(resolvedDistanceKilometers);
   const estimatedDuration = `${resolvedDurationMinutes} phút`;
 
-  const routeInfoComplete = useMemo(() => {
-    return (
-      Boolean(routeTitle.trim()) &&
-      selectedTagIds.length > 0 &&
-      parsedDurationMinutes !== null &&
-      parsedDistanceKilometers !== null &&
-      parsedRouteXp !== null &&
-      parsedRoutePoint !== null
-    );
-  }, [
-    parsedDistanceKilometers,
-    parsedDurationMinutes,
-    parsedRoutePoint,
-    parsedRouteXp,
-    routeTitle,
-    selectedTagIds,
-  ]);
+  const routeInfoComplete =
+    Boolean(routeTitle.trim()) &&
+    selectedTagIds.length > 0 &&
+    parsedDurationMinutes !== null &&
+    parsedDistanceKilometers !== null &&
+    parsedRouteXp !== null &&
+    parsedRoutePoint !== null;
 
   const hotspotSelectionComplete = selectedHotspots.length >= 4;
   const storyConfigurationComplete =
@@ -1061,12 +1116,12 @@ export default function CuratorRouteCreatePage() {
       }
 
       if (parsedRouteXp === null) {
-        setError("Vui lòng nhập XP hợp lệ.");
+        setError("Vui lòng nhập điểm XP hợp lệ.");
         return;
       }
 
       if (parsedRoutePoint === null) {
-        setError("Vui lòng nhập point hợp lệ.");
+        setError("Vui lòng nhập điểm thưởng hợp lệ.");
         return;
       }
 
@@ -1077,7 +1132,7 @@ export default function CuratorRouteCreatePage() {
     if (normalizedActiveStep === 2) {
       if (selectedHotspots.length < 4) {
         setError(
-          "Tuyến cần ít nhất 4 hotspot để tạo thành một hành trình hợp lệ.",
+          "Tuyến cần ít nhất 4 địa điểm để tạo thành một hành trình hợp lệ.",
         );
         return;
       }
@@ -1094,7 +1149,7 @@ export default function CuratorRouteCreatePage() {
 
       if (hotspotWithoutStories) {
         setError(
-          `Hotspot ${hotspotWithoutStories.hotspotName} chưa có câu chuyện để đưa vào tuyến.`,
+          `Địa điểm ${hotspotWithoutStories.hotspotName} chưa có câu chuyện để đưa vào tuyến.`,
         );
         setExpandedHotspotIds((current) =>
           current.includes(hotspotWithoutStories.hotspotId)
@@ -1228,11 +1283,11 @@ export default function CuratorRouteCreatePage() {
     }
 
     if (parsedRoutePoint === null) {
-      throw new Error("Vui lòng nhập point hợp lệ.");
+      throw new Error("Vui lòng nhập điểm thưởng hợp lệ.");
     }
 
     if (selectedHotspotIds.length < 4) {
-      throw new Error("Tuyến cần ít nhất 4 hotspot.");
+      throw new Error("Tuyến cần ít nhất 4 địa điểm.");
     }
 
     const missingStoryHotspot = selectedHotspots.find(
@@ -1242,7 +1297,7 @@ export default function CuratorRouteCreatePage() {
 
     if (missingStoryHotspot) {
       throw new Error(
-        `Hotspot ${missingStoryHotspot.hotspotName} chưa có câu chuyện để đưa vào tuyến.`,
+        `Địa điểm ${missingStoryHotspot.hotspotName} chưa có câu chuyện để đưa vào tuyến.`,
       );
     }
 
@@ -1268,19 +1323,15 @@ export default function CuratorRouteCreatePage() {
       setSubmittingStatus(routeStatus);
 
       const payload = buildPayload();
-      const response =
-        isEditing && editingRouteId
-          ? await routeApi.updateRoute(editingRouteId, payload)
-          : await routeApi.createRoute(payload);
-
-      if (isEditing) {
-        window.location.assign(`/curator/routes/${response.routeId}`);
-        return;
+      if (isEditing && editingRouteId) {
+        await routeApi.updateRoute(editingRouteId, payload);
+      } else {
+        await routeApi.createRoute(payload);
       }
 
       sessionStorage.setItem(
         ROUTE_SUCCESS_TOAST_KEY,
-        "Tạo tuyến đường thành công.",
+        isEditing ? "Cập nhật tuyến thành công." : "Tạo tuyến đường thành công.",
       );
       window.location.assign("/curator/routes");
     } catch (err) {
@@ -1421,7 +1472,7 @@ export default function CuratorRouteCreatePage() {
             <h2 className="cq-section-title">Chủ đề tuyến</h2>
             {tags.length > 0 ? (
               <div className="min-w-0">
-                <label className="cq-label mb-2 block">Tag chủ đề</label>
+                <label className="cq-label mb-2 block">Thẻ chủ đề</label>
                 <select
                   value={selectedTagIds[0] ?? ""}
                   onChange={(event) => handleThemeSelect(event.target.value)}
@@ -1545,7 +1596,7 @@ export default function CuratorRouteCreatePage() {
                 onChange={(event) =>
                   handleSearchQueryChange(event.target.value)
                 }
-                placeholder="Tìm theo tên hotspot hoặc địa chỉ..."
+                placeholder="Tìm theo tên địa điểm hoặc địa chỉ..."
                 className={cn(FORM_INPUT_CLASS, "pl-11")}
               />
             </div>
@@ -1569,19 +1620,21 @@ export default function CuratorRouteCreatePage() {
 
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
             <span>
-              {filteredHotspots.length} hotspot đã xuất bản ·{" "}
+              {filteredHotspots.length} địa điểm đã xuất bản ·{" "}
               {selectedHotspots.length} điểm đang được chọn
             </span>
           </div>
 
           {filteredHotspots.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {paginatedHotspots.map((item) => (
                 <HotspotLocationCard
                   key={item.hotspotId}
                   item={item}
                   selected={selectedHotspotIds.includes(item.hotspotId)}
-                  storyCount={getSelectableStoriesForHotspot(item.hotspotId).length}
+                  storyCount={
+                    getSelectableStoriesForHotspot(item.hotspotId).length
+                  }
                   onToggle={handleToggleHotspot}
                 />
               ))}
@@ -1589,8 +1642,8 @@ export default function CuratorRouteCreatePage() {
           ) : (
             <EmptyStateCard
               icon={<MapPinned className="h-6 w-6" />}
-              title="Không tìm thấy hotspot phù hợp"
-              description="Hiện chỉ hiển thị hotspot có trạng thái đã xuất bản."
+              title="Không tìm thấy địa điểm phù hợp"
+              description="Hiện chỉ hiển thị địa điểm có trạng thái đã xuất bản."
             />
           )}
 
@@ -1628,7 +1681,7 @@ export default function CuratorRouteCreatePage() {
       <div className={STEP_SURFACE_CLASS}>
         {selectedHotspots.length > 0 ? (
           <section className="space-y-4">
-            <h2 className="cq-section-title">Hotspot và story</h2>
+            <h2 className="cq-section-title">Địa điểm và câu chuyện</h2>
             <div className="divide-y divide-slate-200">
               {selectedHotspots.map((hotspot) => (
                 <StoryAccordionCard
@@ -1650,8 +1703,8 @@ export default function CuratorRouteCreatePage() {
         ) : (
           <EmptyStateCard
             icon={<BookOpen className="h-6 w-6" />}
-            title="Chưa có hotspot để cấu hình"
-            description="Hãy quay lại bước Chọn hotspot và thêm các điểm đến trước khi chọn câu chuyện."
+            title="Chưa có địa điểm để cấu hình"
+            description="Hãy quay lại bước chọn địa điểm và thêm các điểm đến trước khi chọn câu chuyện."
           />
         )}
       </div>
@@ -1680,14 +1733,14 @@ export default function CuratorRouteCreatePage() {
               <EmptyStateCard
                 icon={<MapPinned className="h-6 w-6" />}
                 title="Chưa có dữ liệu bản đồ"
-                description="Bản đồ sẽ xuất hiện khi tuyến đã có hotspot."
+                description="Bản đồ sẽ xuất hiện khi tuyến đã có địa điểm."
               />
             )}
           </section>
 
           {selectedHotspots.length > 0 ? (
             <section className="space-y-4">
-              <h2 className="cq-section-title">Thứ tự hotspot</h2>
+              <h2 className="cq-section-title">Thứ tự địa điểm</h2>
               <div className="overflow-hidden rounded-3xl border border-slate-200">
                 <div className="divide-y divide-slate-200">
                   {selectedHotspots.map((hotspot, index) => (
@@ -1702,6 +1755,9 @@ export default function CuratorRouteCreatePage() {
                         selectedStoryIdsByHotspot[hotspot.hotspotId]?.length ??
                         0
                       }
+                      distanceToNextLabel={
+                        routeDistanceToNextByHotspotId[hotspot.hotspotId] ?? null
+                      }
                       onDragStart={handleSortDragStart}
                       onDragEnd={handleSortDragEnd}
                       onDrop={handleSortDrop}
@@ -1715,8 +1771,8 @@ export default function CuratorRouteCreatePage() {
           ) : (
             <EmptyStateCard
               icon={<GripVertical className="h-6 w-6" />}
-              title="Chưa có hotspot để sắp xếp"
-              description="Thêm hotspot và câu chuyện trước khi sắp xếp thứ tự tuyến."
+              title="Chưa có địa điểm để sắp xếp"
+              description="Thêm địa điểm và câu chuyện trước khi sắp xếp thứ tự tuyến."
             />
           )}
         </div>
@@ -1741,7 +1797,7 @@ export default function CuratorRouteCreatePage() {
               <EmptyStateCard
                 icon={<MapPinned className="h-6 w-6" />}
                 title="Chưa có dữ liệu bản đồ"
-                description="Bản đồ xem trước sẽ xuất hiện khi tuyến đã có hotspot."
+                description="Bản đồ xem trước sẽ xuất hiện khi tuyến đã có địa điểm."
               />
             </div>
           )}
@@ -1766,39 +1822,29 @@ export default function CuratorRouteCreatePage() {
           </div>
 
           <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:justify-end">
-            <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
-              {formatDifficultyLabel(routeDifficulty)}
+            <span
+              className={cn(
+                "inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]",
+                getDifficultyBadgeClass(routeDifficulty),
+              )}
+            >
+                {formatDifficultyLabel(routeDifficulty)}
             </span>
-            <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700">
-              {routeStatus}
-            </span>
-            <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700">
-              {selectedHotspots.length} hotspot
-            </span>
-            <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700">
-              {totalSelectedStories} story
+            <span
+              className={cn(
+                "inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]",
+                getRouteStatusBadgeClass(routeStatus),
+              )}
+            >
+              {formatRouteStatusLabel(routeStatus)}
             </span>
           </div>
         </div>
 
         <div className="border-t border-dashed border-slate-200 pt-6">
-          <div className="grid max-w-5xl gap-x-5 gap-y-4 px-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="grid max-w-5xl gap-x-5 gap-y-4 px-4 sm:grid-cols-2 sm:px-5 xl:grid-cols-4">
             <div className="space-y-1">
-              <p className="cq-label">Chủ đề</p>
-              <p className="text-sm font-normal text-slate-900">
-                {selectedTheme
-                  ? `#${buildTagToken(selectedTheme.tagName)}`
-                  : "Chưa chọn"}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="cq-label">Độ khó</p>
-              <p className="text-sm font-normal text-slate-900">
-                {formatDifficultyLabel(routeDifficulty)}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="cq-label">Hotspot</p>
+              <p className="cq-label">Địa điểm</p>
               <p className="text-sm font-normal text-slate-900">
                 {selectedHotspots.length} điểm
               </p>
@@ -1806,19 +1852,7 @@ export default function CuratorRouteCreatePage() {
             <div className="space-y-1">
               <p className="cq-label">Câu chuyện</p>
               <p className="text-sm font-normal text-slate-900">
-                {totalSelectedStories} story
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="cq-label">Ảnh bìa</p>
-              <p className="text-sm font-normal text-slate-900">
-                {coverPreviewUrl ? "Đã chọn" : "Chưa có"}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="cq-label">Trạng thái gửi lên</p>
-              <p className="text-sm font-normal text-slate-900">
-                {routeStatus}
+                {totalSelectedStories} câu chuyện
               </p>
             </div>
             <div className="space-y-1">
@@ -1834,13 +1868,13 @@ export default function CuratorRouteCreatePage() {
               </p>
             </div>
             <div className="space-y-1">
-              <p className="cq-label">XP</p>
+              <p className="cq-label">Điểm XP</p>
               <p className="text-sm font-normal text-slate-900">
                 {resolvedRouteXp}
               </p>
             </div>
             <div className="space-y-1">
-              <p className="cq-label">Point</p>
+              <p className="cq-label">Điểm thưởng</p>
               <p className="text-sm font-normal text-slate-900">
                 {resolvedRoutePoint}
               </p>
@@ -1885,7 +1919,7 @@ export default function CuratorRouteCreatePage() {
                   value={routeInfoComplete ? "Hoàn tất" : "Chờ"}
                 />
                 <SummaryRow
-                  label="Chọn hotspot"
+                  label="Chọn địa điểm"
                   value={hotspotSelectionComplete ? "Hoàn tất" : "Chờ"}
                 />
                 <SummaryRow
@@ -1903,7 +1937,7 @@ export default function CuratorRouteCreatePage() {
 
         <div className="border-t border-dashed border-slate-200 pt-6">
           <div>
-            <p className="cq-label">Hotspot và câu chuyện theo thứ tự tuyến</p>
+            <p className="cq-label">Địa điểm và câu chuyện theo thứ tự tuyến</p>
             {selectedHotspots.length > 0 ? (
               <div className="mt-4 divide-y divide-slate-200">
                 {selectedHotspots.map((hotspot, index) => (
@@ -1924,8 +1958,13 @@ export default function CuratorRouteCreatePage() {
                             getSelectedStoriesForHotspot(hotspot.hotspotId)
                               .length
                           }{" "}
-                          story
+                          câu chuyện
                         </span>
+                        {routeDistanceToNextByHotspotId[hotspot.hotspotId] ? (
+                          <span className="inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-700">
+                            {routeDistanceToNextByHotspotId[hotspot.hotspotId]} tới điểm kế
+                          </span>
+                        ) : null}
                       </div>
                       <p className="mt-1 text-sm leading-6 text-slate-500 break-words">
                         {hotspot.address || "Địa chỉ đang cập nhật"}
@@ -1969,7 +2008,7 @@ export default function CuratorRouteCreatePage() {
               <div className="mt-5">
                 <EmptyStateCard
                   icon={<BookOpen className="h-6 w-6" />}
-                  title="Chưa có hotspot để rà soát"
+                  title="Chưa có địa điểm để rà soát"
                   description="Hoàn thành các bước trước để xem tổng hợp hành trình."
                 />
               </div>
@@ -2081,7 +2120,7 @@ export default function CuratorRouteCreatePage() {
               {isEditing ? "Chỉnh sửa tuyến" : "Tạo tuyến"}
             </h1>
             <p className="mt-0.5 max-w-3xl text-[11px] leading-4 text-muted-foreground sm:text-xs">
-              Tạo tuyến du lịch văn hóa theo hotspot và câu chuyện.
+              Tạo tuyến hành trình văn hóa theo địa điểm và câu chuyện.
             </p>
           </div>
 

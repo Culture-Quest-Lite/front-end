@@ -13,7 +13,6 @@ import {
   Volume2,
 } from "lucide-react";
 
-import { getTagColor, getTagColorState } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import {
   hotspotApi,
@@ -30,10 +29,10 @@ const statusLabelMap: Record<string, string> = {
 };
 
 const statusBadgeClasses: Record<string, string> = {
-  DRAFT: "bg-slate-100 text-slate-700",
-  PUBLISHED: "bg-emerald-100 text-emerald-700",
-  REJECTED: "bg-rose-100 text-rose-700",
-  REVIEW: "bg-amber-100 text-amber-700",
+  DRAFT: "border border-slate-200 bg-slate-100 text-slate-700",
+  PUBLISHED: "border border-slate-200 bg-slate-100 text-slate-700",
+  REJECTED: "border border-slate-200 bg-slate-100 text-slate-700",
+  REVIEW: "border border-slate-200 bg-slate-100 text-slate-700",
 };
 
 function isImageMedia(media?: BackendStoryMedia) {
@@ -72,7 +71,7 @@ function isAudioMedia(media?: BackendStoryMedia) {
   );
 }
 
-function TagChip({ tagName, tagId }: { tagName?: string; tagId?: number }) {
+function TagChip({ tagName }: { tagName?: string }) {
   if (!tagName) {
     return (
       <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">
@@ -81,18 +80,8 @@ function TagChip({ tagName, tagId }: { tagName?: string; tagId?: number }) {
     );
   }
 
-  const color = getTagColor(tagId ?? 0);
-  const { chipBg, chipBorder } = getTagColorState(color);
-
   return (
-    <span
-      className="rounded-full border px-3 py-1 text-xs font-medium"
-      style={{
-        backgroundColor: chipBg,
-        borderColor: chipBorder,
-        color,
-      }}
-    >
+    <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
       {tagName}
     </span>
   );
@@ -285,7 +274,8 @@ export default function StoryDetailPage() {
                 Chi tiết câu chuyện
               </h1>
               <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground sm:text-xs">
-                Trang này đã map đầy đủ dữ liệu từ API get story theo id.
+                Tìm hiểu chi tiết về câu chuyện được gắn với địa điểm và hành
+                trình khám phá.
               </p>
             </div>
           </div>
@@ -335,14 +325,14 @@ export default function StoryDetailPage() {
             <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:justify-end">
               <span
                 className={cn(
-                  "inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]",
-                  statusBadgeClasses[story.status] ??
-                    "bg-slate-100 text-slate-700",
+                    "inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]",
+                    statusBadgeClasses[story.status] ??
+                    "border border-slate-200 bg-slate-100 text-slate-700",
                 )}
               >
                 {statusLabelMap[story.status] ?? story.status}
               </span>
-              <TagChip tagName={story.tag?.tagName} tagId={story.tag?.tagId} />
+              <TagChip tagName={story.tag?.tagName} />
             </div>
           </div>
 
@@ -543,7 +533,7 @@ export default function StoryDetailPage() {
                   {normalizedAudioScript ? (
                     <div className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
                       <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                        Audio script
+                        Kịch bản câu chuyện
                       </p>
                       <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
                         {normalizedAudioScript}

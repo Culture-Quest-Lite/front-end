@@ -162,7 +162,7 @@ const searchFieldOptions: SearchFieldOption[] = [
     ],
     defaultOperator: "GREATER_THAN_OR_EQUAL",
     placeholder: "Ví dụ: 100",
-    description: "Lọc theo điểm XP thưởng.",
+    description: "Lọc theo điểm  điểm XP.",
   },
   {
     value: "address",
@@ -264,7 +264,7 @@ const operatorLabelMap: Record<HotspotSearchOperator, string> = {
 
 const sortFieldOptions: Array<{ value: SortField; label: string }> = [
   { value: "createdAt", label: "Ngày tạo" },
-  { value: "hotspotName", label: "Tên hotspot" },
+  { value: "hotspotName", label: "Tên địa điểm" },
   { value: "xp", label: "XP" },
   { value: "point", label: "Point" },
   { value: "checkInRadius", label: "Bán kính check-in" },
@@ -1773,7 +1773,7 @@ export default function Page() {
                       {draftFilters.rows.length === 0 ? (
                         <p className="mt-2.5 text-xs text-slate-500">
                           Chưa có điều kiện bổ sung. Dùng các nút thêm nhanh ở
-                          trên để tạo filter mới.
+                          trên để tạo bộ lọc mới.
                         </p>
                       ) : (
                         <div className="mt-2.5 space-y-2.5">
@@ -1997,11 +1997,11 @@ export default function Page() {
                 return (
                   <article
                     key={item.hotspotId ?? item.slug}
-                    className={`group relative flex h-full flex-col overflow-visible rounded-[1.75rem] border border-slate-200/80 bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${isMenuOpen ? "z-20" : ""}`}
+                    className={`group relative flex h-full flex-col overflow-visible rounded-[0.65rem] border border-slate-200/80 bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${isMenuOpen ? "z-20" : ""}`}
                   >
                     <Link
                       href={detailHref}
-                      className="relative block h-40 overflow-hidden rounded-t-[1.75rem] bg-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      className="relative block h-40 overflow-hidden rounded-t-[0.65rem] bg-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       {item.image ? (
                         <img
