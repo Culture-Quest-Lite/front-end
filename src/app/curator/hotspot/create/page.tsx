@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { downloadMediaBlob } from "@/lib/media-download";
 import { buildTagToken } from "@/lib/tags";
 import { GoongMapPreview } from "./GoongMapPreview";
 import {
@@ -1492,15 +1493,16 @@ async function convertExistingHotspotMediaToFile(
     );
   }
 
-  const response = await fetch(fileUrl);
+  let blob: Blob;
 
-  if (!response.ok) {
+  try {
+    blob = await downloadMediaBlob(fileUrl);
+  } catch {
     throw new Error(
       `Không thể tải lại file hiện có "${resolveExistingMediaFileName(media, fileUrl, index)}" để cập nhật hotspot.`,
     );
   }
 
-  const blob = await response.blob();
   const fileName = resolveExistingMediaFileName(media, fileUrl, index);
   const mimeType = media.mimeType?.trim() || blob.type || undefined;
 
