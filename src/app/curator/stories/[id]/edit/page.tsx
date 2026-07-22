@@ -15,6 +15,7 @@ import { ArrowLeft, ImagePlus, Save, Video, Volume2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { downloadMediaBlob } from "@/lib/media-download";
 import {
   hotspotApi,
   storyApi,
@@ -188,17 +189,15 @@ async function resolveMediaItemToFile(item: MediaItem) {
     throw new Error(`Không thể chuẩn bị lại file "${item.name}" để cập nhật.`);
   }
 
-  const response = await fetch(item.fileUrl, {
-    credentials: "include",
-  });
+  let blob: Blob;
 
-  if (!response.ok) {
+  try {
+    blob = await downloadMediaBlob(item.fileUrl);
+  } catch {
     throw new Error(
       `Không thể tải lại file "${item.name}" từ hệ thống để cập nhật.`,
     );
   }
-
-  const blob = await response.blob();
 
   return new File([blob], item.name, {
     type: blob.type || item.mimeType || undefined,
