@@ -4,6 +4,7 @@ export type UserRole = "EXPLORER" | "CURATOR" | "ADMIN" | "PARTNER";
 export type UserStatus = "ACTIVE" | "INACTIVE" | "PENDING" | "DELETED";
 export type PostStatus = "APPROVED" | "PENDING" | "REJECTED" | "DELETED";
 export type SubscriptionPlanStatus = "ACTIVE" | "INACTIVE" | "DELETED";
+export type SubscriptionPlanType = "PREMIUM" | "PARTNER";
 export type PartnerSubscriptionStatus =
   | "PAYMENT_PENDING"
   | "PAYMENT_FAILED"
@@ -11,16 +12,21 @@ export type PartnerSubscriptionStatus =
   | "ACTIVE"
   | "REJECTED"
   | "REFUND"
-  | "EXPIRED";
+  | "EXPIRED"
+  | "CANCELLED";
 
 export interface PageResponse<T> {
   content: T[];
- page: {
+  page?: {
     totalElements: number;
     totalPages: number;
     number: number;
     size: number;
   };
+  totalElements?: number;
+  totalPages?: number;
+  number?: number;
+  size?: number;
 }
 
 export interface SliceResponse<T> {
@@ -76,6 +82,7 @@ export interface SubscriptionPlan {
   priceMonthly: number;
   priceYearly: number;
   configLimit?: Record<string, unknown>;
+  planType: SubscriptionPlanType;
   status: SubscriptionPlanStatus;
   createdAt?: string;
   updatedAt?: string;
@@ -97,12 +104,53 @@ export interface PartnerSubscription {
   endDate?: string;
   isVerified?: boolean;
   documentUrl?: string;
+  shopEmail?: string;
+  invoiceCode?: string;
+  paidAmount?: number;
+  paymentStatus?: string;
+  paymentGateway?: string;
+  paidAt?: string;
+  createdAt?: string;
   medias?: Array<{
     mediaId: number;
     fileUrl: string;
     fileName: string;
     mediaType: string;
   }>;
+}
+
+
+export interface AuditActor {
+  userId?: number;
+  username?: string;
+  displayName?: string;
+  role?: string;
+}
+
+export interface AuditLog {
+  logId: number;
+  actor?: AuditActor;
+  action: string;
+  tableName?: string;
+  recordId?: string;
+  endpoint?: string;
+  oldValue?: unknown;
+  newValue?: unknown;
+  ipAddress?: string;
+  createdAt: string;
+}
+
+export interface GetAuditLogsParams {
+  page?: number;
+  size?: number;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+  search?: string;
+  userId?: number;
+  action?: string;
+  tableName?: string;
+  from?: string;
+  to?: string;
 }
 
 export interface MessageResponse {
@@ -125,6 +173,7 @@ export interface GetSubscriptionPlansParams {
   sortDir?: "asc" | "desc";
   search?: string;
   status?: SubscriptionPlanStatus;
+  planType?: SubscriptionPlanType;
 }
 
 
@@ -143,6 +192,7 @@ export interface SubscriptionPlanPayload {
   priceMonthly: number;
   priceYearly: number;
   configLimit?: Record<string, unknown>;
+  planType: SubscriptionPlanType;
 }
 
 export interface GetPostsParams {
@@ -282,6 +332,26 @@ export const adminApi = {
     );
   },
 
+  getAuditLogs: async (params: GetAuditLogsParams = {}) => {
+    const query = buildQuery({
+      page: params.page,
+      size: params.size,
+      sortBy: params.sortBy,
+      sortDir: params.sortDir,
+      search: params.search,
+      userId: params.userId,
+      action: params.action,
+      tableName: params.tableName,
+      from: params.from,
+      to: params.to,
+    });
+
+    return apiFetch<PageResponse<AuditLog>>(adminPath(`/audit-logs${query}`), {
+      method: "GET",
+      sameOrigin: true,
+    });
+  },
+
   getSubscriptionPlans: async (params: GetSubscriptionPlansParams = {}) => {
     const query = buildQuery({
       page: params.page,
@@ -290,6 +360,7 @@ export const adminApi = {
       sortDir: params.sortDir,
       search: params.search,
       status: params.status,
+      planType: params.planType,
     });
 
     return apiFetch<PageResponse<SubscriptionPlan>>(adminPath(`/subscription-plans${query}`), {
