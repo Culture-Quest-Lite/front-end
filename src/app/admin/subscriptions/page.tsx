@@ -8,6 +8,7 @@ import {
   adminApi,
   type SubscriptionPlan,
   type SubscriptionPlanStatus,
+  type SubscriptionPlanType,
 } from "@/services/api/admin/adminApi";
 import {
   Plus,
@@ -23,20 +24,13 @@ import {
 } from "lucide-react";
 
 /**
- * Backend hiện chỉ có `configLimit` là JSON tự do, không có field `planType` riêng.
- * Vì vậy file này lưu loại gói ngay bên trong configLimit bằng key `planType`, ví dụ:
- * {
- *   planType: "PREMIUM",
- *   adFree: true,
- *   xpBoostPercent: 20
- * }
- *
- * Cách này vẫn giữ logic Premium / Partner, nhưng Admin có thể tự thêm config mới
- * bằng UI mà không cần sửa code hoặc nhập JSON thủ công.
+ * `planType` là field độc lập của SubscriptionPlan.
+ * `configLimit` chỉ chứa quyền lợi và giới hạn của gói.
  */
-type SubscriptionPlanType = "PREMIUM" | "PARTNER";
 type ConfigValueType = "boolean" | "number" | "text";
 type ConfigValue = boolean | number | string;
+
+const LEGACY_CONFIG_KEYS = new Set(["planType"]);
 
 type ConfigItem = {
   id: string;
@@ -45,8 +39,6 @@ type ConfigItem = {
   value: ConfigValue;
 };
 
-const PLAN_TYPE_KEY = "planType";
-const HIDDEN_CONFIG_KEYS = new Set([PLAN_TYPE_KEY]);
 
 const configLabelsVi: Record<string, string> = {
   adFree: "Không hiển thị quảng cáo",
@@ -199,17 +191,11 @@ function formatConfigValue(value: unknown) {
   return JSON.stringify(value);
 }
 
-function detectPlanType(
-  configLimit?: Record<string, unknown> | null,
-): SubscriptionPlanType {
-  if (!configLimit) return "PREMIUM";
+function resolvePlanType(plan: SubscriptionPlan): SubscriptionPlanType {
+  if (isSubscriptionPlanType(plan.planType)) return plan.planType;
 
-  if (isSubscriptionPlanType(configLimit[PLAN_TYPE_KEY])) {
-    return configLimit[PLAN_TYPE_KEY];
-  }
-
-  // Fallback cho dữ liệu cũ chưa có planType trong configLimit.
-  const keys = new Set(Object.keys(configLimit));
+  // Chỉ dùng cho dữ liệu cũ trước khi backend trả field planType.
+  const keys = new Set(Object.keys(plan.configLimit ?? {}));
   const partnerKeys = [
     "maxVouchers",
     "maxActiveHotspots",
@@ -234,7 +220,7 @@ function configLimitToItems(
   configLimit?: Record<string, unknown> | null,
 ): ConfigItem[] {
   return Object.entries(configLimit ?? {})
-    .filter(([key]) => !HIDDEN_CONFIG_KEYS.has(key))
+    .filter(([key]) => !LEGACY_CONFIG_KEYS.has(key))
     .map(([key, value]) =>
       createConfigItem(
         key,
@@ -244,13 +230,8 @@ function configLimitToItems(
     );
 }
 
-function buildConfigLimit(
-  planType: SubscriptionPlanType,
-  items: ConfigItem[],
-): Record<string, unknown> {
-  const result: Record<string, unknown> = {
-    [PLAN_TYPE_KEY]: planType,
-  };
+function buildConfigLimit(items: ConfigItem[]): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
 
   for (const item of items) {
     const key = item.key.trim();
@@ -275,7 +256,7 @@ function buildConfigLimit(
 
 function getVisibleConfigEntries(configLimit?: Record<string, unknown> | null) {
   return Object.entries(configLimit ?? {}).filter(
-    ([key]) => !HIDDEN_CONFIG_KEYS.has(key),
+    ([key]) => !LEGACY_CONFIG_KEYS.has(key),
   );
 }
 
@@ -366,14 +347,14 @@ export default function SubscriptionsPage() {
 
   const filteredPlans = useMemo(() => {
     if (typeFilter === "all") return plans;
-    return plans.filter((p) => detectPlanType(p.configLimit) === typeFilter);
+    return plans.filter((p) => resolvePlanType(p) === typeFilter);
   }, [plans, typeFilter]);
 
   const stats = useMemo(() => {
     let premium = 0;
     let partner = 0;
     for (const p of plans) {
-      if (detectPlanType(p.configLimit) === "PARTNER") partner += 1;
+      if (resolvePlanType(p) === "PARTNER") partner += 1;
       else premium += 1;
     }
     return {
@@ -402,7 +383,7 @@ export default function SubscriptionsPage() {
   }
 
   function openEdit(plan: SubscriptionPlan) {
-    const planType = detectPlanType(plan.configLimit);
+    const planType = resolvePlanType(plan);
     setForm({
       planType,
       subscriptionPlanName: plan.subscriptionPlanName,
@@ -462,7 +443,8 @@ export default function SubscriptionsPage() {
           form.subscriptionPlanDescription.trim() || undefined,
         priceMonthly: form.priceMonthly,
         priceYearly: form.priceYearly,
-        configLimit: buildConfigLimit(form.planType, form.configItems),
+        planType: form.planType,
+        configLimit: buildConfigLimit(form.configItems),
       };
 
       if (dialog === "create") {
@@ -583,7 +565,7 @@ export default function SubscriptionsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {filteredPlans.map((plan) => {
-            const planType = detectPlanType(plan.configLimit);
+            const planType = resolvePlanType(plan);
             const PlanTypeIcon = planTypeIcons[planType];
             const visibleConfigs = getVisibleConfigEntries(plan.configLimit);
 
@@ -805,8 +787,7 @@ function SubscriptionFormDialog({
                 )}
               </div>
               <p className="mt-1.5 text-xs text-slate-400">
-                Loại gói sẽ được lưu trong configLimit.planType để FE/BE nhận
-                diện Premium hoặc Partner.
+                Loại gói được gửi bằng field planType độc lập; configLimit chỉ lưu quyền lợi và giới hạn.
               </p>
             </Field>
 

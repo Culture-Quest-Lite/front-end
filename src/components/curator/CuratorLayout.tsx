@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { NotificationBell } from "@/components/app/NotificationBell";
 import { CuratorSidebar } from "@/components/curator/CuratorSidebar";
 
 interface CuratorLayoutProps {
@@ -15,6 +16,7 @@ export function CuratorLayout({ children }: CuratorLayoutProps) {
           <header className="sticky top-0 z-10 flex h-12 items-center border-b border-[#E7EBF2] bg-[#FCFCFD]/90 px-4 backdrop-blur-sm">
             <SidebarTrigger className="mr-3" />
             <div className="flex-1" />
+            <NotificationBell />
           </header>
           <div className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-4">
             {children}

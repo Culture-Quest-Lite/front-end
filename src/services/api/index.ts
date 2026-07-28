@@ -46,6 +46,7 @@ export type {
   UserStatus,
   PostStatus,
   SubscriptionPlanStatus,
+  SubscriptionPlanType,
   PartnerSubscriptionStatus,
 } from "./admin/adminApi";
 export { routeApi } from "./routeApi";
@@ -60,3 +61,6 @@ export type {
   RouteSearchResponse,
   RouteStatus,
 } from "./routeApi";
+
+export { notificationApi } from "./notificationApi";
+export type { NotificationItem, NotificationPage } from "./notificationApi";
