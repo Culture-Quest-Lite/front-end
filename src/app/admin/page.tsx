@@ -72,7 +72,7 @@ export default function AdminDashboardPage() {
 
       console.log("Admin page: User authorized with role:", session.role);
     }
-  }, [loading, router, session]);
+  }, [loading, router, session?.email, session?.role]);
 
   useEffect(() => {
     if (!session || session.role !== "admin") return;
@@ -92,7 +92,7 @@ export default function AdminDashboardPage() {
         setPendingPosts([]);
       }
     })();
-  }, [session]);
+  }, [session?.role, session?.token]);
 
   if (loading) {
     return null;

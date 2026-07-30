@@ -21,22 +21,48 @@ export function NotificationBell() {
   const [testing, setTesting] = useState(false);
   const [testMessage, setTestMessage] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const loadSeqRef = useRef(0);
+  const readIdsRef = useRef(new Set<number>());
+
+  const applyLoadedNotifications = useCallback((content: NotificationItem[], count: number) => {
+    const locallyMarkedUnread = content.filter(
+      (item) => !item.isRead && readIdsRef.current.has(item.id),
+    ).length;
+
+    const merged = content.map((item) => ({
+      ...item,
+      isRead: item.isRead || readIdsRef.current.has(item.id),
+    }));
+
+    merged.forEach((item) => {
+      if (item.isRead) readIdsRef.current.add(item.id);
+    });
+
+    setItems(merged);
+    setUnread(
+      typeof count === "number"
+        ? Math.max(0, count - locallyMarkedUnread)
+        : merged.filter((item) => !item.isRead).length,
+    );
+  }, []);
 
   const load = useCallback(async () => {
+    const seq = ++loadSeqRef.current;
     setLoading(true);
     try {
       const [page, count] = await Promise.all([
         notificationApi.getNotifications(0, 10),
         notificationApi.getUnreadCount(),
       ]);
-      setItems(page.content ?? []);
-      setUnread(typeof count === "number" ? count : 0);
+      if (seq !== loadSeqRef.current) return;
+      applyLoadedNotifications(page.content ?? [], count);
     } catch {
+      if (seq !== loadSeqRef.current) return;
       setItems([]);
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current) setLoading(false);
     }
-  }, []);
+  }, [applyLoadedNotifications]);
 
   useEffect(() => {
     void load();
@@ -53,13 +79,22 @@ export function NotificationBell() {
   }, []);
 
   async function markRead(item: NotificationItem) {
-    if (item.isRead) return;
+    if (item.isRead || readIdsRef.current.has(item.id)) return;
+
+    readIdsRef.current.add(item.id);
+    setItems((current) =>
+      current.map((value) => (value.id === item.id ? { ...value, isRead: true } : value)),
+    );
+    setUnread((value) => Math.max(0, value - 1));
+
     try {
       await notificationApi.markAsRead(item.id);
-      setItems((current) => current.map((value) => value.id === item.id ? { ...value, isRead: true } : value));
-      setUnread((value) => Math.max(0, value - 1));
     } catch {
-      // Keep current UI if backend rejects the request.
+      readIdsRef.current.delete(item.id);
+      setItems((current) =>
+        current.map((value) => (value.id === item.id ? { ...value, isRead: false } : value)),
+      );
+      setUnread((value) => value + 1);
     }
   }
 
@@ -67,8 +102,14 @@ export function NotificationBell() {
     setTesting(true);
     setTestMessage(null);
     try {
-      await notificationApi.testPush();
-      setTestMessage("Đã gửi thông báo test thành công.");
+      const result = await notificationApi.testPush();
+      const message =
+        typeof result === "string"
+          ? result
+          : result && typeof result === "object" && "message" in result && typeof result.message === "string"
+            ? result.message
+            : "Đã gửi thông báo test thành công.";
+      setTestMessage(message || "Đã gửi thông báo test thành công.");
       await load();
     } catch (error) {
       setTestMessage(error instanceof Error ? error.message : "Không thể gửi thông báo test.");
