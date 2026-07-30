@@ -761,7 +761,7 @@ function resolveHotspotImageUrls(medias?: BackendHotspot["medias"]) {
 }
 
 function resolveOrderedHotspotMedias(medias?: BackendHotspot["medias"]) {
-  return [...(medias ?? [])].sort((mediaA, mediaB) => {
+  const orderedMedias = [...(medias ?? [])].sort((mediaA, mediaB) => {
     const displayOrderDiff =
       (mediaA.displayOrder ?? Number.MAX_SAFE_INTEGER) -
       (mediaB.displayOrder ?? Number.MAX_SAFE_INTEGER);
@@ -772,6 +772,29 @@ function resolveOrderedHotspotMedias(medias?: BackendHotspot["medias"]) {
 
     return mediaA.mediaId - mediaB.mediaId;
   });
+
+  const seenMediaKeys = new Set<string>();
+
+  return orderedMedias.filter((media) => {
+    const mediaKey = buildHotspotMediaKey(media);
+
+    if (seenMediaKeys.has(mediaKey)) {
+      return false;
+    }
+
+    seenMediaKeys.add(mediaKey);
+    return true;
+  });
+}
+
+function buildHotspotMediaKey(media: NonNullable<BackendHotspot["medias"]>[number]) {
+  const normalizedUrl = media.fileUrl?.trim().toLowerCase();
+
+  if (normalizedUrl) {
+    return normalizedUrl;
+  }
+
+  return `media-id:${media.mediaId}`;
 }
 
 function resolveHotspotStories(stories?: BackendHotspot["stories"]) {
