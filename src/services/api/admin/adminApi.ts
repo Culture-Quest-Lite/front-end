@@ -15,18 +15,59 @@ export type PartnerSubscriptionStatus =
   | "EXPIRED"
   | "CANCELLED";
 
+export interface PageMeta {
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+}
+
 export interface PageResponse<T> {
   content: T[];
-  page?: {
-    totalElements: number;
-    totalPages: number;
-    number: number;
-    size: number;
-  };
+  page: PageMeta;
   totalElements?: number;
   totalPages?: number;
   number?: number;
   size?: number;
+}
+
+interface RawPageMaybeNested<T> {
+  content?: T[];
+  page?: Partial<PageMeta>;
+  totalElements?: number;
+  totalPages?: number;
+  number?: number;
+  size?: number;
+}
+
+function normalizePage<T>(raw: RawPageMaybeNested<T> | T[]): PageResponse<T> {
+  if (Array.isArray(raw)) {
+    return {
+      content: raw,
+      page: {
+        totalElements: raw.length,
+        totalPages: raw.length > 0 ? 1 : 0,
+        number: 0,
+        size: raw.length,
+      },
+    };
+  }
+
+  const meta = raw.page ?? raw;
+
+  return {
+    content: raw.content ?? [],
+    page: {
+      totalElements: meta.totalElements ?? 0,
+      totalPages: meta.totalPages ?? 1,
+      number: meta.number ?? 0,
+      size: meta.size ?? 0,
+    },
+    totalElements: raw.totalElements,
+    totalPages: raw.totalPages,
+    number: raw.number,
+    size: raw.size,
+  };
 }
 
 export interface SliceResponse<T> {
@@ -227,10 +268,15 @@ export const adminApi = {
       status: params.status,
     });
 
-    return apiFetch<PageResponse<UserProfile>>(adminPath(`/users${query}`), {
-      method: "GET",
-      sameOrigin: true,
-    });
+    const response = await apiFetch<RawPageMaybeNested<UserProfile> | UserProfile[]>(
+      adminPath(`/users${query}`),
+      {
+        method: "GET",
+        sameOrigin: true,
+      },
+    );
+
+    return normalizePage(response);
   },
 
   lockUser: async (userId: number) => {
@@ -312,10 +358,11 @@ export const adminApi = {
       status: params.status,
     });
 
-    return apiFetch<PageResponse<PartnerSubscription>>(
-      adminPath(`/subscriptions${query}`),
-      { method: "GET", sameOrigin: true },
-    );
+    const response = await apiFetch<
+      RawPageMaybeNested<PartnerSubscription> | PartnerSubscription[]
+    >(adminPath(`/subscriptions${query}`), { method: "GET", sameOrigin: true });
+
+    return normalizePage(response);
   },
 
   /**
@@ -346,10 +393,15 @@ export const adminApi = {
       to: params.to,
     });
 
-    return apiFetch<PageResponse<AuditLog>>(adminPath(`/audit-logs${query}`), {
-      method: "GET",
-      sameOrigin: true,
-    });
+    const response = await apiFetch<RawPageMaybeNested<AuditLog> | AuditLog[]>(
+      adminPath(`/audit-logs${query}`),
+      {
+        method: "GET",
+        sameOrigin: true,
+      },
+    );
+
+    return normalizePage(response);
   },
 
   getSubscriptionPlans: async (params: GetSubscriptionPlansParams = {}) => {
@@ -363,10 +415,14 @@ export const adminApi = {
       planType: params.planType,
     });
 
-    return apiFetch<PageResponse<SubscriptionPlan>>(adminPath(`/subscription-plans${query}`), {
+    const response = await apiFetch<
+      RawPageMaybeNested<SubscriptionPlan> | SubscriptionPlan[]
+    >(adminPath(`/subscription-plans${query}`), {
       method: "GET",
       sameOrigin: true,
     });
+
+    return normalizePage(response);
   },
 
   createSubscriptionPlan: async (payload: SubscriptionPlanPayload) => {
