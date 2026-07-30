@@ -1,13 +1,18 @@
-type RoutePoint = {
+export type RoutePoint = {
   hotspotId?: number;
   hotspotName?: string;
   latitude?: number | null;
   longitude?: number | null;
 };
 
+export type RouteSegmentPoint<T extends RoutePoint = RoutePoint> = T & {
+  latitude: number;
+  longitude: number;
+};
+
 export type RouteSegment<T extends RoutePoint = RoutePoint> = {
-  from: T;
-  to: T;
+  from: RouteSegmentPoint<T>;
+  to: RouteSegmentPoint<T>;
   fromIndex: number;
   toIndex: number;
   distanceMeters: number;

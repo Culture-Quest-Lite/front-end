@@ -4,6 +4,7 @@ export type UserRole = "EXPLORER" | "CURATOR" | "ADMIN" | "PARTNER";
 export type UserStatus = "ACTIVE" | "INACTIVE" | "PENDING" | "DELETED";
 export type PostStatus = "APPROVED" | "PENDING" | "REJECTED" | "DELETED";
 export type SubscriptionPlanStatus = "ACTIVE" | "INACTIVE" | "DELETED";
+export type SubscriptionPlanType = "PREMIUM" | "PARTNER";
 export type PartnerSubscriptionStatus =
   | "PAYMENT_PENDING"
   | "PAYMENT_FAILED"
@@ -11,15 +12,61 @@ export type PartnerSubscriptionStatus =
   | "ACTIVE"
   | "REJECTED"
   | "REFUND"
-  | "EXPIRED";
+  | "EXPIRED"
+  | "CANCELLED";
+
+export interface PageMeta {
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+}
 
 export interface PageResponse<T> {
   content: T[];
- page: {
-    totalElements: number;
-    totalPages: number;
-    number: number;
-    size: number;
+  page: PageMeta;
+  totalElements?: number;
+  totalPages?: number;
+  number?: number;
+  size?: number;
+}
+
+interface RawPageMaybeNested<T> {
+  content?: T[];
+  page?: Partial<PageMeta>;
+  totalElements?: number;
+  totalPages?: number;
+  number?: number;
+  size?: number;
+}
+
+function normalizePage<T>(raw: RawPageMaybeNested<T> | T[]): PageResponse<T> {
+  if (Array.isArray(raw)) {
+    return {
+      content: raw,
+      page: {
+        totalElements: raw.length,
+        totalPages: raw.length > 0 ? 1 : 0,
+        number: 0,
+        size: raw.length,
+      },
+    };
+  }
+
+  const meta = raw.page ?? raw;
+
+  return {
+    content: raw.content ?? [],
+    page: {
+      totalElements: meta.totalElements ?? 0,
+      totalPages: meta.totalPages ?? 1,
+      number: meta.number ?? 0,
+      size: meta.size ?? 0,
+    },
+    totalElements: raw.totalElements,
+    totalPages: raw.totalPages,
+    number: raw.number,
+    size: raw.size,
   };
 }
 
@@ -76,6 +123,7 @@ export interface SubscriptionPlan {
   priceMonthly: number;
   priceYearly: number;
   configLimit?: Record<string, unknown>;
+  planType: SubscriptionPlanType;
   status: SubscriptionPlanStatus;
   createdAt?: string;
   updatedAt?: string;
@@ -97,12 +145,53 @@ export interface PartnerSubscription {
   endDate?: string;
   isVerified?: boolean;
   documentUrl?: string;
+  shopEmail?: string;
+  invoiceCode?: string;
+  paidAmount?: number;
+  paymentStatus?: string;
+  paymentGateway?: string;
+  paidAt?: string;
+  createdAt?: string;
   medias?: Array<{
     mediaId: number;
     fileUrl: string;
     fileName: string;
     mediaType: string;
   }>;
+}
+
+
+export interface AuditActor {
+  userId?: number;
+  username?: string;
+  displayName?: string;
+  role?: string;
+}
+
+export interface AuditLog {
+  logId: number;
+  actor?: AuditActor;
+  action: string;
+  tableName?: string;
+  recordId?: string;
+  endpoint?: string;
+  oldValue?: unknown;
+  newValue?: unknown;
+  ipAddress?: string;
+  createdAt: string;
+}
+
+export interface GetAuditLogsParams {
+  page?: number;
+  size?: number;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+  search?: string;
+  userId?: number;
+  action?: string;
+  tableName?: string;
+  from?: string;
+  to?: string;
 }
 
 export interface MessageResponse {
@@ -125,6 +214,7 @@ export interface GetSubscriptionPlansParams {
   sortDir?: "asc" | "desc";
   search?: string;
   status?: SubscriptionPlanStatus;
+  planType?: SubscriptionPlanType;
 }
 
 
@@ -143,6 +233,7 @@ export interface SubscriptionPlanPayload {
   priceMonthly: number;
   priceYearly: number;
   configLimit?: Record<string, unknown>;
+  planType: SubscriptionPlanType;
 }
 
 export interface GetPostsParams {
@@ -177,10 +268,15 @@ export const adminApi = {
       status: params.status,
     });
 
-    return apiFetch<PageResponse<UserProfile>>(adminPath(`/users${query}`), {
-      method: "GET",
-      sameOrigin: true,
-    });
+    const response = await apiFetch<RawPageMaybeNested<UserProfile> | UserProfile[]>(
+      adminPath(`/users${query}`),
+      {
+        method: "GET",
+        sameOrigin: true,
+      },
+    );
+
+    return normalizePage(response);
   },
 
   lockUser: async (userId: number) => {
@@ -262,10 +358,11 @@ export const adminApi = {
       status: params.status,
     });
 
-    return apiFetch<PageResponse<PartnerSubscription>>(
-      adminPath(`/subscriptions${query}`),
-      { method: "GET", sameOrigin: true },
-    );
+    const response = await apiFetch<
+      RawPageMaybeNested<PartnerSubscription> | PartnerSubscription[]
+    >(adminPath(`/subscriptions${query}`), { method: "GET", sameOrigin: true });
+
+    return normalizePage(response);
   },
 
   /**
@@ -282,6 +379,31 @@ export const adminApi = {
     );
   },
 
+  getAuditLogs: async (params: GetAuditLogsParams = {}) => {
+    const query = buildQuery({
+      page: params.page,
+      size: params.size,
+      sortBy: params.sortBy,
+      sortDir: params.sortDir,
+      search: params.search,
+      userId: params.userId,
+      action: params.action,
+      tableName: params.tableName,
+      from: params.from,
+      to: params.to,
+    });
+
+    const response = await apiFetch<RawPageMaybeNested<AuditLog> | AuditLog[]>(
+      adminPath(`/audit-logs${query}`),
+      {
+        method: "GET",
+        sameOrigin: true,
+      },
+    );
+
+    return normalizePage(response);
+  },
+
   getSubscriptionPlans: async (params: GetSubscriptionPlansParams = {}) => {
     const query = buildQuery({
       page: params.page,
@@ -290,12 +412,17 @@ export const adminApi = {
       sortDir: params.sortDir,
       search: params.search,
       status: params.status,
+      planType: params.planType,
     });
 
-    return apiFetch<PageResponse<SubscriptionPlan>>(adminPath(`/subscription-plans${query}`), {
+    const response = await apiFetch<
+      RawPageMaybeNested<SubscriptionPlan> | SubscriptionPlan[]
+    >(adminPath(`/subscription-plans${query}`), {
       method: "GET",
       sameOrigin: true,
     });
+
+    return normalizePage(response);
   },
 
   createSubscriptionPlan: async (payload: SubscriptionPlanPayload) => {

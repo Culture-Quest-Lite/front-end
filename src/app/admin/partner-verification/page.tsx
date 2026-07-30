@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Building2,
   CalendarDays,
@@ -18,9 +18,10 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/app/ui-bits";
 import { Button } from "@/components/ui/button";
-import type {
-  PartnerSubscription,
-  PartnerSubscriptionStatus,
+import {
+  adminApi,
+  type PartnerSubscription,
+  type PartnerSubscriptionStatus,
 } from "@/services/api/admin/adminApi";
 
 /**
@@ -29,7 +30,6 @@ import type {
  * adminApi.getPartnerSubscriptions(...)
  * adminApi.verifyPartnerSubscription(item.id, true | false)
  */
-const USE_MOCK_DATA = true;
 const PAGE_SIZE = 5;
 
 const mockSubscriptions: PartnerSubscription[] = [
@@ -159,6 +159,10 @@ const statusMeta: Record<
     label: "Hết hạn",
     className: "bg-slate-100 text-slate-600 ring-slate-200",
   },
+  CANCELLED: {
+    label: "Đã hủy",
+    className: "bg-slate-100 text-slate-600 ring-slate-200",
+  },
 };
 
 type StatusFilter = "ALL" | PartnerSubscriptionStatus;
@@ -175,7 +179,10 @@ function formatDate(value?: string) {
 }
 
 export default function PartnerVerificationPage() {
-  const [items, setItems] = useState(mockSubscriptions);
+  const [items, setItems] = useState<PartnerSubscription[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submittingId, setSubmittingId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("ALL");
   const [page, setPage] = useState(1);
@@ -213,33 +220,53 @@ export default function PartnerVerificationPage() {
     currentPage * PAGE_SIZE,
   );
 
-  function updateStatus(id: number, approved: boolean) {
-    // Khi backend hoàn thiện, thay phần cập nhật local bằng:
-    // await adminApi.verifyPartnerSubscription(id, approved)
-    if (!USE_MOCK_DATA) return;
+  const loadSubscriptions = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await adminApi.getPartnerSubscriptions({
+        sortBy: "createdAt",
+        sortDir: "desc",
+      });
+      const content = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.content)
+          ? response.content
+          : [];
+      setItems(content);
+    } catch (loadError) {
+      setItems([]);
+      setError(loadError instanceof Error ? loadError.message : "Không thể tải danh sách đăng ký đối tác.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    const nextStatus: PartnerSubscriptionStatus = approved
-      ? "ACTIVE"
-      : "REJECTED";
-    setItems((current) =>
-      current.map((item) =>
-        item.id === id
-          ? { ...item, status: nextStatus, isVerified: approved }
-          : item,
-      ),
-    );
-    setSelected((current) =>
-      current?.id === id
-        ? { ...current, status: nextStatus, isVerified: approved }
-        : current,
-    );
-    setToast(approved ? "Đã duyệt hồ sơ đối tác." : "Đã từ chối hồ sơ đối tác.");
-    window.setTimeout(() => setToast(null), 2600);
+  useEffect(() => {
+    void loadSubscriptions();
+  }, [loadSubscriptions]);
+
+  async function updateStatus(id: number, approved: boolean) {
+    setSubmittingId(id);
+    setError(null);
+    try {
+      const updated = await adminApi.verifyPartnerSubscription(id, approved);
+      const nextStatus: PartnerSubscriptionStatus = approved ? "ACTIVE" : "REJECTED";
+      const normalized = { ...updated, status: updated.status ?? nextStatus, isVerified: approved };
+      setItems((current) => current.map((item) => item.id === id ? { ...item, ...normalized } : item));
+      setSelected((current) => current?.id === id ? { ...current, ...normalized } : current);
+      setToast(approved ? "Đã duyệt hồ sơ đối tác." : "Đã từ chối hồ sơ đối tác.");
+      window.setTimeout(() => setToast(null), 2600);
+    } catch (verifyError) {
+      setError(verifyError instanceof Error ? verifyError.message : "Không thể cập nhật hồ sơ đối tác.");
+    } finally {
+      setSubmittingId(null);
+    }
   }
 
   return (
     <div className="min-h-screen bg-[#F8F9FC]">
-      <PageHeader title="Duyệt đăng ký đối tác" />
+      <PageHeader title="Duyệt đăng ký đối tác" actions={<Button variant="outline" onClick={() => void loadSubscriptions()} disabled={loading}>Làm mới</Button>} />
 
       <main className="space-y-5 px-6 pb-8 pt-6 lg:px-8">
         <p className="-mt-2 text-sm text-slate-500">
@@ -251,6 +278,10 @@ export default function PartnerVerificationPage() {
           <StatCard icon={CheckCircle2} label="Đã duyệt" value={stats.approved} />
           <StatCard icon={XCircle} label="Đã từ chối" value={stats.rejected} />
         </div>
+
+        {error && (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
+        )}
 
         <section className="rounded-2xl border border-slate-200/80 bg-white shadow-[0_12px_34px_rgba(15,23,42,0.05)]">
           <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
@@ -302,7 +333,13 @@ export default function PartnerVerificationPage() {
                 </tr>
               </thead>
               <tbody>
-                {visibleItems.map((item) => {
+                {loading && (
+                  <tr><td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-500">Đang tải hồ sơ...</td></tr>
+                )}
+                {!loading && visibleItems.length === 0 && (
+                  <tr><td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-500">Không có hồ sơ phù hợp.</td></tr>
+                )}
+                {!loading && visibleItems.map((item) => {
                   const meta = statusMeta[item.status ?? "PENDING"];
                   return (
                     <tr
@@ -490,14 +527,16 @@ export default function PartnerVerificationPage() {
                   <Button
                     variant="outline"
                     className="rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                    onClick={() => updateStatus(selected.id, false)}
+                    onClick={() => void updateStatus(selected.id, false)}
+                    disabled={submittingId === selected.id}
                   >
                     <XCircle className="mr-2 h-4 w-4" />
                     Từ chối
                   </Button>
                   <Button
                     className="rounded-xl bg-[#D94A8D] text-white hover:bg-[#C43D7D]"
-                    onClick={() => updateStatus(selected.id, true)}
+                    onClick={() => void updateStatus(selected.id, true)}
+                    disabled={submittingId === selected.id}
                   >
                     <CheckCircle2 className="mr-2 h-4 w-4" />
                     Xác nhận duyệt

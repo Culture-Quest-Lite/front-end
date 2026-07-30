@@ -23,8 +23,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useRouteRoadPaths } from "@/hooks/use-route-road-paths";
 import {
-  buildRouteSegments,
   formatDistanceKilometers,
   formatDistanceMeters,
 } from "@/lib/route-geometry";
@@ -892,29 +892,23 @@ export default function CuratorRouteCreatePage() {
   );
 
   const totalSelectedStories = selectedStoryIds.length;
-  const routeSegments = useMemo(
-    () => buildRouteSegments(selectedHotspots),
-    [selectedHotspots],
-  );
+  const {
+    roadSegments: routeSegments,
+    totalDistanceMeters: totalComputedRouteDistanceMeters,
+    isLoading: isLoadingRoadPaths,
+    error: roadPathError,
+  } = useRouteRoadPaths(selectedHotspots);
   const routeDistanceToNextByHotspotId = useMemo(
     () =>
       routeSegments.reduce<Record<number, string>>((acc, segment) => {
         if (typeof segment.from.hotspotId === "number") {
           acc[segment.from.hotspotId] = formatDistanceMeters(
-            segment.distanceMeters,
+            segment.displayDistanceMeters,
           );
         }
 
         return acc;
       }, {}),
-    [routeSegments],
-  );
-  const totalComputedRouteDistanceMeters = useMemo(
-    () =>
-      routeSegments.reduce(
-        (sum, segment) => sum + segment.distanceMeters,
-        0,
-      ),
     [routeSegments],
   );
   const suggestedDurationMinutes = Math.max(selectedHotspots.length * 30, 60);
@@ -1720,6 +1714,21 @@ export default function CuratorRouteCreatePage() {
               <h2 className="cq-section-title">Bản đồ tuyến</h2>
               <MapPinned className="h-5 w-5 text-emerald-600" />
             </div>
+
+            {selectedHotspots.length > 0 && isLoadingRoadPaths ? (
+              <p className="flex items-center gap-2 text-xs text-slate-500">
+                <LoaderCircle className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                Đang tính đường đi theo các con đường trên bản đồ...
+              </p>
+            ) : null}
+
+            {selectedHotspots.length > 0 && roadPathError ? (
+              <p className="text-xs text-amber-700">
+                Không lấy được đường đi thực tế cho một số chặng (
+                {roadPathError}). Các chặng đó tạm hiển thị bằng nét đứt nối
+                trực tiếp.
+              </p>
+            ) : null}
 
             {selectedHotspots.length > 0 ? (
               <RouteHotspotMap

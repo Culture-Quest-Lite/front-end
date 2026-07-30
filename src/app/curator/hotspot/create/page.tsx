@@ -7,7 +7,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { downloadMediaBlob } from "@/lib/media-download";
 import { buildTagToken } from "@/lib/tags";
 import { GoongMapPreview } from "./GoongMapPreview";
 import {
@@ -143,6 +142,7 @@ function HotspotCreatePageContent() {
         setFormState(syncFormStateWithResponse(defaultHotspotForm, response));
         setExistingHotspotMedias(resolveOrderedHotspotMedias(response.medias));
         setRemovedExistingMediaIds([]);
+        setSelectedMedia(defaultSelectedMedia);
         setCreatedHotspot(null);
       } catch (error) {
         if (isCancelled) {
@@ -403,13 +403,7 @@ function HotspotCreatePageContent() {
 
       setIsSubmitting(true);
 
-      const submissionFiles = await resolveHotspotSubmissionFiles({
-        isEditMode,
-        includeExistingMediaFiles: isEditMode,
-        existingMedias: visibleExistingHotspotMedias,
-        selectedFiles,
-      });
-      const formData = buildHotspotFormData(payload, submissionFiles);
+      const formData = buildHotspotFormData(payload, selectedFiles);
 
       try {
         console.debug("FormData keys:", Array.from(formData.keys()));
@@ -441,6 +435,7 @@ function HotspotCreatePageContent() {
       setCreatedHotspot(response);
       setExistingHotspotMedias(resolveOrderedHotspotMedias(response.medias));
       setRemovedExistingMediaIds([]);
+      setSelectedMedia(defaultSelectedMedia);
       setFormState((current) => syncFormStateWithResponse(current, response));
 
       const successMessage = isEditMode
@@ -1316,7 +1311,7 @@ function isVideoHotspotMedia(media?: BackendHotspotMedia) {
 }
 
 function resolveOrderedHotspotMedias(medias?: BackendHotspotMedia[]) {
-  return [...(medias ?? [])].sort((mediaA, mediaB) => {
+  const orderedMedias = [...(medias ?? [])].sort((mediaA, mediaB) => {
     const displayOrderDiff =
       (mediaA.displayOrder ?? Number.MAX_SAFE_INTEGER) -
       (mediaB.displayOrder ?? Number.MAX_SAFE_INTEGER);
@@ -1326,6 +1321,19 @@ function resolveOrderedHotspotMedias(medias?: BackendHotspotMedia[]) {
     }
 
     return mediaA.mediaId - mediaB.mediaId;
+  });
+
+  const seenMediaKeys = new Set<string>();
+
+  return orderedMedias.filter((media) => {
+    const mediaKey = buildHotspotMediaKey(media);
+
+    if (seenMediaKeys.has(mediaKey)) {
+      return false;
+    }
+
+    seenMediaKeys.add(mediaKey);
+    return true;
   });
 }
 
@@ -1458,84 +1466,14 @@ function buildHotspotFormData(payload: CreateHotspotPayload, files: File[]) {
   return formData;
 }
 
-async function resolveHotspotSubmissionFiles(options: {
-  isEditMode: boolean;
-  includeExistingMediaFiles: boolean;
-  existingMedias: BackendHotspotMedia[];
-  selectedFiles: File[];
-}) {
-  if (
-    !options.isEditMode ||
-    !options.includeExistingMediaFiles ||
-    options.existingMedias.length === 0
-  ) {
-    return options.selectedFiles;
+function buildHotspotMediaKey(media: BackendHotspotMedia) {
+  const normalizedUrl = media.fileUrl?.trim().toLowerCase();
+
+  if (normalizedUrl) {
+    return normalizedUrl;
   }
 
-  const existingFiles = await Promise.all(
-    options.existingMedias.map((media, index) =>
-      convertExistingHotspotMediaToFile(media, index),
-    ),
-  );
-
-  return [...existingFiles, ...options.selectedFiles];
-}
-
-async function convertExistingHotspotMediaToFile(
-  media: BackendHotspotMedia,
-  index: number,
-) {
-  const fileUrl = media.fileUrl?.trim();
-
-  if (!fileUrl) {
-    throw new Error(
-      `File hiện có #${index + 1} không có đường dẫn để gửi lại khi cập nhật.`,
-    );
-  }
-
-  let blob: Blob;
-
-  try {
-    blob = await downloadMediaBlob(fileUrl);
-  } catch {
-    throw new Error(
-      `Không thể tải lại file hiện có "${resolveExistingMediaFileName(media, fileUrl, index)}" để cập nhật hotspot.`,
-    );
-  }
-
-  const fileName = resolveExistingMediaFileName(media, fileUrl, index);
-  const mimeType = media.mimeType?.trim() || blob.type || undefined;
-
-  return new File([blob], fileName, { type: mimeType });
-}
-
-function resolveExistingMediaFileName(
-  media: BackendHotspotMedia,
-  fileUrl: string,
-  index: number,
-) {
-  const normalizedFileName = media.fileName?.trim();
-
-  if (normalizedFileName) {
-    return normalizedFileName;
-  }
-
-  try {
-    const url = new URL(fileUrl, window.location.origin);
-    const fileNameFromUrl = url.pathname.split("/").pop()?.trim();
-
-    if (fileNameFromUrl) {
-      return fileNameFromUrl;
-    }
-  } catch {
-    // Ignore URL parsing errors and fall back to a deterministic name.
-  }
-
-  if (Number.isInteger(media.mediaId)) {
-    return `hotspot-media-${media.mediaId}`;
-  }
-
-  return `hotspot-media-${index + 1}`;
+  return `media-id:${media.mediaId}`;
 }
 
 async function validateHotspotPayload(
