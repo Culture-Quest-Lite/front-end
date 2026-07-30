@@ -1,3 +1,5 @@
+import { decodePolyline } from "@/lib/polyline";
+
 const GOONG_API_BASE_URL = "https://rsapi.goong.io";
 
 const GOONG_API_KEY = process.env.NEXT_PUBLIC_GOONG_API_KEY ?? "";
@@ -48,6 +50,43 @@ export interface GoongPlaceDetail {
   address: string;
   latitude: number;
   longitude: number;
+}
+
+type GoongDirectionResponse = {
+  routes?: Array<{
+    overview_polyline?: {
+      points?: string;
+    };
+    legs?: Array<{
+      distance?: {
+        value?: number;
+      };
+      duration?: {
+        value?: number;
+      };
+      steps?: Array<{
+        polyline?: {
+          points?: string;
+        };
+      }>;
+    }>;
+  }>;
+  status?: string;
+  error_message?: string;
+};
+
+export type GoongDirectionVehicle = "car" | "bike" | "taxi" | "truck" | "hd";
+
+export interface GoongDirectionPoint {
+  latitude: number;
+  longitude: number;
+}
+
+export interface GoongDirectionResult {
+  /** Toạ độ men theo đường thật, dạng [longitude, latitude]. */
+  coordinates: Array<[number, number]>;
+  distanceMeters: number | null;
+  durationSeconds: number | null;
 }
 
 export const goongApi = {
@@ -127,7 +166,76 @@ export const goongApi = {
       longitude,
     };
   },
+
+  getDirections: async ({
+    origin,
+    destination,
+    vehicle = "car",
+  }: {
+    origin: GoongDirectionPoint;
+    destination: GoongDirectionPoint;
+    vehicle?: GoongDirectionVehicle;
+  }): Promise<GoongDirectionResult> => {
+    const response = await fetchGoong<GoongDirectionResponse>("/Direction", {
+      origin: `${origin.latitude},${origin.longitude}`,
+      destination: `${destination.latitude},${destination.longitude}`,
+      vehicle,
+    });
+
+    if (response.status && response.status !== "OK") {
+      throw new Error(
+        response.error_message?.trim() ||
+          `Goong trả về trạng thái ${response.status}.`,
+      );
+    }
+
+    const route = response.routes?.[0];
+
+    if (!route) {
+      throw new Error("Goong không tìm được lộ trình giữa hai địa điểm này.");
+    }
+
+    const legs = route.legs ?? [];
+    const stepCoordinates = legs.flatMap((leg) =>
+      (leg.steps ?? []).flatMap((step) =>
+        decodePolyline(step.polyline?.points ?? ""),
+      ),
+    );
+    const coordinates =
+      stepCoordinates.length > 1
+        ? stepCoordinates
+        : decodePolyline(route.overview_polyline?.points ?? "");
+
+    if (coordinates.length < 2) {
+      throw new Error("Goong không trả về hình dạng đường đi cho lộ trình.");
+    }
+
+    const distanceMeters = sumLegValues(
+      legs.map((leg) => leg.distance?.value),
+    );
+    const durationSeconds = sumLegValues(
+      legs.map((leg) => leg.duration?.value),
+    );
+
+    return {
+      coordinates,
+      distanceMeters,
+      durationSeconds,
+    };
+  },
 };
+
+function sumLegValues(values: Array<number | undefined>) {
+  const numericValues = values.filter(
+    (value): value is number => typeof value === "number" && Number.isFinite(value),
+  );
+
+  if (numericValues.length === 0) {
+    return null;
+  }
+
+  return numericValues.reduce((sum, value) => sum + value, 0);
+}
 
 async function fetchGoong<T>(path: string, searchParams: Record<string, string>) {
   const apiKey = GOONG_API_KEY.trim();
