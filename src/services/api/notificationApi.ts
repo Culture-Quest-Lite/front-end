@@ -19,12 +19,37 @@ export interface NotificationPage {
   page?: { totalElements: number; totalPages: number; number: number; size: number };
 }
 
+/** Backend (Jackson + Lombok) may serialize `boolean isRead` as `read` instead of `isRead`. */
+type RawNotificationItem = Omit<NotificationItem, "isRead"> & {
+  isRead?: boolean;
+  read?: boolean;
+};
+
+function normalizeNotificationItem(raw: RawNotificationItem): NotificationItem {
+  const { read, ...rest } = raw;
+  return {
+    ...rest,
+    isRead: Boolean(rest.isRead || read),
+  };
+}
+
+function normalizeNotificationPage(page: NotificationPage & { content?: RawNotificationItem[] }): NotificationPage {
+  return {
+    ...page,
+    content: (page.content ?? []).map(normalizeNotificationItem),
+  };
+}
+
 export const notificationApi = {
-  getNotifications(page = 0, size = 10) {
-    return apiFetch<NotificationPage>(`/api/notifications?page=${page}&size=${size}`, {
-      method: "GET",
-      sameOrigin: true,
-    });
+  async getNotifications(page = 0, size = 10) {
+    const response = await apiFetch<NotificationPage & { content?: RawNotificationItem[] }>(
+      `/api/notifications?page=${page}&size=${size}`,
+      {
+        method: "GET",
+        sameOrigin: true,
+      },
+    );
+    return normalizeNotificationPage(response);
   },
   getUnreadCount() {
     return apiFetch<number>("/api/notifications/unread-count", {
@@ -39,7 +64,7 @@ export const notificationApi = {
     });
   },
   testPush() {
-    return apiFetch<NotificationItem>("/api/notifications/test-push", {
+    return apiFetch<NotificationItem | string | { message?: string }>("/api/notifications/test-push", {
       method: "POST",
       sameOrigin: true,
     });
