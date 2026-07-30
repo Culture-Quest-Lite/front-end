@@ -13,6 +13,7 @@ export type PartnerSubscriptionStatus =
   | string;
 
 export type BillingCycle = "MONTHLY" | "YEARLY" | string;
+export type SubscriptionPlanType = "PREMIUM" | "PARTNER";
 
 export interface CurrentUserProfileResponse {
   userId: number;
@@ -41,6 +42,7 @@ export interface SubscriptionPlanResponse {
   priceMonthly: number;
   priceYearly: number;
   configLimit?: Record<string, unknown> | null;
+  planType: SubscriptionPlanType;
   status?: string;
   createdAt?: string | null;
   updatedAt?: string | null;
