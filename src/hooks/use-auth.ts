@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
 import {
   AUTH_SESSION_EVENT,
   clearAuthSession,
@@ -16,7 +16,10 @@ export function useAuth() {
     getServerTokenSnapshot
   );
   const loading = token === undefined;
-  const session = typeof token === "string" ? createSessionFromToken(token) : null;
+  const session = useMemo(
+    () => (typeof token === "string" ? createSessionFromToken(token) : null),
+    [token],
+  );
 
   const logout = useCallback(async () => {
     try {

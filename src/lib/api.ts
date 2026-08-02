@@ -103,14 +103,26 @@ export async function apiFetch<T>(
       try {
         body = jsonText ? JSON.parse(jsonText) : {};
       } catch (parseError) {
-        console.error("[apiFetch] Failed to parse JSON response", {
+        // Một số endpoint backend trả plain text nhưng gắn nhầm
+        // Content-Type: application/json. Chỉ xem là JSON lỗi thật sự khi
+        // nội dung có hình dạng object/array JSON.
+        if (jsonText.startsWith("{") || jsonText.startsWith("[")) {
+          console.error("[apiFetch] Failed to parse JSON response", {
+            url,
+            status: response.status,
+            contentType,
+            responseText,
+            parseError,
+          });
+          throw new Error(`Invalid JSON response from ${url}`);
+        }
+
+        console.warn("[apiFetch] Backend returned text with a JSON content type", {
           url,
           status: response.status,
           contentType,
-          responseText,
-          parseError,
         });
-        throw new Error(`Invalid JSON response from ${url}`);
+        body = responseText;
       }
     } else {
       body = responseText;
