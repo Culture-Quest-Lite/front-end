@@ -2,15 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Tag } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
+import { TagIdentityChip } from "@/components/curator/TagIdentityChip";
 import {
-  buildTagChipLabel,
   formatTagDateTime,
   formatTagStatus,
   getTagStatusTone,
   getTagColor,
-  getTagColorState,
   type TagRecord,
 } from "@/lib/tags";
 import { tagApi } from "@/services/api";
@@ -154,7 +153,6 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
   }
 
   const tagColor = getTagColor(backendTag.tagId - 1);
-  const colorState = getTagColorState(tagColor);
   const createdAtLabel = formatTagDateTime(backendTag.createdAt);
   const updatedAtLabel = formatTagDateTime(backendTag.updatedAt);
 
@@ -168,21 +166,15 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-yellow-900">
               Tổng quan thẻ
             </p>
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <div
-                className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium"
-                style={{
-                  color: tagColor,
-                  backgroundColor: colorState.chipBg,
-                  borderColor: colorState.chipBorder,
-                }}
-              >
-                <Tag className="h-4 w-4" />
-                <span>{buildTagChipLabel(backendTag.tagName)}</span>
-              </div>
-              <h2 className="text-xl font-semibold tracking-[-0.03em] text-slate-900 sm:text-1xl">
-                {backendTag.tagName}
-              </h2>
+            <div className="mt-4">
+              <TagIdentityChip
+                name={backendTag.tagName}
+                imageUrl={backendTag.imageUrl}
+                accentColor={tagColor}
+                className="w-fit pr-5"
+                avatarClassName="h-16 w-16"
+                labelClassName="text-lg"
+              />
             </div>
           </div>
 
@@ -196,11 +188,15 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
         </div>
 
         <div className="mt-6 border-t border-dashed border-slate-200 pt-6">
-          <div className="grid max-w-5xl gap-x-5 gap-y-4 px-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-5">
+          <div className="grid max-w-5xl gap-x-5 gap-y-4 px-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-6">
             <DetailItem label="Mã thẻ" value={`${backendTag.tagId}`} />
             <DetailItem
               label="Số tuyến"
               value={String(backendTag.routeCount)}
+            />
+            <DetailItem
+              label="Số địa điểm"
+              value={String(backendTag.hotspotCount)}
             />
             <DetailItem
               label="Số câu chuyện"
