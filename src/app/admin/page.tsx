@@ -105,7 +105,7 @@ export default function AdminDashboardPage() {
       </div>
     );
   }
-
+  
   if (session.role !== "admin") {
     return (
       <div className="cq-page-subtitle p-8">
