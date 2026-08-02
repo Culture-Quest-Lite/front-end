@@ -54,18 +54,35 @@ export const tagApi = {
     });
   },
 
-  createTag: async (payload: { tagName: string }) => {
+  createTag: async (payload: { tagName: string; imageFile?: File | null }) => {
+    const formData = new FormData();
+
+    formData.append("tagName", payload.tagName);
+    if (payload.imageFile) {
+      formData.append("imageFile", payload.imageFile);
+    }
+
     return apiFetch<TagRecord>("/api/tags", {
       method: "POST",
-      body: payload,
+      body: formData,
       sameOrigin: true,
     });
   },
 
-  updateTag: async (tagId: number, payload: { tagName: string }) => {
+  updateTag: async (
+    tagId: number,
+    payload: { tagName: string; imageFile?: File | null },
+  ) => {
+    const formData = new FormData();
+
+    formData.append("tagName", payload.tagName);
+    if (payload.imageFile) {
+      formData.append("imageFile", payload.imageFile);
+    }
+
     return apiFetch<TagRecord>(`/api/tags/${tagId}`, {
       method: "PUT",
-      body: payload,
+      body: formData,
       sameOrigin: true,
     });
   },
