@@ -1,6 +1,7 @@
 export interface TagRecord {
   tagId: number;
   tagName: string;
+  imageUrl?: string | null;
   tagStatus: string;
   routeCount: number;
   hotspotCount: number;
@@ -47,6 +48,22 @@ export function buildTagToken(value: string) {
 
 export function buildTagChipLabel(name: string) {
   return `# ${name.trim().toLowerCase()}`;
+}
+
+export function getTagInitials(name: string) {
+  const words = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (words.length === 0) {
+    return "TG";
+  }
+
+  return words
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() ?? "")
+    .join("");
 }
 
 export function buildTagStatsLabel(name: string) {
