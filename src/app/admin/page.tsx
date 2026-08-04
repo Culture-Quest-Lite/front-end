@@ -6,14 +6,19 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { getRedirectPathForRole } from "@/lib/access-control";
 import { PageHeader, StatCard, StatusPill } from "@/components/app/ui-bits";
+import { audit, reports } from "@/data/demo";
 import {
-  audit,
-  reports,
-  checkinsTrend,
-  userGrowth,
-  routeEngagement,
-} from "@/data/demo";
-import { adminApi, type PostItem, type UserProfile } from "@/services/api/admin/adminApi";
+  adminApi,
+  type AdminDashboard,
+  type PostItem,
+  type UserProfile,
+} from "@/services/api/admin/adminApi";
+import {
+  formatChangeLabel,
+  formatCompactCurrency,
+  formatCount,
+  formatRate,
+} from "@/lib/dashboard-format";
 import {
   MapPin,
   ShieldCheck,
@@ -24,6 +29,7 @@ import {
   Clock,
   FileText,
   ShieldAlert,
+  Wallet,
 } from "lucide-react";
 import {
   Area,
@@ -45,8 +51,8 @@ export default function AdminDashboardPage() {
   const router = useRouter();
   const [recentUsers, setRecentUsers] = useState<UserProfile[]>([]);
   const [pendingPosts, setPendingPosts] = useState<PostItem[]>([]);
-  const [userTotal, setUserTotal] = useState<number | null>(null);
-  const [pendingCount, setPendingCount] = useState<number | null>(null);
+  const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
 
   useEffect(() => {
     console.log("Admin page - useEffect triggered", {
@@ -77,6 +83,21 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (!session || session.role !== "admin") return;
 
+    // Dashboard tách khỏi 2 list bên dưới: một list lỗi thì không được kéo
+    // theo toàn bộ số liệu tổng quan biến mất, và ngược lại.
+    void (async () => {
+      try {
+        setDashboardError(null);
+        setDashboard(await adminApi.getDashboard());
+      } catch (error) {
+        console.error("[admin] Không tải được dashboard", error);
+        setDashboard(null);
+        setDashboardError(
+          error instanceof Error ? error.message : "Không tải được số liệu tổng quan.",
+        );
+      }
+    })();
+
     void (async () => {
       try {
         const [usersRes, postsRes] = await Promise.all([
@@ -84,9 +105,7 @@ export default function AdminDashboardPage() {
           adminApi.getPosts({ status: "PENDING", page: 0, size: 5 }),
         ]);
         setRecentUsers(usersRes.content);
-        setUserTotal(usersRes.page?.totalElements ?? usersRes.totalElements ?? usersRes.content.length);
         setPendingPosts(postsRes.content);
-        setPendingCount(postsRes.content.length);
       } catch {
         setRecentUsers([]);
         setPendingPosts([]);
@@ -114,6 +133,12 @@ export default function AdminDashboardPage() {
     );
   }
 
+  const summary = dashboard?.summary;
+  const revenue = dashboard?.revenue;
+  const checkinsTrend = dashboard?.checkInTrend ?? [];
+  const userGrowth = dashboard?.userGrowth ?? [];
+  const routeEngagement = dashboard?.routeEngagement ?? [];
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -128,37 +153,88 @@ export default function AdminDashboardPage() {
         }
       />
 
+      {dashboardError ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          Không tải được số liệu tổng quan: {dashboardError}
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
           label="Check-in hôm nay"
-          value="1.024"
-          delta="+18% so với hôm qua"
+          value={formatCount(summary?.checkInsToday)}
+          delta={formatChangeLabel(summary?.checkInsChangePercent, "so với hôm qua")}
           icon={Activity}
           tone="primary"
         />
         <StatCard
           label="Hotspot xuất bản"
-          value="58"
-          delta="+3 tuần này"
+          value={formatCount(summary?.publishedHotspots)}
+          delta={
+            summary
+              ? `+${formatCount(summary.publishedHotspotsThisWeek)} tuần này`
+              : "—"
+          }
           icon={MapPin}
           tone="success"
         />
         <StatCard
           label="Người dùng"
-          value={
-            typeof userTotal === "number"
-              ? userTotal.toLocaleString("vi-VN")
+          value={formatCount(summary?.totalUsers)}
+          delta={
+            summary
+              ? `${formatCount(summary.activeUsers)} đang hoạt động · +${formatCount(summary.newUsersThisMonth)} tháng này`
               : "—"
           }
-          delta="Từ API"
           icon={Users}
           tone="info"
         />
         <StatCard
           label="Chờ duyệt"
-          value={pendingCount !== null ? String(pendingCount) : "—"}
+          value={formatCount(summary?.pendingPosts)}
           delta="Bài đăng pending"
           icon={FileText}
+          tone="warning"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard
+          label="Doanh thu tháng này"
+          value={formatCompactCurrency(revenue?.revenueThisMonth)}
+          delta={formatChangeLabel(revenue?.revenueChangePercent, "so với tháng trước")}
+          icon={Wallet}
+          tone="primary"
+        />
+        <StatCard
+          label="Tổng doanh thu"
+          value={formatCompactCurrency(revenue?.totalRevenue)}
+          delta={
+            revenue ? `${formatCount(revenue.paidInvoices)} hoá đơn đã thanh toán` : "—"
+          }
+          icon={TrendingUp}
+          tone="success"
+        />
+        <StatCard
+          label="Doanh thu Premium"
+          value={formatCompactCurrency(revenue?.premiumRevenue)}
+          delta={
+            revenue
+              ? `${formatCount(revenue.activePremiumSubscriptions)} gói đang hoạt động`
+              : "—"
+          }
+          icon={ShieldCheck}
+          tone="info"
+        />
+        <StatCard
+          label="Doanh thu Partner"
+          value={formatCompactCurrency(revenue?.partnerRevenue)}
+          delta={
+            revenue
+              ? `${formatCount(revenue.activePartnerSubscriptions)} gói đang hoạt động`
+              : "—"
+          }
+          icon={Users}
           tone="warning"
         />
       </div>
@@ -170,15 +246,11 @@ export default function AdminDashboardPage() {
               <div className="text-sm font-semibold">Lượt check-in 7 ngày</div>
               <div className="text-xs text-slate-500">Toàn hệ thống</div>
             </div>
-            <div className="flex gap-1 text-xs">
-              {["Ngày", "Tuần", "Tháng", "Năm"].map((t, i) => (
-                <button
-                  key={t}
-                  className={`px-2.5 py-1 rounded-md ${i === 1 ? "bg-primary text-primary-foreground" : "text-slate-500 hover:bg-slate-100"}`}
-                >
-                  {t}
-                </button>
-              ))}
+            {/* Backend chỉ trả cố định 7 ngày gần nhất nên bỏ bộ chọn
+                Ngày/Tuần/Tháng/Năm cũ — trước đây các nút đó không gắn với
+                hành vi nào, bấm vào không đổi dữ liệu. */}
+            <div className="rounded-md bg-slate-100 px-2.5 py-1 text-xs text-slate-500">
+              7 ngày gần nhất
             </div>
           </div>
           <div className="h-56">
@@ -336,17 +408,37 @@ export default function AdminDashboardPage() {
                 />
                 <Bar
                   dataKey="views"
+                  name="Lượt bắt đầu"
                   fill="rgb(var(--chart-3))"
                   radius={[6, 6, 0, 0]}
                 />
                 <Bar
                   dataKey="completes"
+                  name="Hoàn thành"
                   fill="rgb(var(--primary))"
                   radius={[6, 6, 0, 0]}
                 />
               </BarChart>
             </ResponsiveContainer>
           </div>
+          {routeEngagement.length > 0 ? (
+            <ul className="mt-3 space-y-1.5 border-t border-slate-100 pt-3">
+              {routeEngagement.map((route) => (
+                <li
+                  key={route.routeId}
+                  className="flex items-center justify-between gap-3 text-xs"
+                >
+                  <span className="min-w-0 flex-1 truncate text-slate-600">{route.r}</span>
+                  <span className="text-slate-500">
+                    {formatCount(route.completes)}/{formatCount(route.views)}
+                  </span>
+                  <span className="w-14 text-right font-semibold text-slate-900">
+                    {formatRate(route.completionRate)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
 
         <div className="rounded-2xl bg-white p-4 shadow-sm">

@@ -1,26 +1,25 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getRedirectPathForRole } from "@/lib/access-control";
-import { PageHeader, StatCard, StatusPill } from "@/components/app/ui-bits";
+import { PageHeader, StatCard } from "@/components/app/ui-bits";
 import { useAuth } from "@/hooks/use-auth";
+import { curatorApi, type CuratorDashboard } from "@/services/api/curator/curatorApi";
 import {
-  hotspots,
-  approvals,
-  checkinsTrend,
-  userGrowth,
-  routeEngagement,
-} from "@/data/demo";
+  formatChangeLabel,
+  formatCount,
+  formatRate,
+  formatRating,
+} from "@/lib/dashboard-format";
 import {
   MapPin,
   ShieldCheck,
-  Users,
-  TrendingUp,
+  Star,
   ArrowUpRight,
   Activity,
-  Clock,
+  BookOpen,
 } from "lucide-react";
 import {
   Area,
@@ -31,8 +30,6 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  Line,
-  LineChart,
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import { ResponsiveContainer } from "@/components/ui/chart-responsive-container";
@@ -40,13 +37,32 @@ import { ResponsiveContainer } from "@/components/ui/chart-responsive-container"
 export default function CuratorDashboardPage() {
   const { session, loading } = useAuth();
   const router = useRouter();
+  const [dashboard, setDashboard] = useState<CuratorDashboard | null>(null);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log("Curator page - useEffect triggered", { 
-      loading, 
+    if (!session || session.role !== "curator") return;
+
+    void (async () => {
+      try {
+        setDashboardError(null);
+        setDashboard(await curatorApi.getDashboard());
+      } catch (error) {
+        console.error("[curator] Không tải được dashboard", error);
+        setDashboard(null);
+        setDashboardError(
+          error instanceof Error ? error.message : "Không tải được số liệu tổng quan.",
+        );
+      }
+    })();
+  }, [session?.role, session?.token]);
+
+  useEffect(() => {
+    console.log("Curator page - useEffect triggered", {
+      loading,
       hasSession: !!session,
       sessionRole: session?.role,
-      sessionEmail: session?.email 
+      sessionEmail: session?.email
     });
 
     if (!loading) {
@@ -87,47 +103,76 @@ export default function CuratorDashboardPage() {
     );
   }
 
+  const content = dashboard?.contentSummary;
+  const trend = dashboard?.checkInTrend;
+  const checkinsTrend = trend?.daily ?? [];
+  const topRoutes = dashboard?.topContent.topRoutes ?? [];
+  const topHotspots = dashboard?.topContent.topHotspots ?? [];
+  const routeCounts = content?.routeCounts;
+  const pendingRoutes = routeCounts ? routeCounts.pending + routeCounts.trial : 0;
+
+  // Backend trả đủ 6 trạng thái route; gom lại thành 1 bảng thay cho biểu đồ
+  // "Tăng trưởng người dùng" cũ — số liệu đó thuộc dashboard Admin, endpoint
+  // curator không trả về và cũng không phải phạm vi của curator.
+  const routeStatusRows: { label: string; value: number }[] = routeCounts
+    ? [
+        { label: "Đã xuất bản", value: routeCounts.published },
+        { label: "Chờ duyệt", value: routeCounts.pending },
+        { label: "Thử nghiệm", value: routeCounts.trial },
+        { label: "Bản nháp", value: routeCounts.draft },
+        { label: "Đang ghi", value: routeCounts.recording },
+        { label: "Tạm giữ", value: routeCounts.onHold },
+      ]
+    : [];
+  const totalRoutes = routeStatusRows.reduce((sum, row) => sum + row.value, 0);
+
   return (
     <div className="space-y-6">
       <PageHeader
         title={`Chào buổi sáng, ${session.name} 👋`}
-        subtitle="Tổng quan hoạt động hệ thống Culture Quest Lite hôm nay."
+        subtitle="Tổng quan nội dung Culture Quest Lite hôm nay."
         actions={
-          <Link href="/approvals">
+          <Link href="/curator/routes">
             <Button size="sm" variant="outline" className="gap-1.5">
-              <ShieldCheck className="w-4 h-4" /> 4 chờ duyệt
+              <ShieldCheck className="w-4 h-4" /> {formatCount(pendingRoutes)} tuyến chờ xử lý
             </Button>
           </Link>
         }
       />
 
+      {dashboardError ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          Không tải được số liệu tổng quan: {dashboardError}
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
           label="Check-in hôm nay"
-          value="1.024"
-          delta="+18% so với hôm qua"
+          value={formatCount(trend?.checkInsToday)}
+          delta={formatChangeLabel(trend?.changePercent, "so với hôm qua")}
           icon={Activity}
           tone="primary"
         />
         <StatCard
           label="Hotspot xuất bản"
-          value="58"
-          delta="+3 tuần này"
+          value={formatCount(content?.publishedHotspots)}
+          delta={content ? `${formatCount(content.draftHotspots)} bản nháp` : "—"}
           icon={MapPin}
           tone="success"
         />
         <StatCard
-          label="Người dùng"
-          value="4.280"
-          delta="+372 tháng này"
-          icon={Users}
+          label="Story xuất bản"
+          value={formatCount(content?.publishedStories)}
+          delta={content ? `${formatCount(content.draftStories)} bản nháp` : "—"}
+          icon={BookOpen}
           tone="info"
         />
         <StatCard
-          label="Chờ duyệt"
-          value="4"
-          delta="2 hotspot · 1 story · 1 route"
-          icon={ShieldCheck}
+          label="Đánh giá trung bình"
+          value={formatRating(content?.averageRating)}
+          delta={content ? `${formatCount(content.totalReviews)} lượt đánh giá` : "—"}
+          icon={Star}
           tone="warning"
         />
       </div>
@@ -137,17 +182,14 @@ export default function CuratorDashboardPage() {
           <div className="flex items-center justify-between mb-3">
             <div>
               <div className="text-sm font-semibold">Lượt check-in 7 ngày</div>
-              <div className="text-xs text-slate-500">Toàn TP.HCM</div>
+              <div className="text-xs text-slate-500">
+                Tổng cộng {formatCount(content?.totalCheckIns)} lượt từ trước tới nay
+              </div>
             </div>
-            <div className="flex gap-1 text-xs">
-              {["Ngày", "Tuần", "Tháng", "Năm"].map((t, i) => (
-                <button
-                  key={t}
-                  className={`px-2.5 py-1 rounded-md ${i === 1 ? "bg-primary text-primary-foreground" : "text-slate-500 hover:bg-slate-100"}`}
-                >
-                  {t}
-                </button>
-              ))}
+            {/* Endpoint chỉ trả cố định 7 ngày gần nhất nên bỏ bộ chọn
+                Ngày/Tuần/Tháng/Năm cũ — các nút đó không đổi dữ liệu. */}
+            <div className="rounded-md bg-slate-100 px-2.5 py-1 text-xs text-slate-500">
+              7 ngày gần nhất
             </div>
           </div>
           <div className="h-56">
@@ -199,6 +241,7 @@ export default function CuratorDashboardPage() {
                 <Area
                   type="monotone"
                   dataKey="v"
+                  name="Check-in"
                   stroke="rgb(var(--primary))"
                   strokeWidth={2.5}
                   fill="url(#g1)"
@@ -210,51 +253,40 @@ export default function CuratorDashboardPage() {
 
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <div className="text-sm font-semibold">Tăng trưởng người dùng</div>
-            <TrendingUp className="w-4 h-4 text-emerald-600" />
+            <div className="text-sm font-semibold">Tuyến theo trạng thái</div>
+            <Link href="/curator/routes" className="text-xs text-primary">
+              Quản lý
+            </Link>
           </div>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={userGrowth}
-                margin={{ left: -16, right: 8, top: 8, bottom: 0 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="var(--border)"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="m"
-                  stroke="rgb(var(--muted-foreground))"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  stroke="rgb(var(--muted-foreground))"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "rgb(var(--popover))",
-                    border: "1px solid rgb(var(--border))",
-                    borderRadius: 10,
-                    fontSize: 12,
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="u"
-                  stroke="rgb(var(--accent))"
-                  strokeWidth={2.5}
-                  dot={{ r: 3 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          {routeStatusRows.length === 0 ? (
+            <p className="py-4 text-center text-xs text-slate-500">
+              Chưa có dữ liệu tuyến.
+            </p>
+          ) : (
+            <ul className="space-y-2.5">
+              {routeStatusRows.map((row) => (
+                <li key={row.label}>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-600">{row.label}</span>
+                    <span className="font-semibold text-slate-900">
+                      {formatCount(row.value)}
+                    </span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{
+                        width:
+                          totalRoutes > 0
+                            ? `${(row.value / totalRoutes) * 100}%`
+                            : "0%",
+                      }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
@@ -265,115 +297,121 @@ export default function CuratorDashboardPage() {
               Tuyến hành trình được tương tác nhiều nhất
             </div>
             <Link
-              href="/analytics"
+              href="/curator/routes"
               className="text-xs text-primary inline-flex items-center gap-0.5"
             >
               Xem tất cả <ArrowUpRight className="w-3 h-3" />
             </Link>
           </div>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={routeEngagement}
-                margin={{ left: -16, right: 8, top: 8, bottom: 0 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="var(--border)"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="r"
-                  stroke="rgb(var(--muted-foreground))"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  stroke="rgb(var(--muted-foreground))"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "rgb(var(--popover))",
-                    border: "1px solid rgb(var(--border))",
-                    borderRadius: 10,
-                    fontSize: 12,
-                  }}
-                />
-                <Bar
-                  dataKey="views"
-                  fill="rgb(var(--chart-3))"
-                  radius={[6, 6, 0, 0]}
-                />
-                <Bar
-                  dataKey="completes"
-                  fill="rgb(var(--primary))"
-                  radius={[6, 6, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {topRoutes.length === 0 ? (
+            <p className="py-16 text-center text-xs text-slate-500">
+              Chưa có tuyến nào được tham gia.
+            </p>
+          ) : (
+            <>
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={topRoutes}
+                    margin={{ left: -16, right: 8, top: 8, bottom: 0 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="var(--border)"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="r"
+                      stroke="rgb(var(--muted-foreground))"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      stroke="rgb(var(--muted-foreground))"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: "rgb(var(--popover))",
+                        border: "1px solid rgb(var(--border))",
+                        borderRadius: 10,
+                        fontSize: 12,
+                      }}
+                    />
+                    <Bar
+                      dataKey="views"
+                      name="Lượt bắt đầu"
+                      fill="rgb(var(--chart-3))"
+                      radius={[6, 6, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="completes"
+                      name="Hoàn thành"
+                      fill="rgb(var(--primary))"
+                      radius={[6, 6, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <ul className="mt-3 space-y-1.5 border-t border-slate-100 pt-3">
+                {topRoutes.map((route) => (
+                  <li
+                    key={route.routeId}
+                    className="flex items-center justify-between gap-3 text-xs"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-slate-600">
+                      {route.r}
+                    </span>
+                    <span className="text-slate-500">
+                      {formatCount(route.completes)}/{formatCount(route.views)}
+                    </span>
+                    <span className="w-14 text-right font-semibold text-slate-900">
+                      {formatRate(route.completionRate)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
 
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <div className="text-sm font-semibold">Hàng đợi duyệt</div>
-            <Link href="/approvals" className="text-xs text-primary">
-              Mở
+            <div className="text-sm font-semibold">Hotspot check-in nhiều</div>
+            <Link href="/curator/hotspot" className="text-xs text-primary">
+              Xem hotspot
             </Link>
           </div>
-          <ul className="space-y-2.5">
-            {approvals.map((a) => (
-              <li key={a.id} className="flex items-center gap-3">
-                <img
-                  src={a.thumbnail}
-                  alt=""
-                  className="w-10 h-10 rounded-lg object-cover"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium truncate">{a.title}</div>
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
-                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5">
-                      {a.type}
-                    </span>
-                    <span>· {a.curator}</span>
-                    <span className="inline-flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> 2h
-                    </span>
+          {topHotspots.length === 0 ? (
+            <p className="py-4 text-center text-xs text-slate-500">
+              Chưa có lượt check-in nào.
+            </p>
+          ) : (
+            <ul className="space-y-2.5">
+              {topHotspots.map((hotspot, index) => (
+                <li key={hotspot.hotspotId} className="flex items-center gap-3">
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-500">
+                    {index + 1}
                   </div>
-                </div>
-                <StatusPill status="pending" />
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      <div className="rounded-2xl bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-sm font-semibold">Hotspot xem nhiều</div>
-          <Link href="/hotspots" className="text-xs text-primary">
-            Xem hotspot
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {hotspots.slice(0, 4).map((h) => (
-            <div key={h.id} className="overflow-hidden rounded-xl bg-slate-50">
-              <div
-                className="aspect-4/3 bg-cover bg-center"
-                style={{ backgroundImage: `url(${h.cover})` }}
-              />
-              <div className="p-2.5">
-                <div className="text-xs font-semibold truncate">{h.name}</div>
-                <div className="text-[10px] text-slate-500">
-                  {h.district} · {h.xp} XP
-                </div>
-              </div>
-            </div>
-          ))}
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{hotspot.h}</div>
+                    <div className="mt-0.5 flex items-center gap-2 text-[11px] text-slate-500">
+                      <span>{formatCount(hotspot.checkIns)} check-in</span>
+                      {hotspot.averageRating !== null ? (
+                        <span className="inline-flex items-center gap-0.5">
+                          <Star className="h-3 w-3" />
+                          {formatRating(hotspot.averageRating)} ({formatCount(hotspot.totalReviews)})
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>
