@@ -11,30 +11,48 @@ export async function forwardTagRequest(
   request: NextRequest,
   method: "GET" | "POST" | "PUT" | "DELETE",
 ) {
-  const backendUrl = buildBackendUrl(request);
-  const headers = buildBackendHeaders(request);
-  const requestBody =
-    method === "POST" || method === "PUT" ? await request.text() : undefined;
+  try {
+    const backendUrl = buildBackendUrl(request);
+    const headers = buildBackendHeaders(request);
+    const requestBody =
+      method === "POST" || method === "PUT"
+        ? await request.arrayBuffer()
+        : undefined;
 
-  const response = await fetch(backendUrl, {
-    method,
-    headers,
-    cache: "no-store",
-    body: requestBody,
-  });
+    const response = await fetch(backendUrl, {
+      method,
+      headers,
+      cache: "no-store",
+      body:
+        requestBody && requestBody.byteLength > 0 ? requestBody : undefined,
+    });
 
-  const responseText = await response.text();
-  const nextResponse = new NextResponse(responseText, {
-    status: response.status,
-  });
-  const contentType = response.headers.get("content-type");
+    const responseBody = await response.arrayBuffer();
+    const nextResponse = new NextResponse(
+      responseBody.byteLength > 0 ? responseBody : null,
+      {
+        status: response.status,
+      },
+    );
+    const contentType = response.headers.get("content-type");
 
-  if (contentType) {
-    nextResponse.headers.set("content-type", contentType);
+    if (contentType) {
+      nextResponse.headers.set("content-type", contentType);
+    }
+
+    nextResponse.headers.set("cache-control", "no-store");
+    return nextResponse;
+  } catch (error) {
+    console.error("[tag proxy] Backend tag request failed", error);
+
+    return NextResponse.json(
+      {
+        message: "Không thể kết nối Tag API backend.",
+        detail: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 502 },
+    );
   }
-
-  nextResponse.headers.set("cache-control", "no-store");
-  return nextResponse;
 }
 
 function buildBackendUrl(request: NextRequest) {

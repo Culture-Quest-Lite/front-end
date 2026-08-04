@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useDeferredValue, useEffect, useState } from "react";
 import {
   Eye,
+  ImagePlus,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -12,19 +13,17 @@ import {
   X,
 } from "lucide-react";
 
+import { TagIdentityChip } from "@/components/curator/TagIdentityChip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  buildTagChipLabel,
   buildTagDetailHref,
   buildTagSlug,
   formatTagDateTime,
   formatTagStatus,
   getTagStatusTone,
   getTagColor,
-  getTagColorState,
   normalizeTagText,
-  tagColorPalette,
   type TagRecord,
 } from "@/lib/tags";
 import { CuratorPagination } from "@/components/curator/CuratorPagination";
@@ -36,7 +35,9 @@ type TagItem = {
   backendId: number | null;
   slug: string;
   name: string;
+  imageUrl: string | null;
   routeCount: number;
+  hotspotCount: number;
   storyCount: number;
   color: string;
   status: string;
@@ -54,7 +55,9 @@ function mapTagRecordToTagItem(tag: TagRecord): TagItem {
     backendId: tag.tagId,
     slug: buildTagSlug(tag.tagName) || `tag-${tag.tagId}`,
     name: tag.tagName,
+    imageUrl: tag.imageUrl ?? null,
     routeCount: tag.routeCount,
+    hotspotCount: tag.hotspotCount,
     storyCount: tag.storyCount,
     color: getTagColor(tag.tagId - 1),
     status: tag.tagStatus,
@@ -122,8 +125,8 @@ export default function CuratorTagsPage() {
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
-  const [formUsageCount, setFormUsageCount] = useState("0");
-  const [formColor, setFormColor] = useState(tagColorPalette[0]);
+  const [formImageFile, setFormImageFile] = useState<File | null>(null);
+  const [formImageInputKey, setFormImageInputKey] = useState(0);
   const [formError, setFormError] = useState<string | null>(null);
 
   const deferredSearch = useDeferredValue(searchQuery);
@@ -223,8 +226,8 @@ export default function CuratorTagsPage() {
 
   function resetForm() {
     setFormName("");
-    setFormUsageCount("0");
-    setFormColor(tagColorPalette[tags.length % tagColorPalette.length]);
+    setFormImageFile(null);
+    setFormImageInputKey((value) => value + 1);
     setEditingTagId(null);
     setFormError(null);
   }
@@ -242,8 +245,8 @@ export default function CuratorTagsPage() {
   function handleEditTag(tag: TagItem) {
     setEditingTagId(tag.id);
     setFormName(tag.name);
-    setFormUsageCount(String(getTagTotalUsage(tag)));
-    setFormColor(tag.color);
+    setFormImageFile(null);
+    setFormImageInputKey((value) => value + 1);
     setFormError(null);
     setIsEditorOpen(true);
   }
@@ -255,6 +258,11 @@ export default function CuratorTagsPage() {
 
     if (!trimmedName) {
       setFormError("Tên thẻ không được để trống.");
+      return;
+    }
+
+    if (formImageFile && !formImageFile.type.startsWith("image/")) {
+      setFormError("Ảnh thẻ phải là tệp hình ảnh hợp lệ.");
       return;
     }
 
@@ -287,9 +295,13 @@ export default function CuratorTagsPage() {
       if (editingTag?.backendId) {
         await tagApi.updateTag(editingTag.backendId, {
           tagName: trimmedName,
+          imageFile: formImageFile,
         });
       } else {
-        await tagApi.createTag({ tagName: trimmedName });
+        await tagApi.createTag({
+          tagName: trimmedName,
+          imageFile: formImageFile,
+        });
       }
 
       setCurrentPage(1);
@@ -410,7 +422,6 @@ export default function CuratorTagsPage() {
                 ) : null}
 
                 {tags.map((tag) => {
-                  const colorState = getTagColorState(tag.color);
                   const totalUsage = getTagTotalUsage(tag);
                   const totalUsageWidth =
                     totalUsage > 0
@@ -432,14 +443,13 @@ export default function CuratorTagsPage() {
                     >
                       <Link
                         href={buildTagDetailHref(tag.backendId ?? tag.id)}
-                        className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition hover:opacity-85 sm:text-sm whitespace-nowrap"
-                        style={{
-                          color: tag.color,
-                          backgroundColor: colorState.chipBg,
-                          borderColor: colorState.chipBorder,
-                        }}
+                        className="inline-flex max-w-full transition hover:opacity-85"
                       >
-                        {buildTagChipLabel(tag.name)}
+                        <TagIdentityChip
+                          name={tag.name}
+                          imageUrl={tag.imageUrl}
+                          accentColor={tag.color}
+                        />
                       </Link>
 
                       <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
@@ -556,8 +566,6 @@ export default function CuratorTagsPage() {
                       </thead>
                       <tbody>
                         {tags.map((tag) => {
-                          const colorState = getTagColorState(tag.color);
-
                           return (
                             <tr
                               key={`${tag.id}-row`}
@@ -567,19 +575,21 @@ export default function CuratorTagsPage() {
                               )}
                             >
                               <td className="px-4 py-4 text-left">
-                                <div className="space-y-2 break-words">
+                                <div className="min-w-0">
                                   <Link
                                     href={buildTagDetailHref(
                                       tag.backendId ?? tag.id,
                                     )}
-                                    className="inline-flex max-w-full items-center rounded-full border px-3 py-1.5 text-xs font-medium leading-5 transition hover:opacity-85 sm:text-sm"
-                                    style={{
-                                      color: tag.color,
-                                      backgroundColor: colorState.chipBg,
-                                      borderColor: colorState.chipBorder,
-                                    }}
+                                    className="inline-flex max-w-full transition hover:opacity-85"
                                   >
-                                    {buildTagChipLabel(tag.name)}
+                                    <TagIdentityChip
+                                      name={tag.name}
+                                      imageUrl={tag.imageUrl}
+                                      accentColor={tag.color}
+                                      className="max-w-full"
+                                      avatarClassName="h-11 w-11"
+                                      labelClassName="text-sm"
+                                    />
                                   </Link>
                                 </div>
                               </td>
@@ -755,28 +765,43 @@ export default function CuratorTagsPage() {
                 />
               </div>
 
-              <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-medium text-slate-900">
-                  Xem trước thẻ
-                </p>
-
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <div
-                    className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium"
-                    style={{
-                      color: formColor,
-                      backgroundColor: getTagColorState(formColor).chipBg,
-                      borderColor: getTagColorState(formColor).chipBorder,
-                    }}
-                  >
-                    <span>{buildTagChipLabel(formName || "Thẻ mới")}</span>
-                    {isEditing ? (
-                      <span className="opacity-75">
-                        {Number(formUsageCount) >= 0 ? formUsageCount : "0"}
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-900">
+                  Ảnh thẻ
+                </label>
+                <input
+                  key={formImageInputKey}
+                  id="tag-image-file"
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(event) =>
+                    setFormImageFile(event.target.files?.[0] ?? null)
+                  }
+                  disabled={isSubmitting}
+                />
+                <label
+                  htmlFor="tag-image-file"
+                  className={cn(
+                    "flex min-h-12 w-full items-center gap-3 rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm transition",
+                    isSubmitting
+                      ? "cursor-not-allowed bg-slate-50 opacity-60"
+                      : "cursor-pointer hover:border-slate-300",
+                  )}
+                >
+                  <span className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full bg-slate-100 px-4 text-sm font-medium text-slate-700">
+                    <ImagePlus className="h-4 w-4" />
+                    Chọn ảnh
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-slate-500">
+                    {formImageFile ? formImageFile.name : "Chưa chọn tệp"}
+                  </span>
+                </label>
+                {isEditing ? (
+                  <p className="text-xs text-slate-500">
+                    Không chọn ảnh mới thì hệ thống giữ ảnh hiện tại.
+                  </p>
+                ) : null}
               </div>
 
               {formError ? (
