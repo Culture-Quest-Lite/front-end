@@ -242,6 +242,71 @@ export interface GetPostsParams {
   size?: number;
 }
 
+/**
+ * Dashboard tổng quan của Admin — `GET /api/admin/dashboard`.
+ *
+ * Tên field viết tắt (`d`/`v`, `m`/`u`, `r`/`views`/`completes`) là do backend
+ * chủ động `@JsonProperty` cho khớp với `dataKey` mà các biểu đồ recharts ở
+ * trang /admin đang dùng, nên response cắm thẳng vào chart được, không cần map.
+ */
+export interface AdminDashboardSummary {
+  checkInsToday: number;
+  checkInsYesterday: number;
+  /** `null` khi hôm qua = 0 (không chia được), KHÔNG phải 0%. */
+  checkInsChangePercent: number | null;
+  publishedHotspots: number;
+  publishedHotspotsThisWeek: number;
+  totalUsers: number;
+  activeUsers: number;
+  newUsersThisMonth: number;
+  pendingPosts: number;
+}
+
+export interface CheckInTrendPoint {
+  /** Nhãn thứ trong tuần: T2..T7, CN. */
+  d: string;
+  v: number;
+  date: string;
+}
+
+export interface UserGrowthPoint {
+  /** Nhãn tháng: "Thg 1".."Thg 12". */
+  m: string;
+  u: number;
+  year: number;
+  month: number;
+}
+
+export interface RouteEngagementPoint {
+  routeId: number;
+  r: string;
+  /** Số lượt bắt đầu tuyến (RouteParticipant), không phải lượt xem. */
+  views: number;
+  completes: number;
+  /** Phần trăm hoàn thành, `null` khi chưa có lượt bắt đầu nào. */
+  completionRate: number | null;
+}
+
+export interface AdminRevenueSummary {
+  totalRevenue: number;
+  partnerRevenue: number;
+  premiumRevenue: number;
+  revenueThisMonth: number;
+  revenueLastMonth: number;
+  revenueChangePercent: number | null;
+  paidInvoices: number;
+  activePartnerSubscriptions: number;
+  activePremiumSubscriptions: number;
+}
+
+export interface AdminDashboard {
+  summary: AdminDashboardSummary;
+  checkInTrend: CheckInTrendPoint[];
+  userGrowth: UserGrowthPoint[];
+  routeEngagement: RouteEngagementPoint[];
+  revenue: AdminRevenueSummary;
+}
+
 function adminPath(path: string) {
   return `/api/admin${path}`;
 }
@@ -258,6 +323,13 @@ function buildQuery(params: Record<string, string | number | undefined>) {
 }
 
 export const adminApi = {
+  getDashboard: async () => {
+    return apiFetch<AdminDashboard>(adminPath("/dashboard"), {
+      method: "GET",
+      sameOrigin: true,
+    });
+  },
+
   getUsers: async (params: GetUsersParams = {}) => {
     const query = buildQuery({
       page: params.page,
