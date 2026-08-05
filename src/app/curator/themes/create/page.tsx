@@ -176,7 +176,7 @@ export default function CreateThemePage() {
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="Ví dụ: Dòng thời gian lịch sử"
-                className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
 
@@ -203,7 +203,7 @@ export default function CreateThemePage() {
                 </label>
 
                 <div className="flex items-center gap-3">
-                  <label className="relative block h-12 w-12 shrink-0 cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <label className="relative block h-11 w-11 shrink-0 cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                     <span
                       className="absolute inset-[3px] rounded-[0.8rem]"
                       style={{
@@ -233,7 +233,7 @@ export default function CreateThemePage() {
                       setAccentColor(normalizeHexColorInput(event.target.value))
                     }
                     className={cn(
-                      "h-12 rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm uppercase text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20",
+                      "h-10 rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] uppercase text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20",
                       !isValidHexColor(accentColor) &&
                         "border-[#DE4C3D] focus:border-[#DE4C3D] focus:ring-[#DE4C3D]/15",
                     )}

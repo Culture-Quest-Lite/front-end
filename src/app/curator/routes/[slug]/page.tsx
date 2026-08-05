@@ -22,6 +22,9 @@ const statusLabels: Record<string, string> = {
   DELETED: "Đã xoá",
 };
 
+const BADGE_CLASS =
+  "inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700 shadow-sm";
+
 function parseRouteId(value: string | string[] | undefined) {
   const raw = Array.isArray(value) ? value[0] : value;
   const parsed = Number(raw);
@@ -65,7 +68,7 @@ export default function CuratorRouteDetailPage() {
 
     async function loadRoute() {
       if (!routeId) {
-        setError("Route ID không hợp lệ.");
+        setError("Mã tuyến đường không hợp lệ.");
         setIsLoading(false);
         return;
       }
@@ -149,7 +152,7 @@ export default function CuratorRouteDetailPage() {
             <ArrowLeft className="h-2.5 w-2.5" />
           </Link>
           <div>
-            <h1 className="text-lg font-semibold tracking-[-0.03em] text-foreground">
+            <h1 className="text-lg font-semibold tracking-[-0.03em] text-foreground sm:text-xl">
               Chi tiết tuyến
             </h1>
             <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
@@ -175,14 +178,9 @@ export default function CuratorRouteDetailPage() {
           </div>
 
           <div className="flex flex-nowrap items-center gap-1.5 self-start xl:self-auto">
-            <span className="inline-flex shrink-0 whitespace-nowrap rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700 shadow-sm">
-              {formatStatus(route.status)}
-            </span>
+            <span className={BADGE_CLASS}>{formatStatus(route.status)}</span>
             {route.tags?.map((tag) => (
-              <span
-                key={tag.tagId}
-                className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-medium text-amber-700"
-              >
+              <span key={tag.tagId} className={BADGE_CLASS}>
                 <Tag className="mr-1 h-2.5 w-2.5" />
                 {tag.tagName}
               </span>

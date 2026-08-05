@@ -176,17 +176,21 @@ function buildSearchQuery(payload: RouteSearchRequest) {
   }
 
   payload.filters?.forEach((filter, index) => {
-    searchParams.set(`filters[${index}].field`, filter.field);
-    searchParams.set(`filters[${index}].operator`, filter.operator);
+    const filterKey = `filters[${index}]`;
+
+    searchParams.set(`${filterKey}.field`, filter.field);
+    searchParams.set(`${filterKey}.operator`, filter.operator);
 
     if (filter.value !== undefined && filter.value !== null) {
-      searchParams.set(`filters[${index}].value`, String(filter.value));
+      searchParams.set(`${filterKey}.value`, String(filter.value));
     }
 
-    filter.values?.forEach((value) => {
-      if (value !== null) {
-        searchParams.append(`filters[${index}].values`, String(value));
+    filter.values?.forEach((value, valueIndex) => {
+      if (value === undefined || value === null) {
+        return;
       }
+
+      searchParams.set(`${filterKey}.values[${valueIndex}]`, String(value));
     });
   });
 

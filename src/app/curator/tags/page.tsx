@@ -382,7 +382,7 @@ export default function CuratorTagsPage() {
           </div>
 
           <div className="relative w-full lg:max-w-[320px]">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             <Input
               value={searchQuery}
               onChange={(event) => {
@@ -390,7 +390,7 @@ export default function CuratorTagsPage() {
                 setCurrentPage(1);
               }}
               placeholder="Tìm thẻ phù hợp với địa điểm "
-              className="h-11 rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
+              className="h-9 rounded-full border border-slate-200 bg-white pl-9 pr-3.5 text-[13px] text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
             />
           </div>
 
@@ -408,7 +408,7 @@ export default function CuratorTagsPage() {
               <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 sm:text-sm">
                 <span className="inline-flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-sky-500" />
-                  Tuyến
+                  Tuyến đường
                 </span>
                 <span className="inline-flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
@@ -478,7 +478,7 @@ export default function CuratorTagsPage() {
                         </span>
                         <span className="inline-flex items-center gap-1.5">
                           <span className="h-2 w-2 rounded-full bg-sky-500" />
-                          Tuyến: {tag.routeCount}
+                          Tuyến đường: {tag.routeCount}
                         </span>
                         <span className="inline-flex items-center gap-1.5">
                           <span className="h-2 w-2 rounded-full bg-amber-500" />
@@ -500,7 +500,7 @@ export default function CuratorTagsPage() {
             <div className="mt-6 flex flex-col gap-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h3 className="text-base font-semibold tracking-tight text-slate-900">
+                  <h3 className="text-[0.8125rem] font-semibold tracking-tight text-slate-900">
                     Quản lý thẻ
                   </h3>
                   <p className="cq-page-subtitle mt-1 text-xs sm:text-sm">
@@ -548,7 +548,7 @@ export default function CuratorTagsPage() {
                             Thẻ
                           </th>
                           <th className="w-[10%] px-3 py-4 text-center text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                            Tuyến
+                            Tuyến đường
                           </th>
                           <th className="w-[12%] px-3 py-4 text-center text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
                             Câu chuyện
@@ -587,8 +587,8 @@ export default function CuratorTagsPage() {
                                       imageUrl={tag.imageUrl}
                                       accentColor={tag.color}
                                       className="max-w-full"
-                                      avatarClassName="h-11 w-11"
-                                      labelClassName="text-sm"
+                                      avatarClassName="h-8 w-8"
+                                      labelClassName="text-[0.8125rem]"
                                     />
                                   </Link>
                                 </div>
@@ -698,7 +698,7 @@ export default function CuratorTagsPage() {
 
                 {showEmptyState ? (
                   <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-card px-5 py-10 text-center">
-                    <p className="cq-card-title sm:text-base">
+                    <p className="cq-card-title">
                       Không tìm thấy thẻ
                     </p>
                     <p className="cq-page-subtitle mt-2">
@@ -759,7 +759,7 @@ export default function CuratorTagsPage() {
                   value={formName}
                   onChange={(event) => setFormName(event.target.value)}
                   placeholder="Ví dụ: Lịch sử kháng chiến"
-                  className="h-12 rounded-3xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
+                  className="h-10 rounded-3xl border border-slate-200 bg-white px-4 text-[13px] text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
                   autoFocus
                   disabled={isSubmitting}
                 />
@@ -783,7 +783,7 @@ export default function CuratorTagsPage() {
                 <label
                   htmlFor="tag-image-file"
                   className={cn(
-                    "flex min-h-12 w-full items-center gap-3 rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm transition",
+                    "flex min-h-10 w-full items-center gap-3 rounded-3xl border border-slate-200 bg-white px-4 py-3 text-[13px] shadow-sm transition",
                     isSubmitting
                       ? "cursor-not-allowed bg-slate-50 opacity-60"
                       : "cursor-pointer hover:border-slate-300",

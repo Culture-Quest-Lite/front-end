@@ -287,7 +287,7 @@ export function LevelEditorForm({ mode, levelId }: LevelEditorFormProps) {
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Ví dụ: 1, 2, 3"
-                className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                 disabled={isSubmitting || isLoadingLevel || !!loadError}
                 autoFocus
               />
@@ -308,7 +308,7 @@ export function LevelEditorForm({ mode, levelId }: LevelEditorFormProps) {
                 value={requiredXp}
                 onChange={(event) => setRequiredXp(event.target.value)}
                 placeholder="Ví dụ: 100"
-                className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                 disabled={isSubmitting || isLoadingLevel || !!loadError}
               />
             </div>

@@ -559,7 +559,7 @@ function HotspotCreatePageContent() {
                       updateField("hotspotName", event.target.value)
                     }
                     placeholder="Hãy nhập tên địa điểm"
-                    className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
                 <div>
@@ -587,7 +587,7 @@ function HotspotCreatePageContent() {
                         }, 150);
                       }}
                       placeholder="Tìm địa chỉ bằng Goong"
-                      className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 pr-11 pl-11 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 pr-11 pl-11 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                     {isSearchingAddress || isResolvingPlace ? (
                       <LoaderCircle className="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
@@ -721,7 +721,7 @@ function HotspotCreatePageContent() {
                         updateField("xp", event.target.value)
                       }
                       placeholder="Hãy nhập XP thưởng"
-                      className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                   <div>
@@ -737,7 +737,7 @@ function HotspotCreatePageContent() {
                         updateField("point", event.target.value)
                       }
                       placeholder="Hãy nhập điểm thưởng"
-                      className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                 </div>
@@ -760,7 +760,7 @@ function HotspotCreatePageContent() {
                         updateField("latitude", event.target.value)
                       }
                       placeholder="Chọn địa chỉ từ Goong để lấy vĩ độ"
-                      className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                   <div>
@@ -775,7 +775,7 @@ function HotspotCreatePageContent() {
                         updateField("longitude", event.target.value)
                       }
                       placeholder="Chọn địa chỉ từ Goong để lấy kinh độ"
-                      className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                 </div>
@@ -795,7 +795,7 @@ function HotspotCreatePageContent() {
                         updateField("estimatedDurationMin", event.target.value)
                       }
                       placeholder="Hãy nhập thời lượng tối thiểu"
-                      className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                   <div>
@@ -812,7 +812,7 @@ function HotspotCreatePageContent() {
                         updateField("estimatedDurationMax", event.target.value)
                       }
                       placeholder="Hãy nhập thời lượng tối đa"
-                      className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                 </div>
@@ -831,7 +831,7 @@ function HotspotCreatePageContent() {
                         updateField("startTime", event.target.value)
                       }
                       placeholder="Hãy nhập thời gian bắt đầu"
-                      className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                   <div>
@@ -847,7 +847,7 @@ function HotspotCreatePageContent() {
                         updateField("endTime", event.target.value)
                       }
                       placeholder="Hãy nhập thời gian kết thúc"
-                      className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                   <div>
@@ -860,7 +860,7 @@ function HotspotCreatePageContent() {
                         updateField("openingTime", event.target.value)
                       }
                       placeholder="Hãy nhập giờ mở cửa"
-                      className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                   <div>
@@ -873,7 +873,7 @@ function HotspotCreatePageContent() {
                         updateField("closingTime", event.target.value)
                       }
                       placeholder="Hãy nhập giờ đóng cửa"
-                      className="h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                 </div>
