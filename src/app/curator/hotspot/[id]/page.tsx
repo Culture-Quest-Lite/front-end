@@ -107,9 +107,9 @@ const STORY_STATUS_META: Record<string, { label: string; style: string }> = {
 
 function MetricTile({ value, label }: { value: string; label: string }) {
   return (
-    <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3">
-      <p className="text-xl font-normal text-slate-950">{value}</p>
-      <p className="cq-label mt-1">{label}</p>
+    <div className="rounded-[1.15rem] border border-slate-200 bg-slate-50 px-3 py-2.5">
+      <p className="text-base font-normal text-slate-950">{value}</p>
+      <p className="cq-label mt-0.5 text-[10px]">{label}</p>
     </div>
   );
 }
@@ -226,7 +226,7 @@ export async function renderHotspotDetailPage({
   const showStorySection = hotspotStories.length > 0;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {effectiveHotspotId ? (
         <HotspotDetailNetworkSync hotspotId={effectiveHotspotId} />
       ) : null}
@@ -248,36 +248,36 @@ export async function renderHotspotDetailPage({
         </div>
       </div>
 
-      <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="max-w-4xl">
             <p className="cq-kicker">Tổng quan địa điểm</p>
             <h1
-              className="cq-page-title mt-3"
+              className="cq-page-title mt-2"
               style={{ fontFamily: "'Playfair Display', serif" }}
             >
               {hotspot.title}
             </h1>
             {hotspot.subtitle ? (
-              <p className="mt-2 text-sm font-normal text-slate-500">
+              <p className="mt-1.5 text-[13px] font-normal text-slate-500">
                 {hotspot.subtitle}
               </p>
             ) : null}
             {hotspot.description ? (
-              <p className="cq-body-copy mt-5 max-w-3xl">
+              <p className="cq-body-copy mt-3.5 max-w-3xl">
                 {hotspot.description}
               </p>
             ) : null}
           </div>
 
-          <div className="flex w-full flex-col gap-3 xl:w-auto xl:items-end">
+          <div className="flex w-full flex-col gap-2 xl:w-auto xl:items-end">
             {hotspot.badge || googleMapsUrl ? (
               <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start xl:justify-end">
                 {hotspot.badge ? (
                   <span
-                    className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm ${hotspot.statusStyle}`}
+                    className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-sm ${hotspot.statusStyle}`}
                   >
-                    <ShieldCheck className="h-3.5 w-3.5" />
+                    <ShieldCheck className="h-3 w-3" />
                     {hotspot.badge}
                   </span>
                 ) : null}
@@ -286,9 +286,9 @@ export async function renderHotspotDetailPage({
                     href={googleMapsUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800"
+                    className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-slate-950 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-slate-800"
                   >
-                    <ExternalLink className="h-3.5 w-3.5" />
+                    <ExternalLink className="h-3 w-3" />
                     Xem bản đồ
                   </a>
                 ) : null}
@@ -299,7 +299,7 @@ export async function renderHotspotDetailPage({
                 {hotspot.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-normal text-amber-700"
+                    className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-normal text-amber-700"
                   >
                     {tag}
                   </span>
@@ -310,7 +310,7 @@ export async function renderHotspotDetailPage({
         </div>
 
         {summaryMetrics.length > 0 ? (
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
             {summaryMetrics.map((metric) => (
               <MetricTile
                 key={`${metric.label}-${metric.value}`}
@@ -321,15 +321,15 @@ export async function renderHotspotDetailPage({
           </div>
         ) : null}
 
-        <div className="mt-6 grid gap-4">
+        <div className="mt-4 grid gap-3">
           {hotspot.address ? (
-            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
-              <div className="flex items-start gap-3">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+            <div className="rounded-[1.15rem] border border-slate-200 bg-slate-50 px-3.5 py-3 sm:px-4">
+              <div className="flex items-start gap-2.5">
+                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
                 <div>
                   <p className="cq-label">Vị trí</p>
                   {hotspot.address ? (
-                    <p className="mt-1 text-sm font-normal leading-6 text-slate-900">
+                    <p className="mt-0.5 text-[13px] font-normal leading-5 text-slate-900">
                       {hotspot.address}
                     </p>
                   ) : null}
@@ -339,30 +339,30 @@ export async function renderHotspotDetailPage({
           ) : null}
 
           {historyInformation ? (
-            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
+            <div className="rounded-[1.15rem] border border-slate-200 bg-slate-50 px-3.5 py-3 sm:px-4">
               <div className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-amber-700" />
+                <BookOpen className="h-3.5 w-3.5 text-amber-700" />
                 <p className="cq-label">Thông tin lịch sử</p>
               </div>
-              <p className="mt-2 text-sm font-normal leading-6 text-slate-900">
+              <p className="mt-1.5 text-[13px] font-normal leading-6 text-slate-900">
                 {historyInformation}
               </p>
             </div>
           ) : null}
 
           {profile.estimatedVisit || profile.bestTime ? (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               {profile.estimatedVisit ? (
-                <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
-                  <div className="flex items-center gap-3">
-                    <Clock3 className="h-4 w-4 text-amber-600" />
+                <div className="rounded-[1.15rem] border border-slate-200 bg-slate-50 px-3.5 py-3 sm:px-4">
+                  <div className="flex items-center gap-2.5">
+                    <Clock3 className="h-3.5 w-3.5 text-amber-600" />
                     <div>
                       <p className="cq-label">
                         {isBackendDetail
                           ? "Thời gian mở/đóng cửa"
                           : "Thời lượng tham quan"}
                       </p>
-                      <p className="cq-card-title mt-1 font-normal">
+                      <p className="cq-card-title mt-0.5 font-normal">
                         {profile.estimatedVisit}
                       </p>
                     </div>
@@ -371,12 +371,12 @@ export async function renderHotspotDetailPage({
               ) : null}
 
               {profile.bestTime ? (
-                <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
-                  <div className="flex items-center gap-3">
-                    <Compass className="h-4 w-4 text-emerald-600" />
+                <div className="rounded-[1.15rem] border border-slate-200 bg-slate-50 px-3.5 py-3 sm:px-4">
+                  <div className="flex items-center gap-2.5">
+                    <Compass className="h-3.5 w-3.5 text-emerald-600" />
                     <div>
                       <p className="cq-label">Khung giờ đẹp</p>
-                      <p className="cq-card-title mt-1 font-normal">
+                      <p className="cq-card-title mt-0.5 font-normal">
                         {profile.bestTime}
                       </p>
                     </div>
@@ -387,9 +387,9 @@ export async function renderHotspotDetailPage({
           ) : null}
         </div>
 
-        <div className="mt-8 space-y-8 border-t border-slate-200 pt-8">
-          <div className="space-y-5">
-            <div className="flex flex-col gap-1">
+        <div className="mt-6 space-y-6 border-t border-slate-200 pt-6">
+          <div className="space-y-3.5">
+            <div className="flex flex-col gap-0.5">
               <h2 className="cq-section-title">Hình ảnh & video</h2>
               <p className="cq-page-subtitle">
                 Chuyển giữa ảnh và video của địa điểm ngay trong trang chi tiết.
@@ -410,8 +410,8 @@ export async function renderHotspotDetailPage({
           </div>
 
           {showEditorialInfo ? (
-            <div className="space-y-5 border-t border-slate-200 pt-8">
-              <div className="flex flex-col gap-1">
+            <div className="space-y-3.5 border-t border-slate-200 pt-6">
+              <div className="flex flex-col gap-0.5">
                 <h2 className="cq-section-title">Thông tin biên tập</h2>
                 <p className="cq-page-subtitle">
                   Tổng hợp trạng thái quản trị và lịch sử cập nhật chính.
@@ -419,7 +419,7 @@ export async function renderHotspotDetailPage({
               </div>
 
               <div
-                className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:[grid-template-columns:repeat(var(--editorial-columns),minmax(0,1fr))]"
+                className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:[grid-template-columns:repeat(var(--editorial-columns),minmax(0,1fr))]"
                 style={
                   {
                     "--editorial-columns": String(editorialColumnCount || 1),
@@ -429,7 +429,7 @@ export async function renderHotspotDetailPage({
                 {filteredEditorialCards.map((item) => (
                   <div
                     key={item.key}
-                    className="h-full rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3"
+                    className="h-full rounded-[1.15rem] border border-slate-200 bg-slate-50 px-3.5 py-2.5"
                   >
                     {item.icon ? (
                       <div className="flex items-center gap-2">
@@ -439,7 +439,7 @@ export async function renderHotspotDetailPage({
                     ) : (
                       <p className="cq-label">{item.label}</p>
                     )}
-                    <p className="cq-card-title mt-2 font-normal">
+                    <p className="cq-card-title mt-1.5 font-normal">
                       {item.value}
                     </p>
                   </div>
@@ -449,7 +449,7 @@ export async function renderHotspotDetailPage({
           ) : null}
 
           {showStorySection ? (
-            <div className="space-y-5 border-t border-slate-200 pt-8">
+            <div className="space-y-3.5 border-t border-slate-200 pt-6">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="cq-section-title">Câu chuyện liên kết</h2>
@@ -457,12 +457,12 @@ export async function renderHotspotDetailPage({
                     Khám phá thêm những câu chuyện nổi bật gắn với địa điểm này.
                   </p>
                 </div>
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
                   {hotspotStories.length} câu chuyện
                 </span>
               </div>
 
-              <div className="grid gap-4">
+              <div className="grid gap-3">
                 {hotspotStories.map((story) => {
                   const storyStatusMeta = getStoryStatusMeta(story.status);
                   const storyPreviewImage = getStoryPreviewImageUrl(story);
@@ -476,8 +476,8 @@ export async function renderHotspotDetailPage({
                       key={story.storyId}
                       className="overflow-hidden border border-slate-200 bg-white"
                     >
-                      <div className="grid gap-0 lg:grid-cols-[220px_minmax(0,1fr)]">
-                        <div className="relative min-h-[170px] overflow-hidden bg-slate-100 lg:min-h-[190px]">
+                      <div className="grid gap-0 lg:grid-cols-[180px_minmax(0,1fr)]">
+                        <div className="relative min-h-[140px] overflow-hidden bg-slate-100 lg:min-h-[155px]">
                           {storyPreviewImage ? (
                             <div
                               aria-hidden="true"
@@ -504,7 +504,7 @@ export async function renderHotspotDetailPage({
                           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/35 to-transparent" />
                         </div>
 
-                        <div className="flex flex-col justify-between p-4 sm:p-5">
+                        <div className="flex flex-col justify-between p-3.5 sm:p-4">
                           <div>
                             <div className="flex flex-wrap items-center gap-1.5">
                               {story.tag?.tagName?.trim() ? (
@@ -523,20 +523,20 @@ export async function renderHotspotDetailPage({
 
                             <Link
                               href={`/curator/stories/${story.storyId}`}
-                              className="mt-3 block text-[1rem] font-semibold leading-snug tracking-[-0.02em] text-slate-950 transition hover:text-[#C94534] sm:text-[1.05rem]"
+                              className="mt-2.5 block text-[0.9rem] font-semibold leading-snug tracking-[-0.02em] text-slate-950 transition hover:text-[#C94534] sm:text-[0.95rem]"
                             >
                               {story.title}
                             </Link>
 
                             {story.content?.trim() ? (
-                              <p className="mt-2.5 text-[13px] leading-6 text-slate-600 sm:text-sm">
+                              <p className="mt-2 text-[12px] leading-5 text-slate-600 sm:text-[13px]">
                                 {truncateText(story.content.trim(), 220)}
                               </p>
                             ) : null}
                           </div>
 
-                          <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-3">
-                            <div className="flex flex-wrap gap-1.5 text-[11px] font-medium text-slate-600">
+                          <div className="mt-3 flex flex-col gap-2.5 border-t border-slate-100 pt-2.5">
+                            <div className="flex flex-wrap gap-1.5 text-[10px] font-medium text-slate-600">
                               <span className="rounded-full bg-slate-100 px-2.5 py-1">
                                 {storyMediaSummary}
                               </span>
@@ -551,7 +551,7 @@ export async function renderHotspotDetailPage({
                             <div className="flex justify-end">
                               <Link
                                 href={`/curator/stories/${story.storyId}`}
-                                className="inline-flex items-center gap-1.5 rounded-full bg-slate-950 px-3.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-slate-800 sm:text-xs"
+                                className="inline-flex items-center gap-1.5 rounded-full bg-slate-950 px-3 py-1 text-[10px] font-semibold text-white transition hover:bg-slate-800 sm:text-[11px]"
                               >
                                 Đọc câu chuyện
                                 <ExternalLink className="h-3 w-3" />

@@ -149,7 +149,7 @@ function StatusBadge({ status }: { status: StoryStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-sm",
+        "inline-flex rounded-full px-2.5 py-1 text-xs font-medium leading-5 shadow-sm",
         statusBadgeClasses[status],
       )}
     >
@@ -459,6 +459,13 @@ export default function CuratorStoriesPage() {
     setDraftRouteId(value);
   }
 
+  const activeFilterCount = [
+    selectedStatus !== "all",
+    selectedTagId !== "all",
+    selectedHotspotId.trim() !== "",
+    selectedRouteId.trim() !== "",
+  ].filter(Boolean).length;
+
   function handleToggleFilterPanel() {
     setIsFilterOpen((current) => {
       if (current) {
@@ -569,38 +576,53 @@ export default function CuratorStoriesPage() {
 
         <div className="relative flex w-full flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative flex w-full items-center gap-3">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <div className="relative w-full lg:max-w-[320px]">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <Input
                 value={searchQuery}
                 onChange={(event) => handleSearchChange(event.target.value)}
-                placeholder="Tìm story phù hợp"
-                className="h-11 w-full rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
+                placeholder="Tìm câu chuyện phù hợp"
+                className="h-9 w-full rounded-full border border-slate-200 bg-white pl-9 pr-3.5 text-[13px] text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
               />
             </div>
 
             <div className="relative">
-              <Button
+              <button
                 type="button"
-                variant="secondary"
-                size="lg"
                 onClick={handleToggleFilterPanel}
+                aria-expanded={isFilterOpen}
+                aria-haspopup="dialog"
                 data-story-filter-toggle
-                className="inline-flex items-center gap-2 rounded-full px-4 py-3 text-slate-700 shadow-sm transition hover:bg-slate-100"
+                className={`group relative inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[12px] font-medium shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 ${
+                  isFilterOpen
+                    ? "border-[#F7DCE8] bg-[#FFF1F7] text-[#D94A8D] shadow-md"
+                    : "border-slate-200 bg-white text-slate-700 hover:border-[#F7DCE8] hover:bg-[#FFF1F7] hover:text-[#D94A8D]"
+                }`}
               >
-                <Filter className="h-4 w-4" />
+                <Filter className="h-3.5 w-3.5" />
                 Bộ lọc nâng cao
-                <ChevronDown className="h-4 w-4" />
-              </Button>
+                {activeFilterCount > 0 ? (
+                  <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-semibold text-primary-foreground">
+                    {activeFilterCount}
+                  </span>
+                ) : null}
+                <ChevronDown
+                  className={`h-3.5 w-3.5 text-slate-400 transition ${
+                    isFilterOpen
+                      ? "rotate-180 text-[#D94A8D]"
+                      : "group-hover:text-[#D94A8D]"
+                  }`}
+                />
+              </button>
 
               {isFilterOpen ? (
                 <div
                   data-story-filter-panel
-                  className="absolute right-0 top-full z-20 mt-3 w-[min(28rem,calc(100vw-2rem))] rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-[0_20px_40px_-16px_rgba(15,23,42,0.15)]"
+                  className="absolute right-0 top-full z-20 mt-2 w-[min(23rem,calc(100vw-2rem))] rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-[0_20px_40px_-16px_rgba(15,23,42,0.15)]"
                 >
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-2.5 sm:grid-cols-2">
                     <div className="relative">
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                         Trạng thái
                       </label>
                       <select
@@ -610,7 +632,7 @@ export default function CuratorStoriesPage() {
                             event.target.value as StoryStatus | "all",
                           )
                         }
-                        className="h-11 w-full appearance-none rounded-full border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className="h-9 w-full appearance-none rounded-full border border-slate-200 bg-white px-3.5 pr-9 text-[13px] text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                       >
                         {statusOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -618,11 +640,11 @@ export default function CuratorStoriesPage() {
                           </option>
                         ))}
                       </select>
-                      <ChevronDown className="pointer-events-none absolute right-4 top-[54%] h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <ChevronDown className="pointer-events-none absolute right-3.5 top-[56%] h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                     </div>
 
                     <div className="relative">
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                         Thẻ
                       </label>
                       <select
@@ -634,7 +656,7 @@ export default function CuratorStoriesPage() {
                               : Number(event.target.value),
                           )
                         }
-                        className="h-11 w-full appearance-none rounded-full border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className="h-9 w-full appearance-none rounded-full border border-slate-200 bg-white px-3.5 pr-9 text-[13px] text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                       >
                         <option value="all">Tất cả thẻ</option>
                         {availableTags.map((tag) => (
@@ -643,11 +665,11 @@ export default function CuratorStoriesPage() {
                           </option>
                         ))}
                       </select>
-                      <ChevronDown className="pointer-events-none absolute right-4 top-[54%] h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <ChevronDown className="pointer-events-none absolute right-3.5 top-[56%] h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                     </div>
 
                     <div className="relative">
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                         Địa điểm
                       </label>
                       <select
@@ -655,7 +677,7 @@ export default function CuratorStoriesPage() {
                         onChange={(event) =>
                           handleDraftHotspotFilterChange(event.target.value)
                         }
-                        className="h-11 w-full appearance-none rounded-full border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className="h-9 w-full appearance-none rounded-full border border-slate-200 bg-white px-3.5 pr-9 text-[13px] text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                       >
                         <option value="">Tất cả địa điểm</option>
                         {availableHotspots.map((hotspot) => (
@@ -664,11 +686,11 @@ export default function CuratorStoriesPage() {
                           </option>
                         ))}
                       </select>
-                      <ChevronDown className="pointer-events-none absolute right-4 top-[54%] h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <ChevronDown className="pointer-events-none absolute right-3.5 top-[56%] h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                     </div>
 
                     <div className="relative">
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                         Tuyến đường
                       </label>
                       <select
@@ -676,7 +698,7 @@ export default function CuratorStoriesPage() {
                         onChange={(event) =>
                           handleDraftRouteFilterChange(event.target.value)
                         }
-                        className="h-11 w-full appearance-none rounded-full border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className="h-9 w-full appearance-none rounded-full border border-slate-200 bg-white px-3.5 pr-9 text-[13px] text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                       >
                         <option value="">Tất cả tuyến đường</option>
                         {availableRoutes.map((route) => (
@@ -685,17 +707,17 @@ export default function CuratorStoriesPage() {
                           </option>
                         ))}
                       </select>
-                      <ChevronDown className="pointer-events-none absolute right-4 top-[54%] h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <ChevronDown className="pointer-events-none absolute right-3.5 top-[56%] h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                     </div>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-end gap-2">
+                  <div className="mt-3 flex items-center justify-end gap-2">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       onClick={handleResetAdvancedFilters}
-                      className="rounded-full border-slate-200 px-4 text-slate-600 hover:bg-slate-50"
+                      className="h-8 rounded-full border-slate-200 px-3.5 text-[12px] text-slate-600 hover:bg-slate-50"
                     >
                       Xóa lọc
                     </Button>
@@ -703,7 +725,7 @@ export default function CuratorStoriesPage() {
                       type="button"
                       size="sm"
                       onClick={handleApplyAdvancedFilters}
-                      className="rounded-full px-4"
+                      className="h-8 rounded-full px-3.5 text-[12px]"
                     >
                       Áp dụng
                     </Button>
@@ -717,37 +739,31 @@ export default function CuratorStoriesPage() {
         <section className="flex flex-1 flex-col gap-5">
           <div>
             {loadStoriesError ? (
-              <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 px-5 py-8 text-center text-sm text-rose-700">
+              <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 px-5 py-10 text-center text-sm text-rose-700">
                 Không thể tải câu chuyện: {loadStoriesError}
               </div>
             ) : isLoadingStories ? (
-              <div className="rounded-[1.5rem] border border-slate-200 bg-white px-5 py-8 text-center text-sm text-slate-600">
+              <div className="rounded-[1.5rem] border border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-600">
                 Đang tải dữ liệu câu chuyện...
               </div>
             ) : stories.length > 0 ? (
               <div className="rounded-[1.5rem] border border-slate-200 bg-white overflow-visible">
-                <table className="w-full min-w-[980px] border-collapse">
+                <table className="w-full min-w-[760px] border-collapse">
                   <thead>
                     <tr className="bg-slate-50/90 text-left">
-                      <th className="w-14 px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      <th className="w-14 px-4 py-4 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
                         #
                       </th>
-                      <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
                         Tiêu đề
                       </th>
-                      <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
                         Tên thẻ
                       </th>
-                      <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                        Thứ tự
-                      </th>
-                      <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                        Khoảng cách
-                      </th>
-                      <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
                         Trạng thái
                       </th>
-                      <th className="px-4 py-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 whitespace-nowrap">
+                      <th className="px-4 py-4 text-right text-xs font-semibold uppercase tracking-[0.14em] text-slate-400 whitespace-nowrap">
                         Thao tác
                       </th>
                     </tr>
@@ -779,16 +795,6 @@ export default function CuratorStoriesPage() {
                             {story.tagName}
                           </td>
                           <td className="px-4 py-4">
-                            <span className="inline-flex px-3 py-1 text-xs font-medium text-slate-700">
-                              {story.orderIndexLabel}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4">
-                            <span className="inline-flex px-3 py-1 text-xs font-medium text-slate-700">
-                              {story.distanceToNextLabel}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4">
                             <StatusBadge status={story.statusLabel} />
                           </td>
                           <td className="px-4 py-4 text-right">
@@ -805,15 +811,15 @@ export default function CuratorStoriesPage() {
                                     isMenuOpen ? null : story.id,
                                   )
                                 }
-                                className={`rounded-full p-1.5 text-slate-600 transition hover:bg-slate-100 ${isMenuOpen ? "bg-slate-100" : "bg-white/90"}`}
+                                className={`inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 ${isMenuOpen ? "bg-slate-100" : ""}`}
                               >
-                                <MoreHorizontal className="h-3.5 w-3.5" />
+                                <MoreHorizontal className="h-4 w-4" />
                               </button>
 
                               {isMenuOpen ? (
                                 <div
                                   role="menu"
-                                  className="absolute right-0 top-[calc(100%+0.6rem)] w-40 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
+                                  className="absolute right-0 top-[calc(100%+0.6rem)] w-44 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
                                 >
                                   {storyActions.map((action) => {
                                     const ActionIcon = action.icon;
@@ -910,9 +916,7 @@ export default function CuratorStoriesPage() {
 
             {stories.length === 0 && !isLoadingStories && !loadStoriesError ? (
               <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-card px-5 py-10 text-center">
-                <p className="cq-card-title sm:text-base">
-                  Không tìm thấy câu chuyện
-                </p>
+                <p className="cq-card-title">Không tìm thấy câu chuyện</p>
                 <p className="cq-page-subtitle mt-2">
                   Thử đổi từ khóa, bộ lọc hoặc tạo một câu chuyện mới.
                 </p>

@@ -17,6 +17,7 @@ import {
   MapPinned,
   Search,
   Sparkles,
+  Tag,
   Upload,
   X,
 } from "lucide-react";
@@ -80,9 +81,9 @@ const HOTSPOTS_PER_PAGE = 8;
 const ROUTE_SUCCESS_TOAST_KEY = "curator-route-success-toast";
 
 const FORM_INPUT_CLASS =
-  "h-12 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20";
+  "h-10 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20";
 const FORM_TEXTAREA_CLASS =
-  "w-full min-w-0 resize-none break-words rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20";
+  "w-full min-w-0 resize-none break-words rounded-2xl border border-slate-200 bg-slate-50 p-3.5 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20";
 const STEP_SURFACE_CLASS = "min-w-0";
 
 const difficultyOptions: Array<{
@@ -176,18 +177,6 @@ function formatRouteStatusLabel(value: RouteStatus) {
   );
 }
 
-function getDifficultyBadgeClass(value: RouteDifficulty) {
-  if (value === "MEDIUM") {
-    return "bg-rose-100 text-rose-700";
-  }
-
-  if (value === "EASY") {
-    return "bg-emerald-100 text-emerald-700";
-  }
-
-  return "bg-amber-100 text-amber-700";
-}
-
 function getRouteStatusBadgeClass(value: RouteStatus) {
   if (value === "PUBLISHED") {
     return "bg-emerald-100 text-emerald-700";
@@ -229,7 +218,7 @@ function SummaryRow({
   value: string | number;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 text-sm">
+    <div className="flex items-start justify-between gap-4 text-[13px]">
       <span className="text-slate-500">{label}</span>
       <span className="text-right font-semibold text-slate-900">{value}</span>
     </div>
@@ -246,12 +235,14 @@ function EmptyStateCard({
   description: string;
 }) {
   return (
-    <div className="rounded-3xl border border-dashed border-emerald-200 bg-emerald-50/60 px-6 py-10 text-center">
-      <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-white text-emerald-600 shadow-sm">
+    <div className="rounded-3xl border border-dashed border-emerald-200 bg-emerald-50/60 px-6 py-8 text-center">
+      <div className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-white text-emerald-600 shadow-sm">
         {icon}
       </div>
-      <h3 className="mt-4 text-base font-semibold text-slate-900">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
+      <h3 className="mt-3 text-[13px] font-semibold text-slate-900">{title}</h3>
+      <p className="mt-1.5 text-[12px] leading-5 text-slate-500">
+        {description}
+      </p>
     </div>
   );
 }
@@ -275,7 +266,7 @@ function BuilderStep({
       onClick={onClick}
       disabled={!interactive}
       className={cn(
-        "inline-flex shrink-0 items-center gap-3 whitespace-nowrap rounded-full px-1 py-1.5 text-sm transition disabled:cursor-default disabled:opacity-100",
+        "inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-1 py-1 text-[12px] transition disabled:cursor-default disabled:opacity-100",
         state === "active"
           ? "bg-emerald-600/10 pr-4 text-emerald-700"
           : state === "completed"
@@ -287,7 +278,7 @@ function BuilderStep({
     >
       <span
         className={cn(
-          "inline-flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold",
+          "inline-flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold",
           state === "active"
             ? "bg-emerald-600 text-white shadow-sm"
             : state === "completed"
@@ -360,7 +351,7 @@ function HotspotLocationCard({
           variant={selected ? "outline" : "secondary"}
           size="sm"
           className={cn(
-            "w-full rounded-full px-4 text-sm",
+            "w-full rounded-full px-4 text-[12px]",
             selected
               ? "border-emerald-100 bg-emerald-50 text-emerald-500 hover:bg-emerald-100 hover:text-emerald-600"
               : "border border-pink-100 bg-pink-50 text-pink-700 hover:bg-pink-100",
@@ -403,21 +394,21 @@ function StoryAccordionCard({
       >
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <div
-            className="h-14 w-14 shrink-0 rounded-xl bg-slate-100 bg-cover bg-center"
+            className="h-11 w-11 shrink-0 rounded-xl bg-slate-100 bg-cover bg-center"
             style={image ? { backgroundImage: `url(${image})` } : undefined}
           />
           <div className="min-w-0 flex-1 px-1 py-1">
-            <h3 className="text-sm font-semibold leading-6 text-slate-900 break-words sm:text-base">
+            <h3 className="text-[13px] font-semibold leading-5 text-slate-900 break-words">
               {hotspot.hotspotName}
             </h3>
-            <p className="mt-1 text-xs leading-5 text-slate-500 break-words">
+            <p className="mt-1 text-[11px] leading-5 text-slate-500 break-words">
               {hotspot.address || "Địa chỉ đang cập nhật"}
             </p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-3">
           <span className="text-xs font-medium text-slate-500">
-            {stories.length} story
+            {stories.length} câu chuyện
           </span>
           <ChevronDown
             className={cn(
@@ -454,22 +445,22 @@ function StoryAccordionCard({
                         onChange={() =>
                           onToggleStory(hotspot.hotspotId, story.storyId)
                         }
-                        aria-label={`Chọn story ${story.title}`}
+                        aria-label={`Chọn câu chuyện ${story.title}`}
                         className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-semibold leading-6 text-slate-900 break-words">
+                          <p className="text-[13px] font-semibold leading-5 text-slate-900 break-words">
                             {story.title}
                           </p>
                           {story.tag?.tagName?.trim() ? (
-                            <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">
+                            <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
                               #{buildTagToken(story.tag.tagName)}
                             </span>
                           ) : null}
                         </div>
                         {story.content?.trim() ? (
-                          <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500 break-words">
+                          <p className="mt-1 line-clamp-2 text-[12px] leading-5 text-slate-500 break-words">
                             {story.content}
                           </p>
                         ) : null}
@@ -478,7 +469,7 @@ function StoryAccordionCard({
                     <Link
                       href={`/curator/stories/${story.storyId}`}
                       className="shrink-0 text-sm font-semibold text-slate-400 transition hover:text-emerald-700"
-                      aria-label={`Xem chi tiết story ${story.title}`}
+                      aria-label={`Xem chi tiết câu chuyện ${story.title}`}
                     >
                       ...
                     </Link>
@@ -540,20 +531,22 @@ function SortableHotspotRow({
         <div className="cursor-grab text-slate-400 active:cursor-grabbing">
           <GripVertical className="h-4 w-4" />
         </div>
-        <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
+        <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[12px] font-semibold text-white">
           {index + 1}
         </div>
         <div
-          className="h-12 w-12 shrink-0 rounded-xl bg-slate-100 bg-cover bg-center"
+          className="h-10 w-10 shrink-0 rounded-xl bg-slate-100 bg-cover bg-center"
           style={image ? { backgroundImage: `url(${image})` } : undefined}
         />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold leading-6 text-slate-900 break-words">
+          <p className="text-[13px] font-semibold leading-5 text-slate-900 break-words">
             {hotspot.hotspotName}
           </p>
-          <p className="mt-1 text-xs leading-5 text-slate-500 break-words">
+          <p className="mt-1 text-[11px] leading-5 text-slate-500 break-words">
             {selectedStoryCount}/{storyCount} câu chuyện · {hotspot.address}
-            {distanceToNextLabel ? ` · Tới điểm kế: ${distanceToNextLabel}` : ""}
+            {distanceToNextLabel
+              ? ` · Tới điểm kế: ${distanceToNextLabel}`
+              : ""}
           </p>
         </div>
       </div>
@@ -913,10 +906,9 @@ export default function CuratorRouteCreatePage() {
   );
   const suggestedDurationMinutes = Math.max(selectedHotspots.length * 30, 60);
   const suggestedDistanceKilometers = Number(
-    (
-      totalComputedRouteDistanceMeters > 0
-        ? totalComputedRouteDistanceMeters / 1000
-        : Math.max(selectedHotspots.length * 0.8, 1)
+    (totalComputedRouteDistanceMeters > 0
+      ? totalComputedRouteDistanceMeters / 1000
+      : Math.max(selectedHotspots.length * 0.8, 1)
     ).toFixed(totalComputedRouteDistanceMeters > 0 ? 2 : 1),
   );
   const suggestedRouteXp = Math.max(
@@ -948,7 +940,9 @@ export default function CuratorRouteCreatePage() {
     { length: hotspotPageCount },
     (_, index) => index + 1,
   );
-  const estimatedDistance = formatDistanceKilometers(resolvedDistanceKilometers);
+  const estimatedDistance = formatDistanceKilometers(
+    resolvedDistanceKilometers,
+  );
   const estimatedDuration = `${resolvedDurationMinutes} phút`;
 
   const routeInfoComplete =
@@ -1325,7 +1319,9 @@ export default function CuratorRouteCreatePage() {
 
       sessionStorage.setItem(
         ROUTE_SUCCESS_TOAST_KEY,
-        isEditing ? "Cập nhật tuyến thành công." : "Tạo tuyến đường thành công.",
+        isEditing
+          ? "Cập nhật tuyến thành công."
+          : "Tạo tuyến đường thành công.",
       );
       window.location.assign("/curator/routes");
     } catch (err) {
@@ -1364,7 +1360,7 @@ export default function CuratorRouteCreatePage() {
                   value={routeDescription}
                   onChange={(event) => setRouteDescription(event.target.value)}
                   placeholder="Mô tả ghi chú biên tập, sắc thái nội dung và trải nghiệm mong muốn."
-                  className={cn(FORM_TEXTAREA_CLASS, "min-h-36")}
+                  className={cn(FORM_TEXTAREA_CLASS, "min-h-28")}
                 />
               </div>
 
@@ -1435,7 +1431,7 @@ export default function CuratorRouteCreatePage() {
               </div>
 
               <div>
-                <label className="cq-label mb-2 block">XP</label>
+                <label className="cq-label mb-2 block">Điểm XP</label>
                 <Input
                   type="number"
                   min="0"
@@ -1448,7 +1444,7 @@ export default function CuratorRouteCreatePage() {
               </div>
 
               <div>
-                <label className="cq-label mb-2 block">Point</label>
+                <label className="cq-label mb-2 block">Điểm thưởng</label>
                 <Input
                   type="number"
                   min="0"
@@ -1494,7 +1490,7 @@ export default function CuratorRouteCreatePage() {
               <h2 className="cq-section-title">Ảnh bìa</h2>
               <label
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium shadow-sm",
+                  "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[12px] font-medium shadow-sm",
                   isEditing
                     ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
                     : "cursor-pointer border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50",
@@ -1525,13 +1521,13 @@ export default function CuratorRouteCreatePage() {
             <div className="overflow-hidden rounded-3xl border border-dashed border-slate-200 bg-white">
               {coverPreviewUrl ? (
                 <div
-                  className="h-78 bg-cover bg-center"
+                  className="h-56 bg-cover bg-center"
                   style={{ backgroundImage: `url(${coverPreviewUrl})` }}
                 />
               ) : (
                 <div className="grid h-48 place-items-center px-6 text-center">
                   <div>
-                    <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-slate-50 text-emerald-600 shadow-sm">
+                    <div className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-slate-50 text-emerald-600 shadow-sm">
                       <ImageIcon className="h-5 w-5" />
                     </div>
                     <p className="mt-3 text-sm font-medium text-slate-700">
@@ -1547,7 +1543,7 @@ export default function CuratorRouteCreatePage() {
                 {selectedFiles.map((file, index) => (
                   <div
                     key={`${file.name}-${file.size}-${index}`}
-                    className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm text-slate-700 shadow-sm"
+                    className="flex items-center gap-3 rounded-2xl bg-white px-4 py-2.5 text-[13px] text-slate-700 shadow-sm"
                   >
                     <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-slate-50 text-emerald-600 shadow-sm">
                       <ImageIcon className="h-5 w-5" />
@@ -1584,14 +1580,14 @@ export default function CuratorRouteCreatePage() {
         <div className="min-w-0 space-y-5">
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <Input
                 value={searchQuery}
                 onChange={(event) =>
                   handleSearchQueryChange(event.target.value)
                 }
                 placeholder="Tìm theo tên địa điểm hoặc địa chỉ..."
-                className={cn(FORM_INPUT_CLASS, "pl-11")}
+                className={cn(FORM_INPUT_CLASS, "h-9 pl-9")}
               />
             </div>
 
@@ -1612,7 +1608,7 @@ export default function CuratorRouteCreatePage() {
             ) : null}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-[12px] text-slate-600">
             <span>
               {filteredHotspots.length} địa điểm đã xuất bản ·{" "}
               {selectedHotspots.length} điểm đang được chọn
@@ -1765,7 +1761,8 @@ export default function CuratorRouteCreatePage() {
                         0
                       }
                       distanceToNextLabel={
-                        routeDistanceToNextByHotspotId[hotspot.hotspotId] ?? null
+                        routeDistanceToNextByHotspotId[hotspot.hotspotId] ??
+                        null
                       }
                       onDragStart={handleSortDragStart}
                       onDragEnd={handleSortDragEnd}
@@ -1817,27 +1814,17 @@ export default function CuratorRouteCreatePage() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-yellow-900">
               Tổng quan tuyến
             </p>
-            <h2 className="mt-3 text-xl font-semibold tracking-[-0.03em] text-slate-900 sm:text-2xl">
+            <h2 className="mt-2 text-base font-semibold tracking-[-0.02em] text-slate-900 sm:text-lg">
               {routeTitle || "Tuyến chưa có tên"}
             </h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Chủ đề:{" "}
-              <span className="font-medium text-slate-900">
-                {selectedTheme
-                  ? `#${buildTagToken(selectedTheme.tagName)}`
-                  : "Chưa chọn"}
-              </span>
-            </p>
           </div>
 
           <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:justify-end">
-            <span
-              className={cn(
-                "inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]",
-                getDifficultyBadgeClass(routeDifficulty),
-              )}
-            >
-                {formatDifficultyLabel(routeDifficulty)}
+            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700 shadow-sm">
+              <Tag className="h-3 w-3" />
+              {selectedTheme
+                ? buildTagToken(selectedTheme.tagName)
+                : "Chưa chọn chủ đề"}
             </span>
             <span
               className={cn(
@@ -1854,38 +1841,44 @@ export default function CuratorRouteCreatePage() {
           <div className="grid max-w-5xl gap-x-5 gap-y-4 px-4 sm:grid-cols-2 sm:px-5 xl:grid-cols-4">
             <div className="space-y-1">
               <p className="cq-label">Địa điểm</p>
-              <p className="text-sm font-normal text-slate-900">
+              <p className="text-[13px] font-normal text-slate-900">
                 {selectedHotspots.length} điểm
               </p>
             </div>
             <div className="space-y-1">
               <p className="cq-label">Câu chuyện</p>
-              <p className="text-sm font-normal text-slate-900">
+              <p className="text-[13px] font-normal text-slate-900">
                 {totalSelectedStories} câu chuyện
               </p>
             </div>
             <div className="space-y-1">
               <p className="cq-label">Thời lượng ước tính</p>
-              <p className="text-sm font-normal text-slate-900">
+              <p className="text-[13px] font-normal text-slate-900">
                 {estimatedDuration}
               </p>
             </div>
             <div className="space-y-1">
               <p className="cq-label">Quãng đường ước tính</p>
-              <p className="text-sm font-normal text-slate-900">
+              <p className="text-[13px] font-normal text-slate-900">
                 {estimatedDistance}
               </p>
             </div>
             <div className="space-y-1">
               <p className="cq-label">Điểm XP</p>
-              <p className="text-sm font-normal text-slate-900">
+              <p className="text-[13px] font-normal text-slate-900">
                 {resolvedRouteXp}
               </p>
             </div>
             <div className="space-y-1">
               <p className="cq-label">Điểm thưởng</p>
-              <p className="text-sm font-normal text-slate-900">
+              <p className="text-[13px] font-normal text-slate-900">
                 {resolvedRoutePoint}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="cq-label">Độ khó</p>
+              <p className="text-[13px] font-normal text-slate-900">
+                {formatDifficultyLabel(routeDifficulty)}
               </p>
             </div>
           </div>
@@ -1894,7 +1887,7 @@ export default function CuratorRouteCreatePage() {
         <div className="border-t border-dashed border-slate-200 pt-6">
           <div className="rounded-[1.5rem] bg-slate-50/80 px-4 py-4 sm:px-5">
             <p className="cq-label">Mô tả tuyến</p>
-            <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+            <div className="mt-2 whitespace-pre-wrap text-[13px] leading-6 text-slate-700">
               {routeDescription?.trim()
                 ? routeDescription
                 : "Chưa có mô tả tuyến."}
@@ -1954,15 +1947,15 @@ export default function CuratorRouteCreatePage() {
                     key={hotspot.hotspotId}
                     className="flex items-start gap-4 py-5 first:pt-0 last:pb-0"
                   >
-                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
+                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[12px] font-semibold text-white">
                       {index + 1}
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold leading-6 text-slate-900 break-words">
+                        <p className="text-[13px] font-semibold leading-5 text-slate-900 break-words">
                           {hotspot.hotspotName}
                         </p>
-                        <span className="text-xs font-medium text-slate-500">
+                        <span className="text-[11px] font-medium text-slate-500">
                           {
                             getSelectedStoriesForHotspot(hotspot.hotspotId)
                               .length
@@ -1971,11 +1964,12 @@ export default function CuratorRouteCreatePage() {
                         </span>
                         {routeDistanceToNextByHotspotId[hotspot.hotspotId] ? (
                           <span className="inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-700">
-                            {routeDistanceToNextByHotspotId[hotspot.hotspotId]} tới điểm kế
+                            {routeDistanceToNextByHotspotId[hotspot.hotspotId]}{" "}
+                            tới điểm kế
                           </span>
                         ) : null}
                       </div>
-                      <p className="mt-1 text-sm leading-6 text-slate-500 break-words">
+                      <p className="mt-1 text-[11px] leading-5 text-slate-500 break-words">
                         {hotspot.address || "Địa chỉ đang cập nhật"}
                       </p>
 
@@ -1988,11 +1982,11 @@ export default function CuratorRouteCreatePage() {
                             >
                               <div className="flex items-start justify-between gap-4">
                                 <div className="min-w-0 flex-1">
-                                  <p className="text-sm font-medium leading-6 text-slate-900 break-words">
+                                  <p className="text-[13px] font-medium leading-5 text-slate-900 break-words">
                                     {story.title}
                                   </p>
                                   {story.content?.trim() ? (
-                                    <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500 break-words">
+                                    <p className="mt-1 line-clamp-2 text-[12px] leading-5 text-slate-500 break-words">
                                       {story.content}
                                     </p>
                                   ) : null}
@@ -2000,7 +1994,7 @@ export default function CuratorRouteCreatePage() {
                                 <Link
                                   href={`/curator/stories/${story.storyId}`}
                                   className="shrink-0 text-sm font-semibold text-slate-400 transition hover:text-emerald-700"
-                                  aria-label={`Xem chi tiết story ${story.title}`}
+                                  aria-label={`Xem chi tiết câu chuyện ${story.title}`}
                                 >
                                   ...
                                 </Link>
@@ -2128,7 +2122,7 @@ export default function CuratorRouteCreatePage() {
             <h1 className="text-lg font-semibold tracking-[-0.03em] text-foreground sm:text-xl">
               {isEditing ? "Chỉnh sửa tuyến" : "Tạo tuyến"}
             </h1>
-            <p className="mt-0.5 max-w-3xl text-[11px] leading-4 text-muted-foreground sm:text-xs">
+            <p className="mt-0.5 max-w-3xl text-[11px] leading-4 text-muted-foreground">
               Tạo tuyến hành trình văn hóa theo địa điểm và câu chuyện.
             </p>
           </div>
@@ -2136,13 +2130,13 @@ export default function CuratorRouteCreatePage() {
           <div className="inline-flex w-fit items-center rounded-full border border-slate-100 bg-[#F7F5EF] p-1">
             <Link
               href="/curator/routes"
-              className="rounded-full px-4 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
+              className="rounded-full px-3.5 py-1.5 text-[11px] font-medium text-slate-500 transition hover:text-slate-900"
             >
               Danh sách
             </Link>
             <Link
               href="/curator/routes/create"
-              className="rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-950 shadow-sm"
+              className="rounded-full bg-white px-3.5 py-1.5 text-[11px] font-medium text-slate-950 shadow-sm"
             >
               Trình tạo tuyến
             </Link>
@@ -2155,15 +2149,13 @@ export default function CuratorRouteCreatePage() {
           </div>
         ) : null}
 
-        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <div className="border-b border-slate-100 pb-6">
+        <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <div className="border-b border-slate-100 pb-5">
             <div className="flex flex-col gap-2">
-              <p className="text-[13px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                Quy trình biên tập
-              </p>
+              <p className="cq-label">Quy trình biên tập</p>
             </div>
 
-            <div className="mt-5 overflow-x-auto pb-1">
+            <div className="mt-4 overflow-x-auto pb-1">
               <div className="flex min-w-max items-center gap-2 lg:gap-3">
                 {routeSteps.map((step) => {
                   const stepState: StepVisualState =
@@ -2201,8 +2193,8 @@ export default function CuratorRouteCreatePage() {
 
           <div className="pt-6">{renderMainContent()}</div>
 
-          <div className="mt-8 border-t border-slate-100 pt-6">
-            <p className="mb-3 text-sm font-semibold text-slate-900">
+          <div className="mt-6 border-t border-slate-100 pt-5">
+            <p className="mb-3 text-[13px] font-semibold text-slate-900">
               Điều hướng
             </p>
             {renderStickyActions()}

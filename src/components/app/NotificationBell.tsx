@@ -126,7 +126,7 @@ export function NotificationBell() {
           setOpen((value) => !value);
           if (!open) void load();
         }}
-        className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 transition hover:bg-[#FFF3F8] hover:text-[#D94A8D]"
+        className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-transparent text-slate-600 transition hover:bg-[#FFF3F8] hover:text-[#D94A8D]"
         aria-label="Thông báo"
       >
         <Bell className="h-4 w-4" />

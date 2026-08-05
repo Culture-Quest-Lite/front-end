@@ -213,7 +213,7 @@ export default function ThemeDetailPage() {
             <div className="mt-3 flex items-center gap-3">
               <div
                 className={cn(
-                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-[1rem]",
+                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem]",
                   visual.iconWrapClass,
                 )}
               >
