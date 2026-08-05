@@ -354,15 +354,6 @@ export default function TravelLogin() {
               </div>
             </div>
 
-            <p className="mt-5 text-center text-[10px] text-slate-500">
-              Chưa có tài khoản?{" "}
-              <button
-                className="font-semibold text-[#eb489b] transition hover:text-[#f08d43]"
-                type="button"
-              >
-                Đăng ký ngay
-              </button>
-            </p>
           </div>
 
           <div className="relative flex min-h-[360px] items-center justify-center lg:min-h-[520px] lg:justify-end">
