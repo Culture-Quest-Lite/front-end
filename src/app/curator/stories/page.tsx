@@ -748,7 +748,8 @@ export default function CuratorStoriesPage() {
               </div>
             ) : stories.length > 0 ? (
               <div className="rounded-[1.5rem] border border-slate-200 bg-white overflow-visible">
-                <table className="w-full min-w-[760px] border-collapse">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] border-collapse">
                   <thead>
                     <tr className="bg-slate-50/90 text-left">
                       <th className="w-14 px-4 py-4 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
@@ -910,7 +911,8 @@ export default function CuratorStoriesPage() {
                       );
                     })}
                   </tbody>
-                </table>
+                  </table>
+                </div>
               </div>
             ) : null}
 
