@@ -115,7 +115,7 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
         <PageHeader />
 
         <section className="rounded-[1.75rem] border border-dashed border-slate-300 bg-white px-5 py-10 text-center shadow-sm sm:px-6">
-          <p className="cq-card-title sm:text-base">Đang tải chi tiết thẻ</p>
+          <p className="cq-card-title">Đang tải chi tiết thẻ</p>
           <p className="cq-page-subtitle mt-2">Đang lấy dữ liệu</p>
         </section>
       </div>
@@ -128,7 +128,7 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
         <PageHeader />
 
         <section className="rounded-[1.75rem] border border-dashed border-slate-300 bg-white px-5 py-10 text-center shadow-sm sm:px-6">
-          <p className="cq-card-title sm:text-base">
+          <p className="cq-card-title">
             Không tải được chi tiết thẻ
           </p>
           <p className="cq-page-subtitle mt-2">
@@ -161,35 +161,24 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
       <PageHeader />
 
       <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <div className="max-w-4xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-yellow-900">
-              Tổng quan thẻ
-            </p>
-            <div className="mt-4">
-              <TagIdentityChip
-                name={backendTag.tagName}
-                imageUrl={backendTag.imageUrl}
-                accentColor={tagColor}
-                className="w-fit pr-5"
-                avatarClassName="h-16 w-16"
-                labelClassName="text-lg"
-              />
-            </div>
-          </div>
-
-          <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:justify-end">
-            <span
-              className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${getTagStatusTone(backendTag.tagStatus)}`}
-            >
-              {formatTagStatus(backendTag.tagStatus)}
-            </span>
+        <div className="max-w-4xl">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-yellow-900">
+            Tổng quan thẻ
+          </p>
+          <div className="mt-4">
+            <TagIdentityChip
+              name={backendTag.tagName}
+              imageUrl={backendTag.imageUrl}
+              accentColor={tagColor}
+              className="w-fit pr-4"
+              avatarClassName="h-10 w-10"
+              labelClassName="text-sm"
+            />
           </div>
         </div>
 
         <div className="mt-6 border-t border-dashed border-slate-200 pt-6">
           <div className="grid max-w-5xl gap-x-5 gap-y-4 px-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-6">
-            <DetailItem label="Mã thẻ" value={`${backendTag.tagId}`} />
             <DetailItem
               label="Số tuyến"
               value={String(backendTag.routeCount)}
@@ -204,6 +193,14 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
             />
             <DetailItem label="Ngày tạo" value={createdAtLabel} />
             <DetailItem label="Cập nhật thẻ" value={updatedAtLabel} />
+            <div className="space-y-1">
+              <p className="cq-label">Trạng thái</p>
+              <span
+                className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${getTagStatusTone(backendTag.tagStatus)}`}
+              >
+                {formatTagStatus(backendTag.tagStatus)}
+              </span>
+            </div>
           </div>
         </div>
       </section>

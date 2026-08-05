@@ -392,12 +392,12 @@ export default function CuratorLevelsPage() {
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full lg:max-w-[320px]">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             <Input
               value={searchQuery}
               onChange={(event) => handleSearchChange(event.target.value)}
               placeholder="Tìm cấp bậc theo tên"
-              className="h-11 rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
+              className="h-9 rounded-full border border-slate-200 bg-white pl-9 pr-3.5 text-[13px] text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20"
             />
           </div>
 
@@ -420,7 +420,7 @@ export default function CuratorLevelsPage() {
             </div>
           ) : loadError ? (
             <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 px-5 py-10 text-center">
-              <p className="cq-card-title text-rose-700 sm:text-base">
+              <p className="cq-card-title text-rose-700">
                 Không thể tải danh sách cấp bậc
               </p>
               <p className="cq-page-subtitle mt-2 text-rose-600">{loadError}</p>
@@ -438,22 +438,22 @@ export default function CuratorLevelsPage() {
               <table className="w-full table-fixed border-collapse">
                 <thead>
                   <tr className="bg-slate-50/90">
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
                       Cấp bậc
                     </th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
                       Mô tả
                     </th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
                       Khoảng XP
                     </th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
                       Ngày tạo
                     </th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
                       Cập nhật
                     </th>
-                    <th className="px-4 py-4 text-center text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 whitespace-nowrap">
+                    <th className="px-4 py-4 text-center text-xs font-semibold uppercase tracking-[0.14em] text-slate-400 whitespace-nowrap">
                       Thao tác
                     </th>
                   </tr>
@@ -468,24 +468,24 @@ export default function CuratorLevelsPage() {
                       )}
                     >
                       <td className="px-4 py-4 text-left">
-                        <p className="break-words text-sm font-semibold text-slate-950">
+                        <p className="break-words text-[0.8125rem] font-semibold text-slate-950">
                           {level.name}
                         </p>
                       </td>
                       <td className="px-4 py-4 text-left">
-                        <p className="line-clamp-2 break-words text-xs text-slate-500">
+                        <p className="line-clamp-2 break-words text-xs leading-5 text-slate-500 sm:text-sm">
                           {level.description ?? "Không có mô tả bổ sung."}
                         </p>
                       </td>
                       <td className="px-4 py-4 text-left">
-                        <span className="inline-flex rounded-full bg-[#FFF1F7] px-3 py-1.5 text-sm font-semibold text-[#D94A8D] ring-1 ring-[#F7DCE8]">
+                        <span className="inline-flex rounded-full bg-[#FFF1F7] px-2.5 py-1 text-xs font-medium leading-5 text-[#D94A8D] ring-1 ring-[#F7DCE8]">
                           {formatXpRange(level)}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-left text-sm text-slate-500">
+                      <td className="px-4 py-4 text-left text-xs leading-5 text-slate-500 sm:text-sm">
                         {formatDateTime(level.createdAt)}
                       </td>
-                      <td className="px-4 py-4 text-left text-sm text-slate-500">
+                      <td className="px-4 py-4 text-left text-xs leading-5 text-slate-500 sm:text-sm">
                         {formatDateTime(level.updatedAt)}
                       </td>
                       <td className="px-4 py-4 text-center">
@@ -546,7 +546,7 @@ export default function CuratorLevelsPage() {
             </div>
           ) : (
             <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-card px-5 py-10 text-center">
-              <p className="cq-card-title sm:text-base">
+              <p className="cq-card-title">
                 Không tìm thấy cấp bậc
               </p>
               <p className="cq-page-subtitle mt-2">

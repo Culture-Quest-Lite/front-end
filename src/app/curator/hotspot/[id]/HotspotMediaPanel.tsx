@@ -34,10 +34,10 @@ export function HotspotMediaPanel({
     setActiveIndex((i) => (i - 1 + images.length) % images.length);
   const next = () => setActiveIndex((i) => (i + 1) % images.length);
   const mediaViewportClassName =
-    "relative h-[300px] w-full overflow-hidden bg-slate-100 sm:h-[340px] lg:h-[420px]";
+    "relative h-[220px] w-full overflow-hidden bg-slate-100 sm:h-[260px] lg:h-[320px]";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 p-1">
         <MediaToggleButton
           isActive={activeView === "image"}
@@ -53,7 +53,7 @@ export function HotspotMediaPanel({
         />
       </div>
 
-      <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-slate-950 relative">
+      <div className="overflow-hidden rounded-[1.15rem] border border-slate-200 bg-slate-950 relative">
         {activeView === "image" ? (
           <div className={mediaViewportClassName}>
             {images.length > 0 ? (
@@ -72,17 +72,17 @@ export function HotspotMediaPanel({
                   type="button"
                   onClick={prev}
                   aria-label="Previous image"
-                  className="absolute left-3 top-1/2 -translate-y-1/2 inline-flex h-12 w-12 items-center justify-center rounded-full bg-transparent text-white/95 hover:opacity-90"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-full bg-transparent text-white/95 hover:opacity-90"
                 >
-                  <ChevronLeft className="h-6 w-6" />
+                  <ChevronLeft className="h-5 w-5" />
                 </button>
                 <button
                   type="button"
                   onClick={next}
                   aria-label="Next image"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex h-12 w-12 items-center justify-center rounded-full bg-transparent text-white/95 hover:opacity-90"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-full bg-transparent text-white/95 hover:opacity-90"
                 >
-                  <ChevronRight className="h-6 w-6" />
+                  <ChevronRight className="h-5 w-5" />
                 </button>
                 <div className="absolute left-1/2 bottom-3 -translate-x-1/2 flex items-center gap-2">
                   {images.map((_, idx) => (
@@ -90,7 +90,7 @@ export function HotspotMediaPanel({
                       key={idx}
                       type="button"
                       onClick={() => setActiveIndex(idx)}
-                      className={`h-2 w-8 rounded-full ${idx === activeIndex ? "bg-white" : "bg-white/40"}`}
+                      className={`h-1.5 w-6 rounded-full ${idx === activeIndex ? "bg-white" : "bg-white/40"}`}
                       aria-label={`Select image ${idx + 1}`}
                     />
                   ))}
@@ -121,10 +121,10 @@ export function HotspotMediaPanel({
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/35 to-slate-950/15" />
             <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-white">
               <div className="max-w-sm">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white/12 backdrop-blur">
-                  <Video className="h-6 w-6" />
+                <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-white/12 backdrop-blur">
+                  <Video className="h-5 w-5" />
                 </div>
-                <p className="mt-4 text-base font-normal">
+                <p className="mt-3 text-[13px] font-normal">
                   Địa điểm này chưa có video giới thiệu
                 </p>
               </div>
@@ -152,13 +152,13 @@ function MediaToggleButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition",
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] transition",
         isActive
           ? "bg-white text-slate-950 shadow-sm"
           : "text-slate-500 hover:text-slate-700",
       )}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className="h-3.5 w-3.5" />
       {label}
     </button>
   );

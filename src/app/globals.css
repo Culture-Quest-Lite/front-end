@@ -191,23 +191,31 @@
   }
 
   .cq-curator-compact .cq-page-title {
-    @apply text-[1.5rem] tracking-[-0.02em] sm:text-[1.7rem];
+    @apply text-[1.35rem] tracking-[-0.02em] sm:text-[1.6rem];
   }
 
   .cq-curator-compact .cq-page-subtitle {
     @apply text-[12px] leading-5;
   }
 
+  .cq-curator-compact .cq-detail-title {
+    @apply text-[1.35rem] tracking-[-0.02em] sm:text-[1.6rem];
+  }
+
+  .cq-curator-compact .cq-modal-title {
+    @apply text-[1.125rem] sm:text-[1.25rem];
+  }
+
   .cq-curator-compact .cq-section-title {
-    @apply text-[0.95rem];
+    @apply text-[0.9375rem];
   }
 
   .cq-curator-compact .cq-card-title {
-    @apply text-[0.875rem];
+    @apply text-[0.8125rem];
   }
 
   .cq-curator-compact .cq-body-copy {
-    @apply text-[0.875rem] leading-6;
+    @apply text-[0.8125rem] leading-6;
   }
 
   .cq-curator-compact .cq-card-copy {
@@ -216,6 +224,10 @@
 
   .cq-curator-compact .cq-label {
     @apply text-[10px] tracking-[0.14em];
+  }
+
+  .cq-curator-compact .cq-kicker {
+    @apply text-[10px] tracking-[0.18em];
   }
 
   .cq-curator-compact [data-slot="button"] {

@@ -1716,11 +1716,11 @@ export default function Page() {
 
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               {renderFilterValueControl(
                 quickSearch,
                 handleQuickSearchValueChange,
-                "h-11 rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400/70 focus:border-primary focus:ring-2 focus:ring-primary/20",
+                "h-9 rounded-2xl border border-slate-200 bg-white pl-9 pr-3.5 text-[13px] text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400/70 focus:border-primary focus:ring-2 focus:ring-primary/20",
               )}
             </div>
 
@@ -1730,21 +1730,21 @@ export default function Page() {
                 onClick={handleToggleFilterPanel}
                 aria-expanded={isFilterOpen}
                 aria-haspopup="dialog"
-                className={`group relative inline-flex h-11 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 ${
+                className={`group relative inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[12px] font-medium shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 ${
                   isFilterOpen
                     ? "border-[#F7DCE8] bg-[#FFF1F7] text-[#D94A8D] shadow-md"
                     : "border-slate-200 bg-white text-slate-700 hover:border-[#F7DCE8] hover:bg-[#FFF1F7] hover:text-[#D94A8D]"
                 }`}
               >
-                <Filter className="h-4 w-4" />
+                <Filter className="h-3.5 w-3.5" />
                 Bộ lọc nâng cao
                 {activeFilterCount > 0 ? (
-                  <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                  <span className="inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-semibold text-primary-foreground">
                     {activeFilterCount}
                   </span>
                 ) : null}
                 <ChevronDown
-                  className={`h-4 w-4 text-slate-400 transition ${
+                  className={`h-3.5 w-3.5 text-slate-400 transition ${
                     isFilterOpen
                       ? "rotate-180 text-[#D94A8D]"
                       : "group-hover:text-[#D94A8D]"
@@ -1753,30 +1753,30 @@ export default function Page() {
               </button>
 
               {isFilterOpen ? (
-                <div className="absolute right-0 top-[calc(100%+0.75rem)] z-20 w-[min(40rem,calc(100vw-2rem))] rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-[0_20px_45px_rgba(15,23,42,0.12)]">
-                  <div className="max-h-[75vh] space-y-3.5 overflow-y-auto pr-1">
-                    <div className="rounded-[1.1rem] border border-slate-200/80 bg-white p-3.5">
+                <div className="absolute right-0 top-[calc(100%+0.6rem)] z-20 w-[min(34rem,calc(100vw-2rem))] rounded-[1.15rem] border border-slate-200 bg-white p-3 shadow-[0_20px_45px_rgba(15,23,42,0.12)]">
+                  <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+                    <div className="rounded-[0.95rem] border border-slate-200/80 bg-white p-3">
                       <div className="flex items-center justify-between gap-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
                           Điều kiện bổ sung
                         </p>
                         <button
                           type="button"
                           onClick={() => handleAddFilterRow()}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:border-primary/20 hover:text-primary"
+                          className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 transition hover:border-primary/20 hover:text-primary"
                         >
-                          <Plus className="h-3 w-3" />
+                          <Plus className="h-2.5 w-2.5" />
                           Thêm điều kiện
                         </button>
                       </div>
 
                       {draftFilters.rows.length === 0 ? (
-                        <p className="mt-2.5 text-xs text-slate-500">
+                        <p className="mt-2 text-[11px] text-slate-500">
                           Chưa có điều kiện bổ sung. Dùng các nút thêm nhanh ở
                           trên để tạo bộ lọc mới.
                         </p>
                       ) : (
-                        <div className="mt-2.5 space-y-2.5">
+                        <div className="mt-2 space-y-2">
                           {draftFilters.rows.map((row) => {
                             const rowFieldOption = getSearchFieldOption(
                               row.field,
@@ -1787,13 +1787,13 @@ export default function Page() {
                             return (
                               <div
                                 key={row.id}
-                                className="rounded-[1rem] border border-slate-200 bg-slate-50/70 p-2.5"
+                                className="rounded-[0.85rem] border border-slate-200 bg-slate-50/70 p-2"
                               >
                                 <div
                                   className={`grid gap-1.5 ${
                                     usesAutoSyncField
-                                      ? "xl:grid-cols-[10.5rem_minmax(0,1fr)_auto]"
-                                      : "xl:grid-cols-[10.5rem_10.5rem_minmax(0,1fr)_auto]"
+                                      ? "xl:grid-cols-[9rem_minmax(0,1fr)_auto]"
+                                      : "xl:grid-cols-[9rem_9rem_minmax(0,1fr)_auto]"
                                   }`}
                                 >
                                   <select
@@ -1804,7 +1804,7 @@ export default function Page() {
                                         event.target.value as SearchField,
                                       )
                                     }
-                                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                    className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                                   >
                                     {searchFieldOptions.map((option) => (
                                       <option
@@ -1826,7 +1826,7 @@ export default function Page() {
                                             .value as HotspotSearchOperator,
                                         )
                                       }
-                                      className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                      className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                                     >
                                       {rowFieldOption.operators.map(
                                         (operator) => (
@@ -1845,26 +1845,26 @@ export default function Page() {
                                     row,
                                     (value) =>
                                       handleDraftRowValueChange(row.id, value),
-                                    "h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 outline-none transition placeholder:text-slate-400/70 focus:border-primary focus:ring-2 focus:ring-primary/20",
+                                    "h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] text-slate-900 outline-none transition placeholder:text-slate-400/70 focus:border-primary focus:ring-2 focus:ring-primary/20",
                                   )}
 
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveDraftRow(row.id)}
-                                    className="rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-500 transition hover:border-rose-200 hover:text-rose-600"
+                                    className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-medium text-slate-500 transition hover:border-rose-200 hover:text-rose-600"
                                   >
                                     Xóa
                                   </button>
                                 </div>
 
-                                <p className="mt-1.5 text-[11px] leading-5 text-slate-500">
+                                <p className="mt-1 text-[10px] leading-4 text-slate-500">
                                   {rowFieldOption.description}
                                   {usesAutoSyncField
                                     ? " Hệ thống sẽ tự lọc khi bạn nhập hoặc chọn giá trị."
                                     : ""}
                                 </p>
                                 {rowFieldOption.warning ? (
-                                  <p className="mt-1.5 text-[11px] font-medium text-amber-700">
+                                  <p className="mt-1 text-[10px] font-medium text-amber-700">
                                     {rowFieldOption.warning}
                                   </p>
                                 ) : null}
@@ -1875,11 +1875,11 @@ export default function Page() {
                       )}
                     </div>
 
-                    <div className="rounded-[1.1rem] border border-slate-200/80 bg-white p-3.5">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    <div className="rounded-[0.95rem] border border-slate-200/80 bg-white p-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
                         Sắp xếp kết quả
                       </p>
-                      <div className="mt-2.5 grid gap-1.5 sm:grid-cols-2">
+                      <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
                         <select
                           value={draftFilters.sortBy}
                           onChange={(event) =>
@@ -1888,7 +1888,7 @@ export default function Page() {
                               event.target.value as SortField,
                             )
                           }
-                          className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                          className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                         >
                           {sortFieldOptions.map((option) => (
                             <option key={option.value} value={option.value}>
@@ -1905,7 +1905,7 @@ export default function Page() {
                               event.target.value as SortDirection,
                             )
                           }
-                          className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                          className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                         >
                           {sortDirectionOptions.map((option) => (
                             <option key={option.value} value={option.value}>
@@ -1916,11 +1916,11 @@ export default function Page() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between border-t border-slate-100 pt-2.5">
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-2">
                       <button
                         type="button"
                         onClick={handleResetFilters}
-                        className="text-xs font-medium text-slate-500 transition hover:text-slate-900"
+                        className="text-[11px] font-medium text-slate-500 transition hover:text-slate-900"
                       >
                         Đặt lại
                       </button>
@@ -1928,7 +1928,7 @@ export default function Page() {
                         type="button"
                         variant="secondary"
                         size="sm"
-                        className="h-8 rounded-full px-3 text-[11px] text-white"
+                        className="h-7 rounded-full px-3 text-[11px] text-white"
                         onClick={handleApplyFilters}
                       >
                         Áp dụng bộ lọc
@@ -1945,7 +1945,7 @@ export default function Page() {
               {appliedFilterSummary.map((item) => (
                 <span
                   key={item}
-                  className="inline-flex rounded-full border border-[#F7DCE8] bg-[#FFF7FA] px-3 py-1 text-xs font-medium text-slate-700"
+                  className="inline-flex rounded-full border border-[#F7DCE8] bg-[#FFF7FA] px-2.5 py-0.5 text-[11px] font-medium text-slate-700"
                 >
                   {item}
                 </span>
@@ -2021,7 +2021,7 @@ export default function Page() {
                         {item.badge}
                       </div>
                       <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
-                        <h2 className="text-base font-semibold line-clamp-1">
+                        <h2 className="text-[0.8125rem] font-semibold line-clamp-1">
                           {item.title}
                         </h2>
                         <p className="text-xs text-white/80 line-clamp-1">

@@ -4,13 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
+  Award,
   LayoutDashboard,
   Tag,
   LogOut,
   BookOpen,
   MapPin,
   Map,
-  LayoutGrid,
 } from "lucide-react";
 
 import {
@@ -47,7 +47,7 @@ const menuGroups: Array<{
       {
         title: "Cấp bậc",
         href: "/curator/levels",
-        icon: LayoutGrid,
+        icon: Award,
       },
       {
         title: "Thẻ",

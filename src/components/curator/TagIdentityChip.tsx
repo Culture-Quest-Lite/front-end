@@ -25,7 +25,7 @@ export function TagIdentityChip({
   return (
     <span
       className={cn(
-        "inline-flex max-w-full items-center gap-3 rounded-full border px-1.5 py-1.5 pr-4 shadow-sm",
+        "inline-flex max-w-full items-center gap-2 rounded-full border px-1 py-1 pr-3 shadow-sm",
         className,
       )}
       style={{
@@ -39,13 +39,13 @@ export function TagIdentityChip({
         imageUrl={imageUrl}
         accentColor={accentColor}
         className={cn(
-          "h-11 w-11 border-white/80 bg-white shadow-[0_6px_16px_rgba(15,23,42,0.16)]",
+          "h-8 w-8 border-white/80 bg-white shadow-[0_4px_10px_rgba(15,23,42,0.14)]",
           avatarClassName,
         )}
       />
       <span
         className={cn(
-          "truncate text-sm font-semibold leading-none sm:text-base",
+          "truncate text-[0.8125rem] font-semibold leading-none",
           labelClassName,
         )}
       >

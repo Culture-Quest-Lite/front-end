@@ -30,7 +30,7 @@ const statusLabelMap: Record<string, string> = {
 
 const statusBadgeClasses: Record<string, string> = {
   DRAFT: "border border-slate-200 bg-slate-100 text-slate-700",
-  PUBLISHED: "border border-slate-200 bg-slate-100 text-slate-700",
+  PUBLISHED: "border border-emerald-200 bg-emerald-100 text-emerald-700",
   REJECTED: "border border-slate-200 bg-slate-100 text-slate-700",
   REVIEW: "border border-slate-200 bg-slate-100 text-slate-700",
 };
@@ -256,10 +256,10 @@ export default function StoryDetailPage() {
     );
 
   const mediaViewportClassName =
-    "relative h-[320px] w-full overflow-hidden rounded-[1.5rem] bg-slate-100 sm:h-[360px] lg:h-[420px]";
+    "relative h-[220px] w-full overflow-hidden rounded-[1.15rem] bg-slate-100 sm:h-[260px] lg:h-[320px]";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-2 text-slate-700">
           <div className="flex items-center gap-3">
@@ -284,7 +284,7 @@ export default function StoryDetailPage() {
         {storyId ? (
           <Link
             href={`/curator/stories/${storyId}/edit`}
-            className="inline-flex items-center gap-2 self-start rounded-full bg-blue-50 px-3.5 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 sm:text-sm"
+            className="inline-flex items-center gap-2 self-start rounded-full bg-blue-50 px-3 py-1.5 text-[11px] font-semibold text-blue-700 transition hover:bg-blue-100"
           >
             <Pencil className="h-3.5 w-3.5" />
             Chỉnh sửa
@@ -293,28 +293,28 @@ export default function StoryDetailPage() {
       </div>
 
       {isLoading ? (
-        <div className="rounded-[1.5rem] border border-slate-200 bg-white px-5 py-8 text-center text-sm text-slate-600">
+        <div className="rounded-[1.25rem] border border-slate-200 bg-white px-5 py-7 text-center text-[13px] text-slate-600">
           Đang tải câu chuyện...
         </div>
       ) : error ? (
-        <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 px-5 py-8 text-center text-sm text-rose-700">
+        <div className="rounded-[1.25rem] border border-rose-200 bg-rose-50 px-5 py-7 text-center text-[13px] text-rose-700">
           {error}
         </div>
       ) : !story ? (
-        <div className="rounded-[1.5rem] border border-slate-200 bg-white px-5 py-8 text-center text-sm text-slate-600">
+        <div className="rounded-[1.25rem] border border-slate-200 bg-white px-5 py-7 text-center text-[13px] text-slate-600">
           Câu chuyện không có dữ liệu.
         </div>
       ) : (
-        <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+        <section className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div className="max-w-4xl">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-yellow-900">
+              <p className="cq-kicker text-yellow-900">
                 Tổng quan câu chuyện
               </p>
-              <h2 className="mt-3 text-xl font-semibold tracking-[-0.03em] text-slate-900 sm:text-2xl">
+              <h2 className="cq-page-title mt-2 text-slate-900">
                 {story.title}
               </h2>
-              <p className="mt-2 text-sm text-slate-600">
+              <p className="mt-1.5 text-[13px] text-slate-600">
                 Địa điểm:{" "}
                 <span className="font-medium text-slate-900">
                   {hotspotLabel}
@@ -325,7 +325,7 @@ export default function StoryDetailPage() {
             <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:justify-end">
               <span
                 className={cn(
-                    "inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]",
+                    "inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]",
                     statusBadgeClasses[story.status] ??
                     "border border-slate-200 bg-slate-100 text-slate-700",
                 )}
@@ -336,45 +336,45 @@ export default function StoryDetailPage() {
             </div>
           </div>
 
-          <div className="mt-6 border-t border-dashed border-slate-200 pt-6">
+          <div className="mt-5 border-t border-dashed border-slate-200 pt-5">
             <div className="grid max-w-5xl gap-x-5 gap-y-4 px-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-5">
               <div className="space-y-1">
                 <p className="cq-label">Thứ tự vị trí</p>
-                <p className="text-sm font-normal text-slate-900">
+                <p className="text-[13px] font-normal text-slate-900">
                   {getOrderIndexLabel(story.orderIndex)}
                 </p>
               </div>
               <div className="space-y-1">
                 <p className="cq-label">Khoảng cách</p>
-                <p className="text-sm font-normal text-slate-900">
+                <p className="text-[13px] font-normal text-slate-900">
                   {getDistanceToNextLabel(story.distanceToNext)}
                 </p>
               </div>
               <div className="space-y-1">
                 <p className="cq-label">Ảnh câu chuyện</p>
-                <p className="text-sm font-normal text-slate-900">
+                <p className="text-[13px] font-normal text-slate-900">
                   {imageMedias.length} ảnh
                 </p>
               </div>
               <div className="space-y-1">
                 <p className="cq-label">Video câu chuyện</p>
-                <p className="text-sm font-normal text-slate-900">
+                <p className="text-[13px] font-normal text-slate-900">
                   {videoMedias.length} video
                 </p>
               </div>
               <div className="space-y-1">
                 <p className="cq-label">Audio câu chuyện</p>
-                <p className="text-sm font-normal text-slate-900">
+                <p className="text-[13px] font-normal text-slate-900">
                   {audioMedias.length} audio
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="mt-6 border-t border-dashed border-slate-200 pt-6">
-            <div className="rounded-[1.5rem] bg-slate-50/80 px-4 py-4 sm:px-5">
+          <div className="mt-5 border-t border-dashed border-slate-200 pt-5">
+            <div className="rounded-[1.15rem] bg-slate-50/80 px-3.5 py-3 sm:px-4">
               <p className="cq-label">Nội dung</p>
-              <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+              <div className="mt-1.5 whitespace-pre-wrap text-[13px] leading-6 text-slate-700">
                 {typeof story.content === "string" && story.content.trim()
                   ? story.content
                   : "Câu chuyện không có nội dung."}
@@ -382,17 +382,17 @@ export default function StoryDetailPage() {
             </div>
           </div>
 
-          <div className="mt-6 border-t border-dashed border-slate-200 pt-6">
-            <div className="grid gap-6 xl:grid-cols-[1.35fr_0.85fr]">
-              <div className="rounded-[1.5rem] bg-slate-50/80 p-4 sm:p-5">
+          <div className="mt-5 border-t border-dashed border-slate-200 pt-5">
+            <div className="grid gap-4 xl:grid-cols-[1.35fr_0.85fr]">
+              <div className="rounded-[1.15rem] bg-slate-50/80 p-3.5 sm:p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="cq-label">Ảnh câu chuyện</p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-0.5 text-[11px] text-slate-500">
                       {imageMedias.length} ảnh
                     </p>
                   </div>
-                  <div className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
+                  <div className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] text-slate-600">
                     {imageUrls.length > 1
                       ? `Ảnh ${safeActiveImageIndex + 1} / ${imageUrls.length}`
                       : imageUrls.length === 1
@@ -401,7 +401,7 @@ export default function StoryDetailPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 overflow-hidden rounded-[1.5rem] bg-white text-slate-900 shadow-sm">
+                <div className="mt-3 overflow-hidden rounded-[1.15rem] bg-white text-slate-900 shadow-sm">
                   <div className={mediaViewportClassName}>
                     {imageUrls.length > 0 ? (
                       <>
@@ -410,7 +410,7 @@ export default function StoryDetailPage() {
                             src={currentImageUrl}
                             alt={`Ảnh ${safeActiveImageIndex + 1}`}
                             fill
-                            className="rounded-[1.5rem] object-cover"
+                            className="rounded-[1.15rem] object-cover"
                             sizes="(max-width: 640px) 100vw, 640px"
                           />
                         </div>
@@ -438,7 +438,7 @@ export default function StoryDetailPage() {
                     ) : (
                       <div className="flex h-full items-center justify-center bg-slate-950/80 p-8 text-center text-xs text-slate-300">
                         <div>
-                          <ImageIcon className="mx-auto mb-3 h-7 w-7" />
+                          <ImageIcon className="mx-auto mb-2.5 h-6 w-6" />
                           Không có ảnh đính kèm.
                         </div>
                       </div>
@@ -453,7 +453,7 @@ export default function StoryDetailPage() {
                           type="button"
                           onClick={() => setActiveImageIndex(index)}
                           className={cn(
-                            "h-2 w-7 rounded-full transition",
+                            "h-1.5 w-6 rounded-full transition",
                             index === safeActiveImageIndex
                               ? "bg-slate-700"
                               : "bg-slate-300",
@@ -465,22 +465,22 @@ export default function StoryDetailPage() {
                 </div>
               </div>
 
-              <div className="rounded-[1.5rem] bg-slate-50/80 p-4 sm:p-5">
+              <div className="rounded-[1.15rem] bg-slate-50/80 p-3.5 sm:p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="cq-label">Video câu chuyện</p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-0.5 text-[11px] text-slate-500">
                       {videoMedias.length} video
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-4 space-y-4">
+                <div className="mt-3 space-y-3">
                   {videoMedias.length > 0 ? (
                     videoMedias.map((media, index) => (
                       <div key={media.mediaId} className="space-y-2">
                         {index === 0 ? null : (
-                          <p className="text-xs font-medium text-slate-700">
+                          <p className="text-[11px] font-medium text-slate-700">
                             {media.fileName ?? `Video ${index + 1}`}
                           </p>
                         )}
@@ -488,7 +488,7 @@ export default function StoryDetailPage() {
                           controls
                           playsInline
                           preload="metadata"
-                          className="h-[320px] w-full rounded-[1.5rem] bg-black object-contain sm:h-[360px] lg:h-[420px]"
+                          className="h-[220px] w-full rounded-[1.15rem] bg-black object-contain sm:h-[260px] lg:h-[320px]"
                         >
                           <source
                             src={media.fileUrl}
@@ -499,7 +499,7 @@ export default function StoryDetailPage() {
                       </div>
                     ))
                   ) : (
-                    <div className="flex h-[320px] items-center justify-center rounded-[1.5rem] bg-white px-4 py-5 text-center text-xs text-slate-500 shadow-sm sm:h-[360px] lg:h-[420px]">
+                    <div className="flex h-[220px] items-center justify-center rounded-[1.15rem] bg-white px-4 py-5 text-center text-[11px] text-slate-500 shadow-sm sm:h-[260px] lg:h-[320px]">
                       Không có video đính kèm.
                     </div>
                   )}
@@ -508,17 +508,17 @@ export default function StoryDetailPage() {
             </div>
           </div>
 
-          <div className="mt-6 border-t border-dashed border-slate-200 pt-6">
-            <div className="rounded-[1.5rem] bg-slate-50/80 p-4 sm:p-5">
+          <div className="mt-5 border-t border-dashed border-slate-200 pt-5">
+            <div className="rounded-[1.15rem] bg-slate-50/80 p-3.5 sm:p-4">
               <div className="flex items-center gap-2">
-                <Volume2 className="h-4 w-4 text-slate-600" />
+                <Volume2 className="h-3.5 w-3.5 text-slate-600" />
                 <p className="cq-label">Audio câu chuyện</p>
               </div>
               {audioMedias.length > 0 ? (
                 <div className="mt-3 space-y-4">
                   {audioMedias.map((media) => (
                     <div key={media.mediaId}>
-                      <p className="text-xs font-medium text-slate-700">
+                      <p className="text-[11px] font-medium text-slate-700">
                         {media.fileName ?? "Audio đính kèm"}
                       </p>
                       <audio
@@ -532,10 +532,10 @@ export default function StoryDetailPage() {
                   ))}
                   {normalizedAudioScript ? (
                     <div className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                         Kịch bản câu chuyện
                       </p>
-                      <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                      <div className="mt-1.5 whitespace-pre-wrap text-[13px] leading-6 text-slate-700">
                         {normalizedAudioScript}
                       </div>
                     </div>
@@ -543,15 +543,15 @@ export default function StoryDetailPage() {
                 </div>
               ) : (
                 <div className="mt-3 space-y-3">
-                  <p className="text-sm text-slate-500">
+                  <p className="text-[13px] text-slate-500">
                     Không có audio đính kèm.
                   </p>
                   {normalizedAudioScript ? (
                     <div className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                         Audio script
                       </p>
-                      <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                      <div className="mt-1.5 whitespace-pre-wrap text-[13px] leading-6 text-slate-700">
                         {normalizedAudioScript}
                       </div>
                     </div>
