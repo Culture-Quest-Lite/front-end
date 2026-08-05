@@ -527,7 +527,7 @@ export default function CuratorTagsPage() {
                 </div>
               </div>
 
-              <div className="rounded-[1.5rem] border border-slate-200 bg-white">
+              <div className="rounded-[1.5rem] border border-slate-200 bg-white overflow-visible">
                 {isLoadingTags ? (
                   <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5">
                     <div className="space-y-3 animate-pulse">
@@ -540,8 +540,8 @@ export default function CuratorTagsPage() {
                 ) : null}
 
                 {!isLoadingTags && tags.length > 0 ? (
-                  <div className="w-full">
-                    <table className="w-full table-fixed border-collapse">
+                  <div className="w-full overflow-x-auto">
+                    <table className="w-full min-w-[900px] table-fixed border-collapse">
                       <thead>
                         <tr className="bg-slate-50/90">
                           <th className="w-[28%] px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
