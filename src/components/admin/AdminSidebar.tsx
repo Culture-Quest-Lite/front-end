@@ -18,6 +18,7 @@ import {
   Settings,
   CreditCard,
   UserRoundCheck,
+  KeyRound,
 } from "lucide-react";
 
 import {
@@ -57,6 +58,7 @@ const menuGroups: Array<{
       },
       { title: "Lịch sử duyệt", href: "/admin/review-history", icon: Clock },
       { title: "Người dùng", href: "/admin/users-manager", icon: Users },
+      { title: "Phân quyền", href: "/admin/permissions", icon: KeyRound },
       { title: "Gói đăng ký", href: "/admin/subscriptions", icon: CreditCard },
       { title: "Duyệt đối tác", href: "/admin/partner-verification", icon: UserRoundCheck },
       { title: "Phân tích", href: "/admin/analytics", icon: BarChart3 },

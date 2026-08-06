@@ -198,6 +198,47 @@ export interface MessageResponse {
   message: string;
 }
 
+// ─── Permission Management ────────────────────────────────────────────────────
+
+export interface PermissionResponse {
+  id: number;
+  code: string;
+  groupName: string;
+  active: boolean;
+}
+
+export interface PermissionGroupResponse {
+  groupName: string;
+  permissions: PermissionResponse[];
+}
+
+/** matrix: role → set of permission codes mà role đó đang có */
+export interface RolePermissionMatrixResponse {
+  allPermissions: PermissionGroupResponse[];
+  matrix: Record<UserRole, string[]>;
+}
+
+export interface UserPermissionResponse {
+  id: number;
+  code: string;
+  description: string;
+  granted: boolean;
+  expiresAt: string | null;
+  expired: boolean;
+  reason: string;
+}
+
+export interface GrantUserPermissionRequest {
+  /** Mã quyền, không kèm tiền tố PERM_ */
+  code: string;
+  /** true = cấp thêm; false = thu hồi */
+  granted: boolean;
+  /** ISO datetime, null = vĩnh viễn */
+  expiresAt?: string | null;
+  /** Lý do, bắt buộc để audit */
+  reason: string;
+}
+
 export interface GetUsersParams {
   page?: number;
   size?: number;
@@ -518,6 +559,76 @@ export const adminApi = {
       method: "DELETE",
       sameOrigin: true,
     });
+  },
+
+  // ─── Permission Management ─────────────────────────────────────────────────
+
+  /** Danh sách tất cả quyền, nhóm theo groupName */
+  getPermissions: async () => {
+    return apiFetch<PermissionGroupResponse[]>(adminPath("/permissions"), {
+      method: "GET",
+      sameOrigin: true,
+    });
+  },
+
+  /** Ma trận role ↔ permission: allPermissions + matrix (role → code[]) */
+  getPermissionMatrix: async () => {
+    return apiFetch<RolePermissionMatrixResponse>(
+      adminPath("/permissions/matrix"),
+      { method: "GET", sameOrigin: true },
+    );
+  },
+
+  /** Bulk replace toàn bộ permission của 1 role */
+  updateRolePermissions: async (role: UserRole, codes: string[]) => {
+    return apiFetch<MessageResponse>(adminPath(`/permissions/matrix/${role}`), {
+      method: "PUT",
+      body: { codes },
+      sameOrigin: true,
+    });
+  },
+
+  /** Cấp 1 permission đơn lẻ cho role */
+  grantRolePermission: async (role: UserRole, code: string) => {
+    return apiFetch<MessageResponse>(
+      adminPath(`/permissions/roles/${role}/${code}`),
+      { method: "POST", sameOrigin: true },
+    );
+  },
+
+  /** Thu hồi 1 permission đơn lẻ khỏi role */
+  revokeRolePermission: async (role: UserRole, code: string) => {
+    return apiFetch<MessageResponse>(
+      adminPath(`/permissions/roles/${role}/${code}`),
+      { method: "DELETE", sameOrigin: true },
+    );
+  },
+
+  /** Lấy danh sách ngoại lệ quyền cá nhân của 1 user */
+  getUserPermissions: async (userId: number) => {
+    return apiFetch<UserPermissionResponse[]>(
+      adminPath(`/permissions/users/${userId}`),
+      { method: "GET", sameOrigin: true },
+    );
+  },
+
+  /** Tạo hoặc cập nhật ngoại lệ quyền cho user (granted / revoked) */
+  upsertUserPermission: async (
+    userId: number,
+    request: GrantUserPermissionRequest,
+  ) => {
+    return apiFetch<MessageResponse>(
+      adminPath(`/permissions/users/${userId}`),
+      { method: "PUT", body: request, sameOrigin: true },
+    );
+  },
+
+  /** Xoá hẳn ngoại lệ quyền của user (trả về quyền mặc định của role) */
+  deleteUserPermission: async (userId: number, code: string) => {
+    return apiFetch<MessageResponse>(
+      adminPath(`/permissions/users/${userId}/${code}`),
+      { method: "DELETE", sameOrigin: true },
+    );
   },
 };
 

@@ -69,4 +69,13 @@ export const notificationApi = {
       sameOrigin: true,
     });
   },
+
+  /** Đăng ký / cập nhật FCM device token cho user hiện tại */
+  registerToken(token: string) {
+    return apiFetch<{ message: string }>("/api/notifications/token", {
+      method: "POST",
+      body: { token },
+      sameOrigin: true,
+    });
+  },
 };
