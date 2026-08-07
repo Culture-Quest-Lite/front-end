@@ -35,6 +35,8 @@ export interface BackendHotspot {
   latitude?: number | null;
   longitude?: number | null;
   checkInRadius?: number | null;
+  /** GeoJSON Polygon; backend chỉ trả ở màn chi tiết để tránh N+1. */
+  boundaryGeoJson?: string | null;
   createdAt?: string;
   updatedAt?: string;
   xp?: number | null;
@@ -56,6 +58,10 @@ export interface CreateHotspotPayload {
   historyInformation?: string;
   latitude: number;
   longitude: number;
+  /** Bán kính vùng check-in (mét), 20-5000. Bỏ trống backend dùng 50m. */
+  checkInRadius?: number;
+  /** GeoJSON Polygon đã stringify. Có polygon thì backend ưu tiên polygon hơn bán kính. */
+  boundaryGeoJson?: string;
   xp: number;
   point: number;
   estimatedDurationMin: number;

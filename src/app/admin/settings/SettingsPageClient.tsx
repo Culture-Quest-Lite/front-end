@@ -56,11 +56,16 @@ export default function SettingsPageClient() {
         <section className="md:col-span-3 space-y-4">
           {tab === 'gps' && (
             <Card title="Cài đặt GPS check-in">
-              <Row label="Bán kính check-in" hint="Khoảng cách tối đa từ vị trí thật tới hotspot.">
-                <div className="flex items-center gap-3">
-                  <input type="range" min={10} max={200} defaultValue={50} className="flex-1 accent-[color:var(--primary)]" />
-                  <span className="text-sm font-mono w-14 text-right">50m</span>
-                </div>
+              <Row
+                label="Bán kính check-in"
+                hint="Vùng check-in giờ được cấu hình riêng cho từng địa điểm, không còn dùng chung một giá trị."
+              >
+                <a
+                  href="/curator/hotspot"
+                  className="text-sm font-medium text-primary underline underline-offset-4"
+                >
+                  Cấu hình trong form địa điểm
+                </a>
               </Row>
               <Row label="Bắt buộc GPS thật">
                 <Toggle defaultChecked />
