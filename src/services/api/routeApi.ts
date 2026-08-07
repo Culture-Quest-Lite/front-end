@@ -67,6 +67,7 @@ export interface RouteResponse {
   thumbnailUrl?: string | null;
   imageUrl?: string | null;
   coverImageUrl?: string | null;
+  routeType?: string | null;
 }
 
 export type RouteSearchOperator =
