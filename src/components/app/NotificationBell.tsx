@@ -64,6 +64,14 @@ export function NotificationBell() {
     }
   }, [applyLoadedNotifications]);
 
+  // Reload ngay khi nhận foreground push (từ useFcm dispatch event)
+  useEffect(() => {
+    function handleNewNotification() { void load(); }
+    window.addEventListener("cql:new-notification", handleNewNotification);
+    return () => window.removeEventListener("cql:new-notification", handleNewNotification);
+  }, [load]);
+
+  // Poll mỗi 60s
   useEffect(() => {
     void load();
     const timer = window.setInterval(() => void load(), 60000);
