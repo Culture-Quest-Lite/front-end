@@ -3,22 +3,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircle, MapPin } from "lucide-react";
 
-const GOONG_MAP_JS_URL =
-  "https://cdn.jsdelivr.net/npm/@goongmaps/goong-js@1.0.9/dist/goong-js.js";
-const GOONG_MAP_CSS_URL =
-  "https://cdn.jsdelivr.net/npm/@goongmaps/goong-js@1.0.9/dist/goong-js.css";
-const GOONG_MAP_STYLE_URL = "https://tiles.goong.io/assets/goong_map_web.json";
-const GOONG_MAPTILES_KEY =
-  process.env.NEXT_PUBLIC_GOONG_MAPTILES_KEY?.trim() ||
-  process.env.NEXT_PUBLIC_GOONG_API_KEY?.trim() ||
-  "";
-
-let goongJsLoader: Promise<GoongJsGlobal> | null = null;
-
-type Coordinate = {
-  latitude: number;
-  longitude: number;
-};
+// Loader, hằng số CDN và type dùng chung với CheckInZoneEditor để Goong JS chỉ
+// được tải một lần và Window.goongjs chỉ có một khai báo type duy nhất.
+import {
+  GOONG_MAPTILES_KEY,
+  GOONG_MAP_STYLE_URL,
+  formatCoordinateValue,
+  loadGoongJs,
+  parseCoordinatePair,
+  type GoongMapInstance,
+  type GoongMarkerInstance,
+} from "./goong-loader";
 
 type GoongMapPreviewProps = {
   address: string;
@@ -26,53 +21,6 @@ type GoongMapPreviewProps = {
   longitude: string;
   onCoordinateChange?: (next: { latitude: string; longitude: string }) => void;
 };
-
-type GoongJsGlobal = {
-  accessToken: string;
-  Map: new (options: {
-    container: HTMLElement;
-    style: string;
-    center: [number, number];
-    zoom: number;
-    attributionControl?: boolean;
-  }) => GoongMapInstance;
-  Marker: new (options?: {
-    color?: string;
-    draggable?: boolean;
-    scale?: number;
-  }) => GoongMarkerInstance;
-  NavigationControl: new (options?: {
-    showCompass?: boolean;
-    showZoom?: boolean;
-    visualizePitch?: boolean;
-  }) => unknown;
-};
-
-type GoongMapInstance = {
-  addControl: (control: unknown, position?: string) => void;
-  flyTo: (options: {
-    center: [number, number];
-    zoom?: number;
-    essential?: boolean;
-  }) => void;
-  on: (event: string, handler: (event?: unknown) => void) => void;
-  remove: () => void;
-  resize: () => void;
-};
-
-type GoongMarkerInstance = {
-  addTo: (map: GoongMapInstance) => GoongMarkerInstance;
-  getLngLat: () => { lng: number; lat: number };
-  on?: (event: string, handler: () => void) => void;
-  remove?: () => void;
-  setLngLat: (lngLat: [number, number]) => GoongMarkerInstance;
-};
-
-declare global {
-  interface Window {
-    goongjs?: GoongJsGlobal;
-  }
-}
 
 export function GoongMapPreview({
   address,
@@ -293,113 +241,4 @@ export function GoongMapPreview({
       ) : null}
     </div>
   );
-}
-
-function ensureGoongCss() {
-  if (
-    document.head.querySelector('link[data-goong-map-css="true"]') instanceof
-    HTMLLinkElement
-  ) {
-    return;
-  }
-
-  const link = document.createElement("link");
-  link.rel = "stylesheet";
-  link.href = GOONG_MAP_CSS_URL;
-  link.dataset.goongMapCss = "true";
-  document.head.appendChild(link);
-}
-
-async function loadGoongJs() {
-  if (typeof window === "undefined") {
-    throw new Error("Map View chỉ khả dụng trên trình duyệt.");
-  }
-
-  if (window.goongjs) {
-    ensureGoongCss();
-    return window.goongjs;
-  }
-
-  if (!goongJsLoader) {
-    goongJsLoader = new Promise<GoongJsGlobal>((resolve, reject) => {
-      ensureGoongCss();
-
-      const existingScript = document.head.querySelector(
-        'script[data-goong-map-script="true"]',
-      );
-
-      if (existingScript instanceof HTMLScriptElement) {
-        existingScript.addEventListener(
-          "load",
-          () => {
-            if (window.goongjs) {
-              resolve(window.goongjs);
-              return;
-            }
-
-            reject(
-              new Error("Goong JS đã tải xong nhưng không khởi tạo được."),
-            );
-          },
-          { once: true },
-        );
-        existingScript.addEventListener(
-          "error",
-          () => {
-            reject(new Error("Không thể tải Goong JS từ CDN."));
-          },
-          { once: true },
-        );
-
-        return;
-      }
-
-      const script = document.createElement("script");
-      script.src = GOONG_MAP_JS_URL;
-      script.async = true;
-      script.dataset.goongMapScript = "true";
-      script.addEventListener("load", () => {
-        if (window.goongjs) {
-          resolve(window.goongjs);
-          return;
-        }
-
-        reject(new Error("Goong JS đã tải xong nhưng không khởi tạo được."));
-      });
-      script.addEventListener("error", () => {
-        reject(new Error("Không thể tải Goong JS từ CDN."));
-      });
-      document.head.appendChild(script);
-    }).catch((error) => {
-      goongJsLoader = null;
-      throw error;
-    });
-  }
-
-  return goongJsLoader;
-}
-
-function parseCoordinatePair(latitude: string, longitude: string) {
-  const parsedLatitude = Number.parseFloat(latitude);
-  const parsedLongitude = Number.parseFloat(longitude);
-
-  if (
-    !Number.isFinite(parsedLatitude) ||
-    !Number.isFinite(parsedLongitude) ||
-    parsedLatitude < -90 ||
-    parsedLatitude > 90 ||
-    parsedLongitude < -180 ||
-    parsedLongitude > 180
-  ) {
-    return null;
-  }
-
-  return {
-    latitude: parsedLatitude,
-    longitude: parsedLongitude,
-  } satisfies Coordinate;
-}
-
-function formatCoordinateValue(value: number) {
-  return value.toFixed(6).replace(/\.?0+$/, "");
 }
