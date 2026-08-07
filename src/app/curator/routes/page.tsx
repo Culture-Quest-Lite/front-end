@@ -67,7 +67,8 @@ type RouteSearchField =
   | "point"
   | "estimateTime"
   | "totalDistance"
-  | "totalStops";
+  | "totalStops"
+  | "type";
 
 type RouteSearchFieldKind = "text" | "number" | "status" | "difficulty";
 type RouteSortField =
@@ -308,6 +309,7 @@ function countActiveRouteAdvancedFilters(filters: RouteAdvancedFilterState) {
 function buildRouteSearchFilters(
   quickSearch: string,
   filters: RouteAdvancedFilterState,
+  routeType: "OFFICIAL" | "CUSTOM" | null,
 ) {
   const normalizedQuickSearch = quickSearch.trim();
   const searchFilters: Array<{
@@ -351,6 +353,14 @@ function buildRouteSearchFilters(
       field: row.field,
       operator: row.operator,
       value: normalizedValue,
+    });
+  }
+
+  if (routeType) {
+    searchFilters.push({
+      field: "type",
+      operator: "EQUALS",
+      value: routeType,
     });
   }
 
@@ -554,6 +564,23 @@ function RouteCard({
           <span className="h-1.5 w-1.5 rounded-full bg-current/75" />
           {getStatusLabel(route.status)}
         </span>
+
+        {route.routeType ? (
+          <span
+            className={`absolute left-2 top-2 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-sm ${
+              route.routeType === "OFFICIAL"
+                ? "border-sky-200 bg-sky-50/90 text-sky-700"
+                : "border-violet-200 bg-violet-50/90 text-violet-700"
+            }`}
+          >
+            {route.routeType === "OFFICIAL" ? (
+              <ShieldCheck className="h-2.5 w-2.5" />
+            ) : (
+              <PencilLine className="h-2.5 w-2.5" />
+            )}
+            {route.routeType === "OFFICIAL" ? "Hệ thống" : "Người dùng"}
+          </span>
+        ) : null}
       </div>
 
       <div className="flex flex-1 flex-col gap-1.5 p-2.5">
@@ -721,6 +748,7 @@ export default function CuratorRoutesPage() {
   const [deletingRouteId, setDeletingRouteId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reloadVersion, setReloadVersion] = useState(0);
+  const [routeTypeFilter, setRouteTypeFilter] = useState<"OFFICIAL" | "CUSTOM" | null>(null);
   const activeFilterCount = countActiveRouteAdvancedFilters(appliedFilters);
 
   useEffect(() => {
@@ -789,6 +817,7 @@ export default function CuratorRoutesPage() {
         const filters = buildRouteSearchFilters(
           debouncedQuickSearch,
           appliedFilters,
+          routeTypeFilter,
         );
 
         const response = await routeApi.searchRoutes({
@@ -828,7 +857,7 @@ export default function CuratorRoutesPage() {
     return () => {
       cancelled = true;
     };
-  }, [appliedFilters, currentPage, debouncedQuickSearch, reloadVersion]);
+  }, [appliedFilters, currentPage, debouncedQuickSearch, reloadVersion, routeTypeFilter]);
 
   function handleToggleFilterPanel() {
     setDraftFilters(cloneRouteAdvancedFilters(appliedFilters));
@@ -871,6 +900,11 @@ export default function CuratorRoutesPage() {
     setAppliedFilters(nextFilters);
     setCurrentPage(1);
     setIsFilterOpen(false);
+  }
+
+  function handleRouteTypeFilter(type: "OFFICIAL" | "CUSTOM" | null) {
+    setRouteTypeFilter(type);
+    setCurrentPage(1);
   }
 
   function handleDeleteRequest(route: RouteResponse) {
@@ -963,6 +997,47 @@ export default function CuratorRoutesPage() {
             >
               Trình tạo tuyến
             </Link>
+          </div>
+        </div>
+
+        {/* Toggle: loại tuyến */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex items-center rounded-full border border-slate-100 bg-[#F7F5EF] p-1">
+            <button
+              type="button"
+              onClick={() => handleRouteTypeFilter(null)}
+              className={`rounded-full px-3.5 py-1.5 text-[11px] font-medium transition ${
+                routeTypeFilter === null
+                  ? "bg-white text-slate-950 shadow-sm"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              Tất cả
+            </button>
+            <button
+              type="button"
+              onClick={() => handleRouteTypeFilter("OFFICIAL")}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] font-medium transition ${
+                routeTypeFilter === "OFFICIAL"
+                  ? "bg-white text-sky-700 shadow-sm"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <ShieldCheck className="h-3 w-3" />
+              Tuyến hệ thống
+            </button>
+            <button
+              type="button"
+              onClick={() => handleRouteTypeFilter("CUSTOM")}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] font-medium transition ${
+                routeTypeFilter === "CUSTOM"
+                  ? "bg-white text-violet-700 shadow-sm"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <PencilLine className="h-3 w-3" />
+              Tuyến người dùng
+            </button>
           </div>
         </div>
 

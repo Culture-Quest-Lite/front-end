@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/app/ui-bits";
-import { partnerApi, type VoucherResponse } from "@/services/api/partner/partnerApi";
+import { partnerApi, type VoucherResponse, type PartnerDashboardResponse } from "@/services/api/partner/partnerApi";
+import {
+  partnerSubscriptionApi,
+  type PartnerSubscriptionResponse,
+} from "@/services/api/partner/partnerSubscriptionApi";
 import {
   AlertTriangle,
   BarChart3,
@@ -84,6 +88,8 @@ function formatDiscount(voucher: VoucherResponse) {
 
 export default function PartnerDashboardPage() {
   const [vouchers, setVouchers] = useState<VoucherResponse[]>([]);
+  const [subscriptions, setSubscriptions] = useState<PartnerSubscriptionResponse[]>([]);
+  const [dashboardData, setDashboardData] = useState<PartnerDashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -95,11 +101,17 @@ export default function PartnerDashboardPage() {
         setLoading(true);
         setLoadError(null);
 
-        const voucherResponse = await partnerApi.getVouchers({ page: 0, size: 100 });
+        const [voucherResponse, subscriptionData, dashboard] = await Promise.all([
+          partnerApi.getVouchers({ page: 0, size: 100 }),
+          partnerSubscriptionApi.getMySubscriptions().catch(() => [] as PartnerSubscriptionResponse[]),
+          partnerApi.getDashboard().catch(() => null),
+        ]);
 
         if (cancelled) return;
 
         setVouchers(voucherResponse.content ?? []);
+        setSubscriptions(subscriptionData ?? []);
+        setDashboardData(dashboard);
       } catch (error) {
         if (!cancelled) {
           setLoadError(
@@ -247,6 +259,12 @@ export default function PartnerDashboardPage() {
           accent="bg-orange-50 text-orange-600"
         />
       </div>
+
+      <SubscriptionSection subscriptions={subscriptions} loading={loading} />
+
+      {dashboardData ? (
+        <DashboardApiSection data={dashboardData} />
+      ) : null}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-2">
@@ -534,6 +552,153 @@ function EmptyBox({ text }: { text: string }) {
     <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
       {text}
     </div>
+  );
+}
+
+const subscriptionStatusLabels: Record<string, string> = {
+  PENDING: "Chờ duyệt",
+  ACTIVE: "Đang hoạt động",
+  INACTIVE: "Tạm ngưng",
+  EXPIRED: "Hết hạn",
+  REJECTED: "Từ chối",
+  DELETED: "Đã xoá",
+};
+
+const subscriptionStatusClasses: Record<string, string> = {
+  PENDING: "bg-amber-100 text-amber-700",
+  ACTIVE: "bg-emerald-100 text-emerald-700",
+  INACTIVE: "bg-slate-100 text-slate-600",
+  EXPIRED: "bg-red-100 text-red-700",
+  REJECTED: "bg-rose-100 text-rose-700",
+  DELETED: "bg-slate-100 text-slate-400",
+};
+
+const billingCycleLabels: Record<string, string> = {
+  MONTHLY: "Hàng tháng",
+  YEARLY: "Hàng năm",
+};
+
+function SubscriptionSection({
+  subscriptions,
+  loading,
+}: {
+  subscriptions: PartnerSubscriptionResponse[];
+  loading: boolean;
+}) {
+  const activeSubscription = subscriptions.find((s) => s.status === "ACTIVE") ?? subscriptions[0] ?? null;
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <SectionHeader
+        title="Thông tin gói đối tác"
+        subtitle="Trạng thái đăng ký dịch vụ và thông tin cửa hàng hiện tại."
+      />
+
+      {loading ? (
+        <LoadingBox />
+      ) : !activeSubscription ? (
+        <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+          Chưa có gói đăng ký nào. Hãy đăng ký gói đối tác để sử dụng đầy đủ tính năng.
+        </div>
+      ) : (
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Cửa hàng</p>
+            <p className="mt-1 font-semibold text-slate-900">{activeSubscription.shopName}</p>
+            {activeSubscription.address ? (
+              <p className="mt-0.5 text-xs text-slate-500 line-clamp-2">{activeSubscription.address}</p>
+            ) : null}
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Gói dịch vụ</p>
+            <p className="mt-1 font-semibold text-slate-900">{activeSubscription.subscriptionPlanName}</p>
+            {activeSubscription.billingCycle ? (
+              <p className="mt-0.5 text-xs text-slate-500">
+                {billingCycleLabels[activeSubscription.billingCycle] ?? activeSubscription.billingCycle}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Trạng thái</p>
+            <div className="mt-1 flex flex-col gap-1">
+              <span
+                className={`inline-flex w-fit rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                  subscriptionStatusClasses[activeSubscription.status ?? ""] ?? "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {subscriptionStatusLabels[activeSubscription.status ?? ""] ?? (activeSubscription.status ?? "—")}
+              </span>
+              {activeSubscription.isVerified ? (
+                <span className="text-[11px] font-medium text-emerald-600">✓ Đã xác minh</span>
+              ) : (
+                <span className="text-[11px] text-slate-400">Chưa xác minh</span>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Thời hạn</p>
+            <p className="mt-1 text-sm text-slate-700">
+              <span className="font-medium">Bắt đầu:</span>{" "}
+              {activeSubscription.startDate ? formatDate(activeSubscription.startDate) : "—"}
+            </p>
+            <p className="mt-0.5 text-sm text-slate-700">
+              <span className="font-medium">Kết thúc:</span>{" "}
+              {activeSubscription.endDate ? formatDate(activeSubscription.endDate) : "—"}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {subscriptions.length > 1 ? (
+        <p className="mt-3 text-right text-[11px] text-slate-400">
+          Tổng {subscriptions.length} gói đăng ký
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function DashboardApiSection({ data }: { data: PartnerDashboardResponse }) {
+  const numFields: Array<{ key: keyof PartnerDashboardResponse; label: string; suffix?: string }> = [
+    { key: "totalVouchers", label: "Tổng voucher" },
+    { key: "activeVouchers", label: "Đang hoạt động" },
+    { key: "inactiveVouchers", label: "Tạm ngưng" },
+    { key: "expiredVouchers", label: "Hết hạn" },
+    { key: "pendingVouchers", label: "Chờ duyệt" },
+    { key: "totalQuantityIssued", label: "Tổng phát hành" },
+    { key: "totalQuantityRemaining", label: "Còn lại" },
+    { key: "totalRedeemed", label: "Tổng lượt dùng" },
+    { key: "usageRate", label: "Tỷ lệ sử dụng", suffix: "%" },
+    { key: "totalRevenue", label: "Doanh thu" },
+  ];
+
+  const visibleCards = numFields.filter(
+    (f) => data[f.key] !== undefined && data[f.key] !== null,
+  );
+
+  if (visibleCards.length === 0) return null;
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <SectionHeader
+        title="Số liệu từ hệ thống"
+        subtitle="Dữ liệu tổng hợp được tính toán phía server từ /api/partner/dashboard."
+      />
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {visibleCards.map(({ key, label, suffix }) => (
+          <div key={String(key)} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">{label}</p>
+            <p className="mt-1 text-xl font-bold text-slate-900">
+              {formatNumber(Number(data[key]))}
+              {suffix ?? ""}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

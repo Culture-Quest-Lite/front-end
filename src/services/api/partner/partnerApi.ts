@@ -153,6 +153,24 @@ function buildQuery(params?: Record<string, string | number | undefined>) {
   return query ? `?${query}` : "";
 }
 
+export interface PartnerDashboardResponse {
+  totalVouchers?: number | null;
+  activeVouchers?: number | null;
+  inactiveVouchers?: number | null;
+  expiredVouchers?: number | null;
+  pendingVouchers?: number | null;
+  totalQuantityIssued?: number | null;
+  totalQuantityRemaining?: number | null;
+  totalRedeemed?: number | null;
+  usageRate?: number | null;
+  totalRevenue?: number | null;
+  shopName?: string | null;
+  partnerName?: string | null;
+  subscriptionStatus?: string | null;
+  subscriptionPlanName?: string | null;
+  [key: string]: unknown;
+}
+
 export const partnerApi = {
   /**
    * GET /api/users/me
@@ -306,6 +324,16 @@ export const partnerApi = {
         sameOrigin: true,
       },
     ),
+
+  /**
+   * GET /api/partner/dashboard
+   * Trả về số liệu tổng hợp phía backend cho partner hiện tại.
+   */
+  getDashboard: async () =>
+    apiFetch<PartnerDashboardResponse>("/api/partner/dashboard", {
+      method: "GET",
+      sameOrigin: true,
+    }),
 };
 
 export default partnerApi;
