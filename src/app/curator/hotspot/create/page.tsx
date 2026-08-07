@@ -10,6 +10,14 @@ import { Input } from "@/components/ui/input";
 import { buildTagToken } from "@/lib/tags";
 import { GoongMapPreview } from "./GoongMapPreview";
 import {
+  CheckInZoneEditor,
+  DEFAULT_CHECK_IN_RADIUS,
+  MAX_CHECK_IN_RADIUS,
+  MIN_CHECK_IN_RADIUS,
+  type CheckInZoneMode,
+} from "./CheckInZoneEditor";
+import { isPointInPolygon, parseGeoJsonToVertices } from "@/lib/geo";
+import {
   goongApi,
   hotspotApi,
   type BackendHotspot,
@@ -36,6 +44,9 @@ type HotspotFormState = {
   historyInformation: string;
   latitude: string;
   longitude: string;
+  zoneMode: CheckInZoneMode;
+  checkInRadius: string;
+  boundaryGeoJson: string;
   xp: string;
   point: string;
   estimatedDurationMin: string;
@@ -57,6 +68,9 @@ const defaultHotspotForm: HotspotFormState = {
   historyInformation: "",
   latitude: "",
   longitude: "",
+  zoneMode: "radius",
+  checkInRadius: String(DEFAULT_CHECK_IN_RADIUS),
+  boundaryGeoJson: "",
   xp: "",
   point: "",
   estimatedDurationMin: "",
@@ -676,6 +690,18 @@ function HotspotCreatePageContent() {
                     latitude={formState.latitude}
                     longitude={formState.longitude}
                     onCoordinateChange={handleMapCoordinateChange}
+                  />
+                  <CheckInZoneEditor
+                    latitude={formState.latitude}
+                    longitude={formState.longitude}
+                    mode={formState.zoneMode}
+                    checkInRadius={formState.checkInRadius}
+                    boundaryGeoJson={formState.boundaryGeoJson}
+                    onModeChange={(zoneMode) => updateField("zoneMode", zoneMode)}
+                    onRadiusChange={(radius) => updateField("checkInRadius", radius)}
+                    onBoundaryChange={(boundary) =>
+                      updateField("boundaryGeoJson", boundary)
+                    }
                   />
                   {addressSearchError && !showAddressSuggestions ? (
                     <p className="mt-2 text-xs font-medium text-rose-700">
@@ -1373,10 +1399,13 @@ function buildCreatePayload(
     );
   }
 
+  const latitude = parseDecimalField("latitude", formState.latitude);
+  const longitude = parseDecimalField("longitude", formState.longitude);
+
   const payload: CreateHotspotPayload = {
     hotspotName,
-    latitude: parseDecimalField("latitude", formState.latitude),
-    longitude: parseDecimalField("longitude", formState.longitude),
+    latitude,
+    longitude,
     xp: parseIntegerField("XP thưởng", formState.xp),
     point: parseIntegerField("điểm thưởng", formState.point),
     estimatedDurationMin,
@@ -1384,6 +1413,8 @@ function buildCreatePayload(
     startTime: normalizeTimeForApi("thời gian bắt đầu", formState.startTime),
     endTime: normalizeTimeForApi("thời gian kết thúc", formState.endTime),
   };
+
+  applyCheckInZoneToPayload(payload, formState, { latitude, longitude });
 
   if (address) {
     payload.address = address;
@@ -1415,6 +1446,51 @@ function buildCreatePayload(
   }
 
   return payload;
+}
+
+/**
+ * Gắn vùng check-in vào payload. Chế độ vẽ ưu tiên polygon; nếu chưa đủ 3 đỉnh
+ * thì báo lỗi ngay thay vì để backend trả 400.
+ */
+function applyCheckInZoneToPayload(
+  payload: CreateHotspotPayload,
+  formState: HotspotFormState,
+  center: { latitude: number; longitude: number },
+) {
+  if (formState.zoneMode === "polygon") {
+    const vertices = parseGeoJsonToVertices(formState.boundaryGeoJson);
+
+    if (vertices.length < 3) {
+      throw new Error(
+        "Vui lòng vẽ ranh giới với ít nhất 3 đỉnh, hoặc chuyển sang chế độ bán kính.",
+      );
+    }
+
+    if (!isPointInPolygon(center, vertices)) {
+      throw new Error("Toạ độ hotspot phải nằm trong ranh giới đã vẽ.");
+    }
+
+    payload.boundaryGeoJson = formState.boundaryGeoJson.trim();
+    return;
+  }
+
+  const checkInRadius = parseIntegerField(
+    "bán kính check-in",
+    formState.checkInRadius,
+  );
+
+  if (
+    checkInRadius < MIN_CHECK_IN_RADIUS ||
+    checkInRadius > MAX_CHECK_IN_RADIUS
+  ) {
+    throw new Error(
+      `Bán kính check-in phải nằm trong khoảng ${MIN_CHECK_IN_RADIUS}m đến ${MAX_CHECK_IN_RADIUS}m.`,
+    );
+  }
+
+  payload.checkInRadius = checkInRadius;
+  // Gửi chuỗi rỗng để backend xoá polygon cũ khi curator đổi về chế độ bán kính.
+  payload.boundaryGeoJson = "";
 }
 
 function parseDecimalField(label: string, value: string) {
@@ -1575,8 +1651,19 @@ function syncFormStateWithResponse(
   current: HotspotFormState,
   response: BackendHotspot,
 ): HotspotFormState {
+  // Ranh giới/bán kính phải được nạp lại khi mở form sửa, nếu không lần Lưu tiếp
+  // theo sẽ ghi đè vùng check-in hiện có bằng giá trị mặc định.
+  const boundaryGeoJson = response.boundaryGeoJson?.trim() || "";
+  const hasBoundary = parseGeoJsonToVertices(boundaryGeoJson).length >= 3;
+
   return {
     ...current,
+    zoneMode: hasBoundary ? "polygon" : current.zoneMode,
+    checkInRadius: formatNumberInputValue(
+      response.checkInRadius,
+      current.checkInRadius,
+    ),
+    boundaryGeoJson: boundaryGeoJson || current.boundaryGeoJson,
     hotspotName: response.hotspotName?.trim() || current.hotspotName,
     address: response.address?.trim() || current.address,
     description: response.description?.trim() || current.description,
