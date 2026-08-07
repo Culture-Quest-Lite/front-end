@@ -8,14 +8,16 @@
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
 
+// ⚠️  File này được serve trực tiếp (không qua Next.js bundler),
+//     nên process.env không khả dụng — phải hardcode các giá trị public ở đây.
 const firebaseConfig = {
-  apiKey:            process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain:        process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId:         process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket:     process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId:             process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId:     process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  apiKey:            "AIzaSyD0WhP4h04sX3Z2y-lXRde3dQGrhiGVm40",
+  authDomain:        "culture-quest-lite-d5fee.firebaseapp.com",
+  projectId:         "culture-quest-lite-d5fee",
+  storageBucket:     "culture-quest-lite-d5fee.firebasestorage.app",
+  messagingSenderId: "272821188601",
+  appId:             "1:272821188601:web:dfe58e278f029448f4ef28",
+  measurementId:     "G-S9M2N56ZWN",
 };
 
 firebase.initializeApp(firebaseConfig);

@@ -13,14 +13,27 @@ async function forward(request: NextRequest, method: "GET" | "PATCH" | "POST", c
   const token = request.cookies.get(COOKIE)?.value;
   if (auth) headers.set("authorization", auth);
   else if (token) headers.set("authorization", `Bearer ${token}`);
+
+  // Forward Content-Type so backend can parse JSON body correctly
+  const contentType = request.headers.get("content-type");
+  if (contentType) headers.set("content-type", contentType);
+
+  // Forward request body for POST / PATCH
+  let body: string | null = null;
+  if (method !== "GET") {
+    const text = await request.text();
+    if (text) body = text;
+  }
+
   const response = await fetch(`${BASE}/api/notifications${path}${request.nextUrl.search}`, {
     method,
     headers,
+    body,
     cache: "no-store",
   });
   const result = new NextResponse(await response.text(), { status: response.status });
-  const contentType = response.headers.get("content-type");
-  if (contentType) result.headers.set("content-type", contentType);
+  const respContentType = response.headers.get("content-type");
+  if (respContentType) result.headers.set("content-type", respContentType);
   result.headers.set("cache-control", "no-store");
   return result;
 }
