@@ -7,10 +7,9 @@ import {
   type VoucherResponse,
   type VoucherRequest,
   type CreateVoucherRequest,
-  type VoucherMedia,
   type VoucherDiscountType,
   type VoucherStatus,
-  type UserVoucherResponse,
+  type VoucherUsageResponse,
 } from "@/services/api/partner/partnerApi";
 import {
   Plus,
@@ -62,7 +61,7 @@ const statusClasses: Record<VoucherStatus, string> = {
 const DEMO_VOUCHERS: VoucherResponse[] = [
   {
     voucherId: 1001,
-    medias: [],
+    imageUrl: null,
     partnerId: 501,
     partnerName: "Đối tác demo",
     voucherCode: "DEMO2026",
@@ -83,7 +82,7 @@ const DEMO_VOUCHERS: VoucherResponse[] = [
   },
   {
     voucherId: 1002,
-    medias: [],
+    imageUrl: null,
     partnerId: 501,
     partnerName: "Đối tác demo",
     voucherCode: "WELCOME50",
@@ -104,7 +103,7 @@ const DEMO_VOUCHERS: VoucherResponse[] = [
   },
   {
     voucherId: 1003,
-    medias: [],
+    imageUrl: null,
     partnerId: 501,
     partnerName: "Đối tác demo",
     voucherCode: "HOTDEAL10",
@@ -153,42 +152,11 @@ function todayPlusDays(days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-/**
- * Map 1 VoucherResponse hiện có thành VoucherRequest để gửi PUT — dùng cho
- * hành động "Tạm ngưng/Bật lại" nhanh, vì API không có endpoint riêng đổi
- * status, phải PUT lại toàn bộ object kèm voucherCode khớp mã hiện tại.
- * (PUT vẫn là JSON thường, không phải multipart, nên không cần kèm files.)
- */
-function toVoucherRequest(
-  voucher: VoucherResponse,
-  overrides?: Partial<VoucherRequest>,
-): VoucherRequest {
-  return {
-    voucherCode: voucher.voucherCode,
-    voucherName: voucher.voucherName,
-    description: voucher.description ?? undefined,
-    discountType: voucher.discountType,
-    discountValue: voucher.discountValue,
-    maxDiscountAmount: voucher.maxDiscountAmount ?? undefined,
-    minOrderAmount: voucher.minOrderAmount ?? undefined,
-    pointsRequired: voucher.pointsRequired,
-    quantityTotal: voucher.quantityTotal,
-    status: voucher.status,
-    startDate: voucher.startDate,
-    endDate: voucher.endDate,
-    ...overrides,
-  };
-}
-
-type CreateVoucherPayload = Omit<VoucherRequest, "voucherCode" | "status"> & {
-  files?: File[];
-};
-
-type SaveVoucherPayload = VoucherRequest | CreateVoucherPayload;
+type SaveVoucherPayload = VoucherRequest | CreateVoucherRequest;
 
 /**
- * Tạo voucher KHÔNG truyền status. Backend sẽ tự quyết định trạng thái ban đầu
- * thường là PENDING. Sau khi tạo xong, card voucher vẫn có nút cập nhật status.
+ * Tạo voucher KHÔNG truyền status/voucherCode: backend tự sinh mã và luôn ép
+ * PENDING. Sau khi tạo xong, hàng voucher vẫn có nút cập nhật trạng thái.
  */
 
 type FormState = {
@@ -248,11 +216,11 @@ export default function PartnerVouchersPage() {
   const displayTotalItems = visibleVouchers.length;
   const displayTotalPages = isDemoMode ? 1 : totalPages;
 
-  // Ảnh chọn để upload khi TẠO MỚI (chỉ áp dụng cho create, vì updateVoucher
-  // hiện vẫn là JSON thường, chưa hỗ trợ đổi ảnh).
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  // Ảnh đã có của voucher đang sửa — chỉ để xem, không sửa được qua API hiện tại.
-  const [existingMedias, setExistingMedias] = useState<VoucherMedia[]>([]);
+  // Backend nhận đúng MỘT ảnh ở field `imageFile`, dùng chung cho cả tạo mới
+  // lẫn chỉnh sửa. Bỏ trống khi sửa = giữ nguyên ảnh cũ.
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  // Ảnh hiện tại của voucher đang sửa, chỉ để xem trước.
+  const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
 
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -321,8 +289,8 @@ export default function PartnerVouchersPage() {
     setPendingDeleteId(null);
     setUseDialogOpen(false);
     setForm(emptyForm);
-    setSelectedFiles([]);
-    setExistingMedias([]);
+    setSelectedFile(null);
+    setExistingImageUrl(null);
     setEditingId(null);
     setFormError(null);
     setDialog("create");
@@ -345,8 +313,8 @@ export default function PartnerVouchersPage() {
       startDate: toDateInputValue(voucher.startDate),
       endDate: toDateInputValue(voucher.endDate),
     });
-    setSelectedFiles([]);
-    setExistingMedias(voucher.medias ?? []);
+    setSelectedFile(null);
+    setExistingImageUrl(voucher.imageUrl ?? null);
     setEditingId(voucher.voucherId);
     setFormError(null);
     setDialog("edit");
@@ -404,12 +372,7 @@ export default function PartnerVouchersPage() {
       setFormError("Đơn hàng tối thiểu phải là số >= 0.");
       return null;
     }
-    if (dialog === "create" && selectedFiles.length === 0) {
-      setFormError("Vui lòng chọn ít nhất một ảnh voucher.");
-      return null;
-    }
-
-    const basePayload: CreateVoucherPayload = {
+    const basePayload: CreateVoucherRequest = {
       voucherName: title,
       description: form.description.trim() || undefined,
       discountType: form.discountType,
@@ -420,11 +383,13 @@ export default function PartnerVouchersPage() {
       quantityTotal,
       startDate: `${form.startDate}T00:00:00`,
       endDate: `${form.endDate}T23:59:59`,
+      imageFile: selectedFile,
     };
 
     if (dialog === "edit") {
       return {
         ...basePayload,
+        // Backend so sánh voucherCode gửi lên với mã hiện tại, sai là báo lỗi.
         voucherCode: form.code,
         status: form.status,
       };
@@ -442,10 +407,7 @@ export default function PartnerVouchersPage() {
 
     try {
       if (dialog === "create") {
-        await partnerApi.createVoucher({
-          ...(payload as CreateVoucherRequest),
-          files: selectedFiles,
-        });
+        await partnerApi.createVoucher(payload as CreateVoucherRequest);
       } else if (editingId) {
         await partnerApi.updateVoucher(editingId, payload as VoucherRequest);
       }
@@ -463,9 +425,9 @@ export default function PartnerVouchersPage() {
     setStatusLoadingId(voucher.voucherId);
     try {
       const nextStatus: VoucherStatus = voucher.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-      // Không có endpoint riêng đổi status — phải PUT lại toàn bộ voucher
-      // kèm voucherCode khớp mã hiện tại.
-      await partnerApi.updateVoucher(voucher.voucherId, toVoucherRequest(voucher, { status: nextStatus }));
+      // Không có endpoint riêng đổi status — changeVoucherStatus sẽ PUT lại
+      // toàn bộ voucher kèm voucherCode khớp mã hiện tại.
+      await partnerApi.changeVoucherStatus(voucher, nextStatus);
       refresh();
     } catch (error) {
       setActionError(
@@ -638,9 +600,9 @@ export default function PartnerVouchersPage() {
           setForm={setForm}
           formError={formError}
           isSubmitting={isSubmitting}
-          selectedFiles={selectedFiles}
-          setSelectedFiles={setSelectedFiles}
-          existingMedias={existingMedias}
+          selectedFile={selectedFile}
+          setSelectedFile={setSelectedFile}
+          existingImageUrl={existingImageUrl}
           onCancel={() => setDialog(null)}
           onSubmit={handleSave}
         />
@@ -703,9 +665,9 @@ function VoucherTableRow({
         {voucher.voucherCode}
       </td>
       <td className="px-4 py-4">
-        {voucher.medias?.[0]?.fileUrl ? (
+        {voucher.imageUrl ? (
           <img
-            src={voucher.medias[0].fileUrl}
+            src={voucher.imageUrl}
             alt={voucher.voucherName}
             loading="lazy"
             className="h-14 w-14 rounded-xl border border-slate-200 object-cover"
@@ -779,9 +741,9 @@ function VoucherFormDialog({
   setForm,
   formError,
   isSubmitting,
-  selectedFiles,
-  setSelectedFiles,
-  existingMedias,
+  selectedFile,
+  setSelectedFile,
+  existingImageUrl,
   onCancel,
   onSubmit,
 }: {
@@ -790,32 +752,23 @@ function VoucherFormDialog({
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
   formError: string | null;
   isSubmitting: boolean;
-  selectedFiles: File[];
-  setSelectedFiles: React.Dispatch<React.SetStateAction<File[]>>;
-  existingMedias: VoucherMedia[];
+  selectedFile: File | null;
+  setSelectedFile: React.Dispatch<React.SetStateAction<File | null>>;
+  existingImageUrl: string | null;
   onCancel: () => void;
   onSubmit: () => void;
 }) {
-  function handleFilesSelected(fileList: FileList | null) {
-    if (!fileList) return;
-    const incoming = Array.from(fileList);
+  // URL preview phải được revoke khi đổi/bỏ ảnh, nếu không sẽ rò rỉ blob.
+  const previewUrl = useMemo(
+    () => (selectedFile ? URL.createObjectURL(selectedFile) : null),
+    [selectedFile],
+  );
 
-    setSelectedFiles((prev) => [
-      ...prev,
-      ...incoming.filter(
-        (file) =>
-          !prev.some(
-            (p) =>
-              p.name === file.name &&
-              p.size === file.size
-          )
-      ),
-    ]);
-  }
-
-  function removeSelectedFile(index: number) {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-  }
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
@@ -972,70 +925,58 @@ function VoucherFormDialog({
             </Field>
           ) : null}
 
-          {mode === "create" ? (
-            <Field label="Hình ảnh voucher (tuỳ chọn)">
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500 transition hover:border-amber-400 hover:bg-amber-50/50 hover:text-amber-700">
-                <Upload className="h-4 w-4" />
-                Chọn ảnh để tải lên
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    handleFilesSelected(e.target.files);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-              {selectedFiles.length > 0 ? (
-                <div className="mt-3 flex flex-wrap gap-3">
-                  {selectedFiles.map((file, index) => (
-                    <div
-                      key={`${file.name}-${index}`}
-                      className="relative"
-                    >
-                      <img
-                        src={URL.createObjectURL(file)}
-                        alt={file.name}
-                        className="h-20 w-20 rounded-lg border border-slate-200 object-cover"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => removeSelectedFile(index)}
-                        className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </Field>
-          ) : (
-            <Field label="Hình ảnh hiện có">
-              {existingMedias.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {existingMedias.map((media) => (
-                    <img
-                      key={media.mediaId}
-                      src={media.fileUrl}
-                      alt=""
-                      className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
-                    />
-                  ))}
+          {/* Backend chỉ lưu 1 ảnh (`imageFile`), dùng chung cho tạo mới và sửa. */}
+          <Field label="Hình ảnh voucher (tuỳ chọn)">
+            {mode === "edit" && !selectedFile ? (
+              existingImageUrl ? (
+                <div className="mb-3 flex items-center gap-3">
+                  <img
+                    src={existingImageUrl}
+                    alt=""
+                    className="h-20 w-20 rounded-lg border border-slate-200 object-cover"
+                  />
+                  <span className="text-xs text-slate-400">
+                    Ảnh hiện tại. Chọn ảnh mới để thay thế, bỏ trống để giữ nguyên.
+                  </span>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 rounded-xl border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-400">
+                <div className="mb-3 flex items-center gap-2 rounded-xl border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-400">
                   <ImageOff className="h-4 w-4" /> Voucher này chưa có ảnh.
                 </div>
-              )}
-              <p className="mt-1.5 text-xs text-slate-400">
-                Chưa hỗ trợ thêm/đổi ảnh khi sửa voucher qua API hiện tại — chỉ áp dụng lúc tạo mới.
-              </p>
-            </Field>
-          )}
+              )
+            ) : null}
+
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500 transition hover:border-amber-400 hover:bg-amber-50/50 hover:text-amber-700">
+              <Upload className="h-4 w-4" />
+              {selectedFile ? "Chọn ảnh khác" : "Chọn ảnh để tải lên"}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  setSelectedFile(e.target.files?.[0] ?? null);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+
+            {previewUrl ? (
+              <div className="relative mt-3 w-20">
+                <img
+                  src={previewUrl}
+                  alt={selectedFile?.name ?? ""}
+                  className="h-20 w-20 rounded-lg border border-slate-200 object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => setSelectedFile(null)}
+                  className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : null}
+          </Field>
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Ngày bắt đầu">
@@ -1092,7 +1033,7 @@ function UseVoucherDialog({ onClose }: { onClose: () => void }) {
   const [code, setCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<UserVoucherResponse | null>(null);
+  const [result, setResult] = useState<VoucherUsageResponse | null>(null);
 
   async function handleConfirm() {
     const trimmed = code.trim();

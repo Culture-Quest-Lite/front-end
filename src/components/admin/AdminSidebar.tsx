@@ -50,7 +50,7 @@ const menuGroups: Array<{
   {
     items: [
       { title: "Tổng quan", href: "/admin", icon: LayoutDashboard },
-      { title: "Kiểm duyệt", href: "/admin/moderation", icon: Shield },
+      { title: "Xử lý báo cáo", href: "/admin/moderation", icon: Shield },
       {
         title: "Duyệt nội dung",
         href: "/admin/content-review",

@@ -2,7 +2,19 @@ import { apiFetch } from "@/lib/api";
 
 export type UserRole = "EXPLORER" | "CURATOR" | "ADMIN" | "PARTNER";
 export type UserStatus = "ACTIVE" | "INACTIVE" | "PENDING" | "DELETED";
-export type PostStatus = "APPROVED" | "PENDING" | "REJECTED" | "DELETED";
+/**
+ * Khớp `PostStatus.java`. REPORTING = có báo cáo chưa xử lý, REPORTED = admin
+ * đã chấp nhận báo cáo và gỡ bài.
+ */
+export type PostStatus =
+  | "APPROVED"
+  | "PENDING"
+  | "REJECTED"
+  | "DELETED"
+  | "REPORTING"
+  | "REPORTED";
+
+export type PostVisibility = "PUBLIC" | "PRIVATE" | "FRIENDS";
 export type SubscriptionPlanStatus = "ACTIVE" | "INACTIVE" | "DELETED";
 export type SubscriptionPlanType = "PREMIUM" | "PARTNER";
 export type PartnerSubscriptionStatus =
@@ -98,22 +110,63 @@ export interface UserProfile {
   totalPosts: number;
 }
 
+export interface PostMedia {
+  mediaId: number;
+  mediaType?: string;
+  mimeType?: string;
+  fileUrl: string;
+  fileName?: string;
+  displayOrder?: number;
+}
+
+/** Khớp `PostResponse.java`. */
 export interface PostItem {
   postId: number;
   userId: number;
   username: string;
   displayName: string;
   content: string;
-  visibility?: string;
+  visibility?: PostVisibility;
   status: PostStatus;
   reason?: string;
   isTaggedHotspot?: boolean;
   isTaggedRoute?: boolean;
   hotspotIds?: number[];
   routeIds?: number[];
-  tags?: Array<{ tagId: number; tagName: string }>;
+  tags?: Array<{ tagId: number; tagName: string; imageUrl?: string }>;
+  medias?: PostMedia[];
   createdAt?: string;
   pointRemaining?: number;
+  pointEarned?: number;
+  likeCount?: number;
+  commentCount?: number;
+  shareCount?: number;
+  isLiked?: boolean;
+  /**
+   * Bài gốc khi đây là bài chia sẻ lại (repost). Backend tạo bản ghi Post mới
+   * trỏ về bài gốc qua `sharedPost`, nên khi kiểm duyệt cần xem cả hai.
+   */
+  sharedPost?: PostItem;
+}
+
+/** Khớp `ReportPostResponse.java` — một lượt báo cáo của một người dùng. */
+export interface PostReportItem {
+  postActionId: number;
+  postId: number;
+  createdUserId: number;
+  createdDisplayName: string;
+  comment: string;
+  createdAt: string;
+}
+
+/** Khớp `HandleReportPostRequest.java`. */
+export interface HandlePostReportRequest {
+  /** Các báo cáo cần đánh dấu đã xử lý — phải cùng thuộc `postId`. */
+  postActionIds: number[];
+  /** true = chấp nhận báo cáo (bài chuyển REPORTED), false = bác bỏ (bài về APPROVED). */
+  isApproveReport: boolean;
+  /** Bắt buộc, backend validate @NotBlank. */
+  reason: string;
 }
 
 export interface SubscriptionPlan {
@@ -453,6 +506,30 @@ export const adminApi = {
     return apiFetch<PostItem>(adminPath(`/${postId}/ban`), {
       method: "PUT",
       body: { reason },
+      sameOrigin: true,
+    });
+  },
+
+  /**
+   * GET /api/posts/reports — với tài khoản ADMIN trả về TẤT CẢ báo cáo chưa
+   * xử lý (isReportResolved = false), sắp xếp postId giảm dần. Một bài viết có
+   * thể xuất hiện nhiều dòng nếu bị nhiều người báo cáo.
+   */
+  getPostReports: async () => {
+    return apiFetch<PostReportItem[]>("/api/posts/reports", {
+      method: "GET",
+      sameOrigin: true,
+    });
+  },
+
+  /**
+   * PUT /api/posts/{id}/reports — xử lý (một lượt) các báo cáo của cùng 1 bài.
+   * Backend từ chối nếu bài đã ở trạng thái REPORTED hoặc báo cáo đã xử lý.
+   */
+  handlePostReport: async (postId: number, request: HandlePostReportRequest) => {
+    return apiFetch<PostItem>(`/api/posts/${postId}/reports`, {
+      method: "PUT",
+      body: request,
       sameOrigin: true,
     });
   },
