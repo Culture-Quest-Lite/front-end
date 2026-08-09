@@ -76,6 +76,15 @@ export default function ModerationPage() {
     setLoadError(null);
     try {
       const reports = await adminApi.getPostReports();
+
+      // Backend trả List phẳng; nếu nhận về thứ khác (HTML lỗi, object bọc...)
+      // thì báo rõ thay vì để `for...of` ném lỗi khó hiểu.
+      if (!Array.isArray(reports)) {
+        throw new Error(
+          `API /api/posts/reports trả về dữ liệu không phải danh sách: ${JSON.stringify(reports).slice(0, 200)}`,
+        );
+      }
+
       const groups = groupReportsByPost(reports);
 
       // Nội dung bài viết không nằm trong ReportPostResponse, phải lấy thêm
@@ -95,8 +104,14 @@ export default function ModerationPage() {
       );
     } catch (err) {
       setReportGroups([]);
+      const status = (err as { status?: number } | null)?.status;
       setLoadError(
-        err instanceof Error ? err.message : "Không thể tải danh sách báo cáo.",
+        [
+          status ? `HTTP ${status}` : null,
+          err instanceof Error ? err.message : "Không thể tải danh sách báo cáo.",
+        ]
+          .filter(Boolean)
+          .join(" — "),
       );
     } finally {
       setIsLoading(false);

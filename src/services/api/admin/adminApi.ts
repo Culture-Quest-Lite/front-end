@@ -197,7 +197,12 @@ export interface PartnerSubscription {
   startDate?: string;
   endDate?: string;
   isVerified?: boolean;
-  documentUrl?: string;
+  /**
+   * Giấy tờ + ảnh cửa hàng đã được proxy `/api/admin/subscriptions` thay link
+   * S3 bằng đường dẫn nội bộ, nên `previewUrl` luôn là same-origin và URL AWS
+   * không lộ ra trình duyệt. `documentUrl`/`medias[].fileUrl` đã bị loại bỏ.
+   */
+  attachments?: PartnerAttachment[];
   shopEmail?: string;
   invoiceCode?: string;
   paidAmount?: number;
@@ -207,10 +212,18 @@ export interface PartnerSubscription {
   createdAt?: string;
   medias?: Array<{
     mediaId: number;
-    fileUrl: string;
     fileName: string;
     mediaType: string;
   }>;
+}
+
+export interface PartnerAttachment {
+  /** Vị trí trong danh sách tệp của hồ sơ, dùng để dựng `previewUrl`. */
+  index: number;
+  name: string;
+  kind: "image" | "pdf" | "other";
+  /** Same-origin: `/api/admin/partner-files/{subscriptionId}/{index}`. */
+  previewUrl: string;
 }
 
 
