@@ -11,6 +11,7 @@ import {
   ExternalLink,
   FileText,
   MapPin,
+  Maximize2,
   Search,
   ShieldCheck,
   Store,
@@ -20,6 +21,7 @@ import { PageHeader } from "@/components/app/ui-bits";
 import { Button } from "@/components/ui/button";
 import {
   adminApi,
+  type PartnerAttachment,
   type PartnerSubscription,
   type PartnerSubscriptionStatus,
 } from "@/services/api/admin/adminApi";
@@ -46,13 +48,18 @@ const mockSubscriptions: PartnerSubscription[] = [
     billingCycle: "YEARLY",
     status: "PENDING",
     startDate: "2026-07-10T08:30:00",
-    documentUrl: "https://example.com/document-1042.pdf",
-    medias: [
+    attachments: [
       {
-        mediaId: 1,
-        fileUrl: "https://example.com/shop-1042.jpg",
-        fileName: "mat-tien-cua-hang.jpg",
-        mediaType: "IMAGE",
+        index: 0,
+        name: "Giấy tờ xác minh",
+        kind: "pdf",
+        previewUrl: "/api/admin/partner-files/1042/0",
+      },
+      {
+        index: 1,
+        name: "mat-tien-cua-hang.jpg",
+        kind: "image",
+        previewUrl: "/api/admin/partner-files/1042/1",
       },
     ],
   },
@@ -69,7 +76,14 @@ const mockSubscriptions: PartnerSubscription[] = [
     billingCycle: "MONTHLY",
     status: "PENDING",
     startDate: "2026-07-09T14:10:00",
-    documentUrl: "https://example.com/document-1041.pdf",
+    attachments: [
+      {
+        index: 0,
+        name: "Giấy tờ xác minh",
+        kind: "pdf",
+        previewUrl: "/api/admin/partner-files/1041/0",
+      },
+    ],
   },
   {
     id: 1038,
@@ -84,7 +98,14 @@ const mockSubscriptions: PartnerSubscription[] = [
     startDate: "2026-07-05T09:00:00",
     endDate: "2027-07-05T09:00:00",
     isVerified: true,
-    documentUrl: "https://example.com/document-1038.pdf",
+    attachments: [
+      {
+        index: 0,
+        name: "Giấy tờ xác minh",
+        kind: "pdf",
+        previewUrl: "/api/admin/partner-files/1038/0",
+      },
+    ],
   },
   {
     id: 1035,
@@ -98,7 +119,14 @@ const mockSubscriptions: PartnerSubscription[] = [
     status: "REJECTED",
     startDate: "2026-07-02T11:20:00",
     isVerified: false,
-    documentUrl: "https://example.com/document-1035.pdf",
+    attachments: [
+      {
+        index: 0,
+        name: "Giấy tờ xác minh",
+        kind: "pdf",
+        previewUrl: "/api/admin/partner-files/1035/0",
+      },
+    ],
   },
   {
     id: 1032,
@@ -123,7 +151,14 @@ const mockSubscriptions: PartnerSubscription[] = [
     billingCycle: "YEARLY",
     status: "PENDING",
     startDate: "2026-06-25T10:15:00",
-    documentUrl: "https://example.com/document-1029.pdf",
+    attachments: [
+      {
+        index: 0,
+        name: "Giấy tờ xác minh",
+        kind: "pdf",
+        previewUrl: "/api/admin/partner-files/1029/0",
+      },
+    ],
   },
 ];
 
@@ -187,7 +222,9 @@ export default function PartnerVerificationPage() {
   const [status, setStatus] = useState<StatusFilter>("ALL");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<PartnerSubscription | null>(null);
+  const [preview, setPreview] = useState<PartnerAttachment | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const attachments = selected?.attachments ?? [];
 
   const stats = useMemo(
     () => ({
@@ -494,32 +531,56 @@ export default function PartnerVerificationPage() {
                 </div>
               </div>
 
+              {/* Hồ sơ hiển thị ngay trong modal (cùng tab). Ảnh/PDF đi qua
+                  proxy same-origin nên không lộ link S3. */}
               <div className="rounded-2xl border border-slate-200 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                      <FileText className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">Giấy tờ xác minh</p>
-                      <p className="text-xs text-slate-500">
-                        Giấy phép hoặc tài liệu chứng minh cửa hàng
-                      </p>
-                    </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                    <FileText className="h-5 w-5" />
                   </div>
-                  {selected.documentUrl ? (
-                    <a
-                      href={selected.documentUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex h-9 items-center rounded-xl bg-slate-100 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-200"
-                    >
-                      Mở tài liệu
-                    </a>
-                  ) : (
-                    <span className="text-xs font-medium text-rose-600">Chưa có tài liệu</span>
-                  )}
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">Hồ sơ đính kèm</p>
+                    <p className="text-xs text-slate-500">
+                      Giấy phép và ảnh chứng minh cửa hàng
+                    </p>
+                  </div>
                 </div>
+
+                {attachments.length === 0 ? (
+                  <p className="mt-4 rounded-xl bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600">
+                    Hồ sơ này chưa đính kèm tài liệu nào.
+                  </p>
+                ) : (
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {attachments.map((attachment) => (
+                      <button
+                        key={attachment.index}
+                        type="button"
+                        onClick={() => setPreview(attachment)}
+                        className="group overflow-hidden rounded-xl border border-slate-200 text-left transition hover:border-[#D94A8D] hover:shadow-sm"
+                      >
+                        <div className="grid h-24 place-items-center bg-slate-50">
+                          {attachment.kind === "image" ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={attachment.previewUrl}
+                              alt={attachment.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <FileText className="h-7 w-7 text-slate-400" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-2">
+                          <Maximize2 className="h-3 w-3 shrink-0 text-slate-400 group-hover:text-[#D94A8D]" />
+                          <span className="truncate text-[11px] font-medium text-slate-600">
+                            {attachment.name}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {selected.status === "PENDING" && (
@@ -544,6 +605,84 @@ export default function PartnerVerificationPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {preview && (
+        <div
+          className="fixed inset-0 z-[70] flex flex-col bg-slate-950/85 p-4"
+          onClick={() => setPreview(null)}
+        >
+          <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 pb-3">
+            <p className="truncate text-sm font-medium text-white">{preview.name}</p>
+            <div className="flex items-center gap-2">
+              {attachments.length > 1 && (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      const current = attachments.findIndex(
+                        (item) => item.index === preview.index,
+                      );
+                      setPreview(
+                        attachments[
+                          (current - 1 + attachments.length) % attachments.length
+                        ],
+                      );
+                    }}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 text-white hover:bg-white/25"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      const current = attachments.findIndex(
+                        (item) => item.index === preview.index,
+                      );
+                      setPreview(attachments[(current + 1) % attachments.length]);
+                    }}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 text-white hover:bg-white/25"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => setPreview(null)}
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 text-white hover:bg-white/25"
+              >
+                <XCircle className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div
+            className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 items-center justify-center overflow-hidden rounded-2xl bg-white"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {preview.kind === "image" ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={preview.previewUrl}
+                alt={preview.name}
+                className="max-h-full max-w-full object-contain"
+              />
+            ) : preview.kind === "pdf" ? (
+              <iframe
+                src={preview.previewUrl}
+                title={preview.name}
+                className="h-full w-full"
+              />
+            ) : (
+              <div className="p-8 text-center text-sm text-slate-500">
+                Định dạng này không xem trực tiếp được trong trình duyệt.
+              </div>
+            )}
           </div>
         </div>
       )}
