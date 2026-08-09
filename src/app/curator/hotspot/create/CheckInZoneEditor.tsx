@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LoaderCircle, MapPin, Pencil, Radius, Trash2, Undo2 } from "lucide-react";
+import {
+  LoaderCircle,
+  MapPin,
+  Maximize2,
+  Pencil,
+  Radius,
+  Trash2,
+  Undo2,
+} from "lucide-react";
 
 import {
   circleToGeoJson,
@@ -112,6 +120,13 @@ export function CheckInZoneEditor({
     },
     [onBoundaryChange],
   );
+  commitVerticesRef.current = commitVertices;
+
+  // Toạ độ tâm dạng chuỗi: dùng làm dependency thay cho object `coordinates`
+  // (object tạo mới mỗi render nên effect sẽ chạy lại vô ích và reset zoom).
+  const centerKey = coordinates
+    ? `${coordinates.latitude},${coordinates.longitude}`
+    : null;
 
   const zoneData = useMemo(() => {
     if (mode === "polygon") {
@@ -124,14 +139,17 @@ export function CheckInZoneEditor({
     return circleToGeoJson(coordinates, parsedRadius);
   }, [mode, vertices, coordinates, parsedRadius]);
 
-  // Khởi tạo / cập nhật map
+  // Khởi tạo / cập nhật map.
+  // Deps cố tình chỉ có centerKey: mọi thứ khác đi qua ref, nếu không effect sẽ
+  // chạy lại sau mỗi lần thêm đỉnh và kéo khung nhìn về zoom mặc định.
   useEffect(() => {
-    if (!coordinates || !GOONG_MAPTILES_KEY || !mapContainerRef.current) {
+    if (!centerKey || !GOONG_MAPTILES_KEY || !mapContainerRef.current) {
       return;
     }
 
+    const [centerLatitude, centerLongitude] = centerKey.split(",").map(Number);
+    const center = { latitude: centerLatitude, longitude: centerLongitude };
     let isDisposed = false;
-    const center = coordinates;
 
     async function initMap() {
       try {
@@ -209,20 +227,30 @@ export function CheckInZoneEditor({
             if (!lngLat) {
               return;
             }
-            commitVertices([...verticesRef.current, [lngLat.lng, lngLat.lat]]);
+            commitVerticesRef.current([
+              ...verticesRef.current,
+              [lngLat.lng, lngLat.lat],
+            ]);
           });
 
           mapRef.current = map;
           centerMarkerRef.current = centerMarker;
+          lastCenteredRef.current = centerKey;
           return;
         }
 
         centerMarkerRef.current?.setLngLat([center.longitude, center.latitude]);
-        mapRef.current.flyTo({
-          center: [center.longitude, center.latitude],
-          zoom: 14,
-          essential: true,
-        });
+
+        // Chỉ đưa khung nhìn về tâm khi toạ độ hotspot thật sự thay đổi.
+        // Giữ nguyên zoom/pan của người dùng trong mọi trường hợp khác.
+        if (lastCenteredRef.current !== centerKey) {
+          mapRef.current.flyTo({
+            center: [center.longitude, center.latitude],
+            essential: true,
+          });
+          lastCenteredRef.current = centerKey;
+        }
+
         mapRef.current.resize();
         setIsLoadingMap(false);
       } catch (error) {
@@ -240,7 +268,8 @@ export function CheckInZoneEditor({
     return () => {
       isDisposed = true;
     };
-  }, [coordinates, commitVertices]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [centerKey]);
 
   // Dọn map khi component unmount
   useEffect(() => {
@@ -265,26 +294,43 @@ export function CheckInZoneEditor({
     map.getSource(ZONE_SOURCE_ID)?.setData(zoneData);
   }, [zoneData, isLoadingMap]);
 
-  // Marker kéo thả cho từng đỉnh polygon
+  // Marker kéo thả cho từng đỉnh polygon.
+  // Chỉ thêm/bớt marker theo phần chênh lệch; marker đã có thì cập nhật vị trí
+  // tại chỗ. Nếu xoá sạch rồi tạo lại thì mỗi lần chấm một đỉnh toàn bộ marker
+  // sẽ nhấp nháy và thao tác kéo đang dở bị huỷ.
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !isStyleReadyRef.current) {
+    if (!mapRef.current || !isStyleReadyRef.current) {
       return;
     }
-
-    vertexMarkersRef.current.forEach((marker) => marker.remove?.());
-    vertexMarkersRef.current = [];
 
     if (mode !== "polygon") {
+      vertexMarkersRef.current.forEach((marker) => marker.remove?.());
+      vertexMarkersRef.current = [];
       return;
     }
 
+    let isCancelled = false;
+
     void loadGoongJs().then((goongjs) => {
-      if (!mapRef.current) {
+      const map = mapRef.current;
+      if (isCancelled || !map) {
         return;
       }
 
-      verticesRef.current.forEach((vertex, index) => {
+      const markers = vertexMarkersRef.current;
+
+      // Bớt marker thừa khi người dùng xoá đỉnh
+      while (markers.length > vertices.length) {
+        markers.pop()?.remove?.();
+      }
+
+      vertices.forEach((vertex, index) => {
+        const existing = markers[index];
+        if (existing) {
+          existing.setLngLat(vertex);
+          return;
+        }
+
         const element = document.createElement("div");
         element.style.cssText =
           "width:14px;height:14px;border-radius:9999px;background:#fff;border:3px solid #CF3F34;cursor:grab;box-shadow:0 1px 4px rgba(0,0,0,.3)";
@@ -292,19 +338,67 @@ export function CheckInZoneEditor({
 
         const marker = new goongjs.Marker({ element, draggable: true })
           .setLngLat(vertex)
-          .addTo(mapRef.current!);
+          .addTo(map);
 
         marker.on?.("dragend", () => {
           const position = marker.getLngLat();
           const next = [...verticesRef.current];
-          next[index] = [position.lng, position.lat];
-          commitVertices(next);
+          // Đọc index tại thời điểm kéo, không dùng biến đóng gói lúc tạo marker.
+          const markerIndex = vertexMarkersRef.current.indexOf(marker);
+          if (markerIndex < 0) {
+            return;
+          }
+          next[markerIndex] = [position.lng, position.lat];
+          commitVerticesRef.current(next);
         });
 
-        vertexMarkersRef.current.push(marker);
+        markers[index] = marker;
       });
     });
-  }, [mode, vertices, commitVertices, isLoadingMap]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [mode, vertices, isLoadingMap]);
+
+  // Canh khung nhìn vừa vùng check-in. Là hành động thủ công của người dùng —
+  // map không bao giờ tự zoom lại để không phá thao tác đang làm dở.
+  const fitZoneToView = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) {
+      return;
+    }
+
+    const ring =
+      mode === "polygon"
+        ? vertices
+        : (zoneData as { geometry?: { coordinates?: GeoPosition[][] } }).geometry
+            ?.coordinates?.[0];
+
+    if (!ring || ring.length < 3) {
+      return;
+    }
+
+    let minLng = Number.POSITIVE_INFINITY;
+    let minLat = Number.POSITIVE_INFINITY;
+    let maxLng = Number.NEGATIVE_INFINITY;
+    let maxLat = Number.NEGATIVE_INFINITY;
+
+    ring.forEach(([lng, lat]) => {
+      minLng = Math.min(minLng, lng);
+      minLat = Math.min(minLat, lat);
+      maxLng = Math.max(maxLng, lng);
+      maxLat = Math.max(maxLat, lat);
+    });
+
+    map.fitBounds(
+      [
+        [minLng, minLat],
+        [maxLng, maxLat],
+      ],
+      { padding: 48, duration: 400 },
+    );
+  }, [mode, vertices, zoneData]);
 
   const centerOutsidePolygon =
     mode === "polygon" &&
@@ -401,7 +495,7 @@ export function CheckInZoneEditor({
             <span>{MAX_CHECK_IN_RADIUS}m</span>
           </div>
 
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <input
               type="number"
               min={MIN_CHECK_IN_RADIUS}
@@ -411,6 +505,15 @@ export function CheckInZoneEditor({
               className="w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#CF3F34]"
             />
             <span className="text-xs text-slate-500">mét</span>
+
+            <button
+              type="button"
+              onClick={fitZoneToView}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+              Vừa khung hình
+            </button>
           </div>
         </div>
       ) : (
@@ -442,6 +545,15 @@ export function CheckInZoneEditor({
               <Trash2 className="h-3.5 w-3.5" />
               Xoá tất cả
             </button>
+            <button
+              type="button"
+              onClick={fitZoneToView}
+              disabled={vertices.length < 3}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+              Vừa khung hình
+            </button>
           </div>
 
           {vertices.length > 0 && vertices.length < 3 ? (
@@ -462,7 +574,11 @@ export function CheckInZoneEditor({
       {coordinates ? (
         <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white">
           <div className="relative h-[320px] w-full bg-slate-100">
-            <div ref={mapContainerRef} className="h-full w-full" />
+            <div
+              ref={mapContainerRef}
+              className="h-full w-full"
+              style={{ cursor: mode === "polygon" ? "crosshair" : undefined }}
+            />
 
             {isLoadingMap ? (
               <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">

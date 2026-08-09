@@ -26,6 +26,10 @@ export type GoongMapInstance = {
   addLayer: (layer: Record<string, unknown>) => void;
   addSource: (id: string, source: Record<string, unknown>) => void;
   flyTo: (options: { center: [number, number]; zoom?: number; essential?: boolean }) => void;
+  fitBounds: (
+    bounds: [[number, number], [number, number]],
+    options?: { padding?: number; duration?: number; maxZoom?: number },
+  ) => void;
   getLayer: (id: string) => unknown;
   getSource: (id: string) => { setData: (data: unknown) => void } | undefined;
   isStyleLoaded?: () => boolean;
