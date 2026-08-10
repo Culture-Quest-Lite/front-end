@@ -13,6 +13,11 @@ const ACCESS_TOKEN_ROUTE_NAMES = new Set([
   "login-by-google",
   "login-by-facebook",
 ]);
+/**
+ * Các endpoint dưới /api/auth vẫn yêu cầu JWT ở backend (không nằm trong
+ * PUBLIC_AUTH_ENDPOINTS của SecurityConfig), nên proxy phải gắn access token.
+ */
+const AUTHENTICATED_ROUTE_NAMES = new Set(["change-password"]);
 const AUTH_PROXY_VERSION = "2026-06-19-node-http-retry-1";
 
 type AuthRouteContext = {
@@ -99,6 +104,17 @@ function buildBackendHeaders(request: NextRequest, authPath: string[], body?: st
     const refreshToken = request.cookies.get("refresh_token")?.value;
     if (refreshToken) {
       headers.set("cookie", `refresh_token=${refreshToken}`);
+    }
+  }
+
+  if (AUTHENTICATED_ROUTE_NAMES.has(authPath[0])) {
+    const authorization = request.headers.get("authorization");
+    const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE_KEY)?.value;
+
+    if (authorization) {
+      headers.set("authorization", authorization);
+    } else if (accessToken) {
+      headers.set("authorization", `Bearer ${accessToken}`);
     }
   }
 
@@ -311,6 +327,13 @@ function sanitizeRequestBody(authPath: string[], body?: string) {
       parsed.currentPassword =
         typeof parsed.currentPassword === "string"
           ? `[hidden:${parsed.currentPassword.length}]`
+          : "[hidden]";
+    }
+
+    if ("oldPassword" in parsed) {
+      parsed.oldPassword =
+        typeof parsed.oldPassword === "string"
+          ? `[hidden:${parsed.oldPassword.length}]`
           : "[hidden]";
     }
 
