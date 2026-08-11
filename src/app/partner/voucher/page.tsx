@@ -1086,6 +1086,9 @@ function UseVoucherDialog({ onClose }: { onClose: () => void }) {
               <CheckCircle2 className="h-4 w-4" /> Xác nhận thành công
             </div>
             <p className="mt-1">{result.voucherName}</p>
+            {result.voucherUsageCode ? (
+              <p className="mt-0.5 font-mono text-xs">Mã lượt đổi: {result.voucherUsageCode}</p>
+            ) : null}
             {result.usedAt ? <p className="mt-0.5 text-xs">Đã dùng lúc: {formatDate(result.usedAt)}</p> : null}
           </div>
         ) : null}

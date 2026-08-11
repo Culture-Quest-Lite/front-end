@@ -13,7 +13,6 @@ import {
   Map,
   ShieldCheck,
   Clock,
-  BarChart3,
   Shield,
   Settings,
   CreditCard,
@@ -61,7 +60,11 @@ const menuGroups: Array<{
       { title: "Phân quyền", href: "/admin/permissions", icon: KeyRound },
       { title: "Gói đăng ký", href: "/admin/subscriptions", icon: CreditCard },
       { title: "Duyệt đối tác", href: "/admin/partner-verification", icon: UserRoundCheck },
-      { title: "Phân tích", href: "/admin/analytics", icon: BarChart3 },
+      // Tạm ẩn: /admin/analytics vẫn đang chạy bằng dữ liệu giả trong @/data/demo.
+      // Dữ liệu thật của nó (checkInTrend, userGrowth, routeEngagement) hiện đã
+      // hiển thị ở trang Tổng quan. Mở lại khi trang được nối vào API thật —
+      // nhớ import lại icon BarChart3 từ lucide-react.
+      // { title: "Phân tích", href: "/admin/analytics", icon: BarChart3 },
       { title: "Cài đặt", href: "/admin/settings", icon: Settings },
     ],
   },

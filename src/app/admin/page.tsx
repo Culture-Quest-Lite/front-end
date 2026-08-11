@@ -32,7 +32,6 @@ import {
   ShieldCheck,
   Users,
   TrendingUp,
-  ArrowUpRight,
   Activity,
   Clock,
   FileText,
@@ -416,12 +415,6 @@ export default function AdminDashboardPage() {
                 Top {routeEngagement.length || 5} theo lượt bắt đầu
               </div>
             </div>
-            <Link
-              href="/admin/analytics"
-              className="shrink-0 text-xs text-primary inline-flex items-center gap-0.5"
-            >
-              Xem tất cả <ArrowUpRight className="w-3 h-3" />
-            </Link>
           </div>
 
           {/* Dữ liệu route là bảng xếp hạng 5 dòng có tên dài + một tỉ lệ, nên
