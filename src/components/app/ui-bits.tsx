@@ -44,20 +44,20 @@ export function StatCard({
   tone = "primary",
 }: StatCardProps) {
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm">
+    <div className="cq-admin-panel p-4">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="cq-label">
             {label}
           </p>
-          <p className="mt-3 text-2xl font-semibold text-slate-900">{value}</p>
+          <p className="mt-2.5 text-xl font-semibold text-slate-900">{value}</p>
         </div>
         <div
           className={
-            "grid h-11 w-11 place-items-center rounded-2xl " + toneClasses[tone]
+            "grid h-10 w-10 place-items-center rounded-2xl " + toneClasses[tone]
           }
         >
-          <Icon className="h-5 w-5" />
+          <Icon className="h-4 w-4" />
         </div>
       </div>
       <p className="cq-page-subtitle mt-3">{delta}</p>
