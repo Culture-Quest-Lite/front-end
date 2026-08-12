@@ -83,8 +83,8 @@ const statusClasses: Record<SubscriptionPlanStatus, string> = {
 };
 
 const planTypeLabels: Record<SubscriptionPlanType, string> = {
-  PREMIUM: "Premium",
-  PARTNER: "Partner",
+  PREMIUM: "Gói Premium",
+  PARTNER: "Gói đối tác",
 };
 
 const planTypeBadgeClasses: Record<SubscriptionPlanType, string> = {
@@ -490,7 +490,7 @@ export default function SubscriptionsPage() {
 
       <PageHeader
         title="Quản lý gói đăng ký"
-        subtitle="Tạo, chỉnh sửa và quản lý các gói Premium cho Explorer và Partner cho đối tác."
+        subtitle="Tạo, chỉnh sửa và quản lý gói Premium cho người dùng và gói đăng ký cho đối tác."
         actions={
           <Button size="sm" className="gap-1.5" onClick={openCreate}>
             <Plus className="h-4 w-4" /> Tạo gói mới
@@ -518,13 +518,13 @@ export default function SubscriptionsPage() {
           iconClass="bg-emerald-50 text-emerald-600"
         />
         <StatCard
-          label="Premium"
+          label="Gói Premium"
           value={String(stats.premium)}
           icon={Crown}
           iconClass="bg-violet-50 text-violet-600"
         />
         <StatCard
-          label="Partner"
+          label="Gói đối tác"
           value={String(stats.partner)}
           icon={Briefcase}
           iconClass="bg-amber-50 text-amber-600"
@@ -535,8 +535,8 @@ export default function SubscriptionsPage() {
         {(
           [
             { value: "all", label: "Tất cả" },
-            { value: "PREMIUM", label: "Premium" },
-            { value: "PARTNER", label: "Partner" },
+            { value: "PREMIUM", label: "Gói Premium" },
+            { value: "PARTNER", label: "Gói đối tác" },
           ] as { value: SubscriptionPlanType | "all"; label: string }[]
         ).map((item) => (
           <button
@@ -572,12 +572,12 @@ export default function SubscriptionsPage() {
             return (
               <div
                 key={plan.subscriptionPlanId}
-                className={`flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md ${planTypeBorderClasses[planType]}`}
+                className={`cq-admin-panel flex h-full flex-col transition hover:shadow-md ${planTypeBorderClasses[planType]}`}
               >
-                <div className="border-b border-slate-100 p-5">
+                <div className="border-b border-slate-100 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-900">
+                      <h3 className="text-base font-semibold text-slate-900">
                         {plan.subscriptionPlanName}
                       </h3>
                       <p className="mt-1 text-sm text-slate-500">
@@ -598,23 +598,23 @@ export default function SubscriptionsPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  <div className="mt-3.5 grid gap-2 sm:grid-cols-2">
                     <div>
                       <p className="text-xs text-slate-500">Giá tháng</p>
-                      <p className="text-lg font-bold text-slate-900">
+                      <p className="text-base font-bold text-slate-900">
                         {formatPrice(plan.priceMonthly)}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Giá năm</p>
-                      <p className="text-lg font-bold text-slate-900">
+                      <p className="text-base font-bold text-slate-900">
                         {formatPrice(plan.priceYearly)}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex-1 p-5">
+                <div className="flex-1 p-4">
                   {visibleConfigs.length > 0 ? (
                     <>
                       <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -798,7 +798,7 @@ function SubscriptionFormDialog({
                   setForm({ ...form, subscriptionPlanName: e.target.value })
                 }
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                placeholder="Ví dụ: Gói Premium, Gói Partner"
+                placeholder="Ví dụ: Gói Premium, Gói đối tác"
               />
             </Field>
 

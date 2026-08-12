@@ -15,16 +15,17 @@ import {
   LockOpen,
   ChevronLeft,
   ChevronRight,
+  User as UserIcon,
   X,
 } from "lucide-react";
 
 const PAGE_SIZE = 10;
 
 const roleLabels: Record<UserRole, string> = {
-  ADMIN: "Admin",
-  CURATOR: "Curator",
-  EXPLORER: "Explorer",
-  PARTNER: "Partner",
+  ADMIN: "Quản trị viên",
+  CURATOR: "Biên tập viên",
+  EXPLORER: "Người khám phá",
+  PARTNER: "Đối tác",
 };
 
 const roleClasses: Record<UserRole, string> = {
@@ -50,6 +51,46 @@ const statusClasses: Record<string, string> = {
 
 function formatNumber(value: number | null | undefined) {
   return new Intl.NumberFormat("vi-VN").format(value ?? 0);
+}
+
+/**
+ * Ảnh đại diện thật của người dùng (`avatarUrl`). Người dùng chưa có ảnh — hoặc
+ * link ảnh lỗi — thì dùng icon User thay vì ảnh sinh tự động.
+ */
+function UserAvatar({
+  avatarUrl,
+  displayName,
+  className,
+  iconClassName,
+}: {
+  avatarUrl?: string;
+  displayName: string;
+  className: string;
+  iconClassName: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  const canShowImage = !!avatarUrl?.trim() && !failed;
+
+  if (!canShowImage) {
+    return (
+      <div
+        className={`grid shrink-0 place-items-center rounded-full bg-slate-100 text-slate-400 ${className}`}
+        aria-label={displayName}
+      >
+        <UserIcon className={iconClassName} />
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={avatarUrl}
+      alt={displayName}
+      onError={() => setFailed(true)}
+      className={`shrink-0 rounded-full object-cover ${className}`}
+    />
+  );
 }
 
 export default function UsersManagerPage() {
@@ -216,10 +257,10 @@ export default function UsersManagerPage() {
         </div>
       ) : null}
 
-      <div className="rounded-2xl bg-white/90 p-5 shadow-[0_10px_30px_rgba(15,23,42,0.045)]">
+      <div className="cq-admin-panel p-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">
+            <h2 className="text-base font-semibold text-slate-900">
               Danh sách người dùng
             </h2>
           </div>
@@ -239,18 +280,19 @@ export default function UsersManagerPage() {
               className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             >
               <option value="all">Tất cả vai trò</option>
-              <option value="ADMIN">Admin</option>
-              <option value="CURATOR">Curator</option>
-              <option value="EXPLORER">Explorer</option>
-              <option value="PARTNER">Partner</option>
+              {(["ADMIN", "CURATOR", "EXPLORER", "PARTNER"] as UserRole[]).map((role) => (
+                <option key={role} value={role}>
+                  {roleLabels[role]}
+                </option>
+              ))}
             </select>
           </div>
         </div>
       </div>
 
-      <div className="rounded-2xl bg-white/90 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.045)]">
+      <div className="cq-admin-panel p-3">
         <div className="overflow-visible bg-transparent">
-          <div className="hidden min-w-[760px] grid-cols-[3fr_1fr_1fr_0.7fr_1.4fr] gap-4 px-5 py-4 text-[11px] uppercase tracking-[0.18em] text-slate-500 md:grid">
+          <div className="hidden grid-cols-[3fr_1fr_1fr_0.7fr_1.4fr] gap-4 px-4 py-3 text-[10.5px] uppercase tracking-[0.14em] text-slate-500 md:grid">
             <div>Người dùng</div>
             <div>Vai trò</div>
             <div>Trạng thái</div>
@@ -258,7 +300,7 @@ export default function UsersManagerPage() {
             <div className="text-right">Hành động</div>
           </div>
 
-          <ul className="space-y-3 p-4 md:p-5">
+          <ul className="space-y-2 p-2 md:p-3">
             {loading ? (
               <li className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
                 <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
@@ -323,9 +365,6 @@ function UserRow({
   onViewDetail: () => void;
 }) {
   const displayName = user.displayName || user.username;
-  const avatar =
-    user.avatarUrl ||
-    `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(displayName)}`;
   const isLocked = user.status === "INACTIVE";
 
   // Phần avatar + tên — bấm vào để mở modal xem chi tiết người dùng
@@ -333,18 +372,19 @@ function UserRow({
     <button
       type="button"
       onClick={onViewDetail}
-      className="flex min-w-0 items-center gap-4 rounded-xl text-left transition hover:opacity-75"
+      className="flex min-w-0 items-center gap-3.5 rounded-xl text-left transition hover:opacity-75"
     >
-      <img
-        src={avatar}
-        alt={displayName}
-        className="h-12 w-12 shrink-0 rounded-full object-cover"
+      <UserAvatar
+        avatarUrl={user.avatarUrl}
+        displayName={displayName}
+        className="h-10 w-10"
+        iconClassName="h-5 w-5"
       />
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold text-slate-900">
           {displayName}
         </div>
-        <div className="mt-1 truncate text-sm text-slate-500">{user.email}</div>
+        <div className="mt-0.5 truncate text-xs text-slate-500">{user.email}</div>
       </div>
     </button>
   );
@@ -366,7 +406,7 @@ function UserRow({
         onClick={() =>
           setOpenMenuId(openMenuId === user.userId ? null : user.userId)
         }
-        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
         aria-expanded={openMenuId === user.userId}
         aria-label="Mở menu hành động"
       >
@@ -416,13 +456,13 @@ function UserRow({
 
   return (
     <li
-      className={`rounded-2xl border border-[#EDF0F5] bg-[#FCFCFD] shadow-[0_6px_18px_rgba(15,23,42,0.035)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(15,23,42,0.06)] ${
+      className={`rounded-2xl border border-[#F1F4F8] bg-[#FCFCFD] transition hover:bg-[#FFF9FC] ${
         isMenuOpen
           ? "relative z-20 overflow-visible"
           : "relative z-0 overflow-hidden"
       }`}
     >
-      <div className="grid gap-4 p-4 md:grid-cols-[3fr_1fr_1fr_0.7fr_1.4fr] md:items-center md:p-4">
+      <div className="grid gap-4 p-3 md:grid-cols-[3fr_1fr_1fr_0.7fr_1.4fr] md:items-center">
         {userInfoButton}
         <div className="flex items-center">
           <span
@@ -488,9 +528,6 @@ function UserDetailModal({
   onClose: () => void;
 }) {
   const displayName = user.displayName || user.username;
-  const avatar =
-    user.avatarUrl ||
-    `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(displayName)}`;
 
   return (
     <div
@@ -501,11 +538,12 @@ function UserDetailModal({
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start gap-4 border-b border-slate-100 p-6">
-          <img
-            src={avatar}
-            alt={displayName}
-            className="h-16 w-16 shrink-0 rounded-full object-cover"
+        <div className="flex items-start gap-4 border-b border-slate-100 p-5">
+          <UserAvatar
+            avatarUrl={user.avatarUrl}
+            displayName={displayName}
+            className="h-14 w-14"
+            iconClassName="h-7 w-7"
           />
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-lg font-semibold text-slate-900">
@@ -557,8 +595,7 @@ function UserDetailModal({
           <StatBlock label="Cấp độ" value={user.levelName ?? "Chưa có"} />
         </div>
 
-        <div className="space-y-2 p-6 text-sm">
-          <DetailRow label="ID người dùng" value={String(user.userId)} />
+        <div className="space-y-2 p-5 text-sm">
           <DetailRow label="Email" value={user.email} />
           <DetailRow label="Tên đăng nhập" value={user.username} />
           <DetailRow

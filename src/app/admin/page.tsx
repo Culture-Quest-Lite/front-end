@@ -200,7 +200,7 @@ export default function AdminDashboardPage() {
           tone="primary"
         />
         <StatCard
-          label="Hotspot xuất bản"
+          label="Địa điểm đã xuất bản"
           value={formatCount(summary?.publishedHotspots)}
           delta={
             summary
@@ -224,7 +224,7 @@ export default function AdminDashboardPage() {
         <StatCard
           label="Chờ duyệt"
           value={formatCount(summary?.pendingPosts)}
-          delta="Bài đăng pending"
+          delta="Bài đăng chờ duyệt"
           icon={FileText}
           tone="warning"
         />
@@ -259,7 +259,7 @@ export default function AdminDashboardPage() {
           tone="info"
         />
         <StatCard
-          label="Doanh thu Partner"
+          label="Doanh thu đối tác"
           value={formatCompactCurrency(revenue?.partnerRevenue)}
           delta={
             revenue

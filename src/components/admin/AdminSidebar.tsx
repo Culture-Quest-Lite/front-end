@@ -14,7 +14,6 @@ import {
   ShieldCheck,
   Clock,
   Shield,
-  Settings,
   CreditCard,
   UserRoundCheck,
   KeyRound,
@@ -43,29 +42,51 @@ type MenuItem = {
   icon: LucideIcon;
 };
 
+/**
+ * Thứ tự menu đi theo tần suất dùng: việc quản trị tài khoản/quyền (làm thường
+ * xuyên, ảnh hưởng toàn hệ thống) lên trên; hàng đợi kiểm duyệt ở giữa; xử lý
+ * báo cáo và tra lịch sử — việc phát sinh theo sự vụ — xuống dưới cùng.
+ */
 const menuGroups: Array<{
+  label?: string;
   items: MenuItem[];
 }> = [
   {
+    items: [{ title: "Tổng quan", href: "/admin", icon: LayoutDashboard }],
+  },
+  {
+    label: "Quản trị",
     items: [
-      { title: "Tổng quan", href: "/admin", icon: LayoutDashboard },
-      { title: "Xử lý báo cáo", href: "/admin/moderation", icon: Shield },
+      { title: "Người dùng", href: "/admin/users-manager", icon: Users },
+      { title: "Phân quyền", href: "/admin/permissions", icon: KeyRound },
+      { title: "Gói đăng ký", href: "/admin/subscriptions", icon: CreditCard },
+    ],
+  },
+  {
+    label: "Kiểm duyệt",
+    items: [
       {
         title: "Duyệt nội dung",
         href: "/admin/content-review",
         icon: ShieldCheck,
       },
-      { title: "Lịch sử duyệt", href: "/admin/review-history", icon: Clock },
-      { title: "Người dùng", href: "/admin/users-manager", icon: Users },
-      { title: "Phân quyền", href: "/admin/permissions", icon: KeyRound },
-      { title: "Gói đăng ký", href: "/admin/subscriptions", icon: CreditCard },
       { title: "Duyệt đối tác", href: "/admin/partner-verification", icon: UserRoundCheck },
+    ],
+  },
+  {
+    label: "Theo dõi",
+    items: [
+      { title: "Xử lý báo cáo", href: "/admin/moderation", icon: Shield },
+      { title: "Lịch sử duyệt", href: "/admin/review-history", icon: Clock },
       // Tạm ẩn: /admin/analytics vẫn đang chạy bằng dữ liệu giả trong @/data/demo.
       // Dữ liệu thật của nó (checkInTrend, userGrowth, routeEngagement) hiện đã
       // hiển thị ở trang Tổng quan. Mở lại khi trang được nối vào API thật —
       // nhớ import lại icon BarChart3 từ lucide-react.
       // { title: "Phân tích", href: "/admin/analytics", icon: BarChart3 },
-      { title: "Cài đặt", href: "/admin/settings", icon: Settings },
+      // Tạm ẩn: /admin/settings mới chỉ là UI, các Toggle/Input chưa nối vào API
+      // nào nên bấm Lưu không thay đổi gì trong hệ thống. Mở lại khi có API cấu
+      // hình — nhớ import lại icon Settings từ lucide-react.
+      // { title: "Cài đặt", href: "/admin/settings", icon: Settings },
     ],
   },
 ];
@@ -114,7 +135,12 @@ export function AdminSidebar() {
 
       <SidebarContent className="bg-[#FCFCFD] py-4">
         {menuGroups.map((group, index) => (
-          <SidebarGroup key={index} className="mb-6 last:mb-0">
+          <SidebarGroup key={index} className="mb-3 last:mb-0">
+            {group.label ? (
+              <SidebarGroupLabel className="px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                {group.label}
+              </SidebarGroupLabel>
+            ) : null}
 
             <SidebarGroupContent>
               <SidebarMenu>

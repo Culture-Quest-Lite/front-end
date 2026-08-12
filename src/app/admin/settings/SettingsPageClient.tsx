@@ -35,16 +35,18 @@ export default function SettingsPageClient() {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <aside className="md:col-span-1 card-elev rounded-2xl p-2 h-fit space-y-2">
+        <aside className="md:col-span-1 card-elev rounded-2xl p-2 h-fit space-y-1">
+          {/* Khung từng mục để rất nhạt: mục đang chọn dùng nền hồng nhạt để
+              phân biệt, các mục còn lại không cần viền. */}
           {tabs.map((t) => (
             <button
               key={t.k}
               type="button"
               onClick={() => setTab(t.k)}
-              className={`w-full flex items-center justify-start gap-2 whitespace-nowrap px-3 py-2 rounded-lg border text-sm ${
+              className={`w-full flex items-center justify-start gap-2 whitespace-nowrap px-3 py-2 rounded-lg text-sm transition ${
                 tab === t.k
-                  ? 'border-primary bg-primary-soft text-foreground'
-                  : 'border-border text-muted-foreground hover:bg-surface-2'
+                  ? 'bg-primary-soft text-foreground ring-1 ring-[#F7DCE8]'
+                  : 'text-muted-foreground hover:bg-surface-2'
               }`}
             >
               <t.icon className={`w-4 h-4 ${tab === t.k ? 'text-primary' : ''}`} />
@@ -84,7 +86,7 @@ export default function SettingsPageClient() {
               <Row label="Kích thước video tối đa">
                 <Input value="50 MB" />
               </Row>
-              <Row label="Số ảnh tối đa / hotspot">
+              <Row label="Số ảnh tối đa / địa điểm">
                 <Input value="10" />
               </Row>
               <Row label="Định dạng chấp nhận">
@@ -164,7 +166,7 @@ export default function SettingsPageClient() {
         </section>
       </div>
 
-      <style>{`.inp{width:100%;height:36px;padding:0 12px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);font-size:13px;outline:none;}`}</style>
+      <style>{`.inp{width:100%;height:34px;padding:0 12px;border-radius:10px;background:var(--surface-2);border:1px solid #f0f3f8;font-size:12.5px;outline:none;}`}</style>
     </div>
   );
 }
@@ -172,8 +174,8 @@ export default function SettingsPageClient() {
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="card-elev rounded-2xl p-4">
-      <div className="text-sm font-semibold mb-3">{title}</div>
-      <div className="divide-y divide-border">{children}</div>
+      <div className="text-sm font-semibold mb-2.5">{title}</div>
+      <div className="divide-y divide-[#F3F5F9]">{children}</div>
     </section>
   );
 }
