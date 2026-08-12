@@ -28,6 +28,12 @@ const postStatusLabels: Record<string, string> = {
   DELETED: "Đã xoá",
 };
 
+const postVisibilityLabels: Record<string, string> = {
+  PUBLIC: "Công khai",
+  PRIVATE: "Riêng tư",
+  FRIENDS: "Bạn bè",
+};
+
 const postStatusClasses: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-700 border-amber-200",
   APPROVED: "bg-emerald-100 text-emerald-700 border-emerald-200",
@@ -227,7 +233,8 @@ export default function ModerationPage() {
               : "Bác bỏ báo cáo, giữ lại bài"
           }
           description={
-            handleTarget.group.post?.content ?? `Bài viết #${handleTarget.group.postId}`
+            handleTarget.group.post?.content ??
+            "Không tải được nội dung bài viết (bài có thể đã bị xoá)."
           }
           label="Lý do xử lý (bắt buộc)"
           placeholder={
@@ -285,7 +292,6 @@ function ReportRow({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-400">#{group.postId}</span>
               <span className="truncate text-sm font-medium text-slate-900">
                 {post?.content ?? "Không tải được nội dung bài viết"}
               </span>
@@ -403,10 +409,10 @@ function PostDetailModal({ post, onClose }: { post: PostItem; onClose: () => voi
             {post.sharedPost ? (
               <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
                 <p className="flex items-center gap-1.5 text-xs font-semibold text-sky-700">
-                  <Repeat2 className="h-3.5 w-3.5" /> Bài gốc được chia sẻ lại (#
-                  {post.sharedPost.postId})
+                  <Repeat2 className="h-3.5 w-3.5" /> Bài gốc được chia sẻ lại
                 </p>
                 <p className="mt-1 text-xs text-sky-800">
+                  Tác giả bài gốc:{" "}
                   {post.sharedPost.displayName || post.sharedPost.username}
                 </p>
                 <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">
@@ -419,7 +425,7 @@ function PostDetailModal({ post, onClose }: { post: PostItem; onClose: () => voi
               <StatusBadge status={post.status} />
               {post.visibility ? (
                 <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-600">
-                  {post.visibility}
+                  {postVisibilityLabels[post.visibility] ?? post.visibility}
                 </span>
               ) : null}
               {post.createdAt ? (
