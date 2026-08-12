@@ -7,6 +7,15 @@ import { ArrowLeft, Clock3, ShieldCheck, Tag, User, Loader2 } from "lucide-react
 import { adminApi, type PostItem } from "@/services/api/admin/adminApi";
 import { ApprovalActionsClient } from "./ApprovalActionsClient";
 
+const postStatusLabels: Record<string, string> = {
+  PENDING: "Chờ duyệt",
+  APPROVED: "Đã duyệt",
+  REJECTED: "Bị từ chối",
+  REPORTING: "Đang bị báo cáo",
+  REPORTED: "Đã gỡ do báo cáo",
+  DELETED: "Đã xoá",
+};
+
 function Badge({ icon: Icon, label }: { icon: typeof ShieldCheck; label: string }) {
   return (
     <span className="inline-flex items-center gap-2 rounded-full bg-white/85 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200">
@@ -98,9 +107,9 @@ export default function ApprovalDetailPage() {
   const author = item.displayName || item.username;
 
   return (
-    <div className="space-y-8 py-6">
-      <section className="-mx-6 overflow-hidden rounded-[2rem] bg-slate-950 shadow-sm sm:-mx-8">
-        <div className="relative isolate min-h-[280px] bg-gradient-to-br from-slate-800 to-slate-950 p-6 sm:min-h-[320px]">
+    <div className="space-y-6 py-5">
+      <section className="overflow-hidden rounded-[1.75rem] bg-slate-950 shadow-sm">
+        <div className="relative isolate min-h-[240px] bg-gradient-to-br from-slate-800 to-slate-950 p-5">
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/40 to-slate-950/0" />
 
           <div className="relative flex items-center justify-between gap-3">
@@ -113,10 +122,10 @@ export default function ApprovalDetailPage() {
             <Badge icon={Tag} label="Bài đăng" />
           </div>
 
-          <div className="relative mt-16 max-w-3xl text-white">
+          <div className="relative mt-12 max-w-3xl text-white">
             <p className="text-xs uppercase tracking-[0.24em] text-white/60">Chi tiết duyệt nội dung</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-              Bài đăng #{item.postId}
+            <h1 className="mt-2 text-xl font-semibold tracking-tight">
+              Bài đăng của {author}
             </h1>
             <p className="mt-3 line-clamp-3 text-sm text-white/80">{item.content}</p>
             <div className="mt-4 flex flex-wrap gap-3">
@@ -173,7 +182,7 @@ export default function ApprovalDetailPage() {
                 label="Ngày gửi"
               />
               <StatTile
-                value={item.status === "PENDING" ? "Chờ duyệt" : item.status}
+                value={postStatusLabels[item.status] ?? item.status}
                 label="Trạng thái"
               />
             </div>

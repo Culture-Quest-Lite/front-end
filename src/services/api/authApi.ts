@@ -40,8 +40,12 @@ export interface ResetPasswordRequest {
   confirmPassword: string;
 }
 
+/**
+ * Khớp 1-1 với `ChangePasswordRequest.java` — backend đọc field `oldPassword`,
+ * không phải `currentPassword`.
+ */
 export interface ChangePasswordRequest {
-  currentPassword: string;
+  oldPassword: string;
   newPassword: string;
   confirmPassword: string;
 }
@@ -124,9 +128,9 @@ export const authApi = {
     });
   },
 
-  // Đổi mật khẩu (khi đã đăng nhập)
+  // Đổi mật khẩu (khi đã đăng nhập) — cần access token, proxy tự gắn từ cookie
   changePassword: async (data: ChangePasswordRequest) => {
-    return apiFetch("/api/auth/change-password", {
+    return apiFetch<{ message: string }>("/api/auth/change-password", {
       method: "POST",
       body: data,
       sameOrigin: true,

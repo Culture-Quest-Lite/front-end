@@ -96,8 +96,18 @@ export interface VoucherFilterParams {
  */
 export interface VoucherUsageResponse {
   voucherUsageId: number;
-  voucherId: number;
+  /**
+   * Mã của voucher gốc — DÙNG CHUNG cho mọi lượt đổi của voucher đó.
+   * Trước commit backend 2e9ab4d field này chứa token riêng từng lượt đổi;
+   * nay token đó đã tách sang `voucherUsageCode`.
+   */
   voucherCode: string;
+  /**
+   * Token duy nhất của riêng lượt đổi này (unique trong DB) — đây mới là mã
+   * định danh được đúng một khách hàng cụ thể.
+   */
+  voucherUsageCode: string;
+  voucherId: number;
   voucherName: string;
   description: string | null;
   pointsRequired: number;

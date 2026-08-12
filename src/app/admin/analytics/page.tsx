@@ -61,7 +61,7 @@ export default function AnalyticsPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Tổng check-in" value="12.840" delta="+22%" icon={Activity} tone="primary" />
-        <StatCard label="Hotspot xuất bản" value="58" delta="+5" icon={MapPin} tone="success" />
+        <StatCard label="Địa điểm đã xuất bản" value="58" delta="+5" icon={MapPin} tone="success" />
         <StatCard label="Tuyến hoạt động" value="14" delta="+2" icon={RIcon} tone="info" />
         <StatCard label="Người dùng mới" value="372" delta="+18%" icon={Users} tone="warning" />
       </div>

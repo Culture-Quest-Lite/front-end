@@ -203,13 +203,6 @@ export interface PartnerSubscription {
    * không lộ ra trình duyệt. `documentUrl`/`medias[].fileUrl` đã bị loại bỏ.
    */
   attachments?: PartnerAttachment[];
-  shopEmail?: string;
-  invoiceCode?: string;
-  paidAmount?: number;
-  paymentStatus?: string;
-  paymentGateway?: string;
-  paidAt?: string;
-  createdAt?: string;
   medias?: Array<{
     mediaId: number;
     fileName: string;
@@ -548,8 +541,11 @@ export const adminApi = {
   },
 
   /**
-   * API dự kiến cho backend trong tương lai.
-   * `id` trong mỗi phần tử trả về sẽ được dùng cho API verify bên dưới.
+   * GET /api/admin/subscriptions — backend trả về List (không phân trang) và
+   * chỉ nhận tham số `status` với giá trị của `InvoiceStatus.java`
+   * (PENDING | ACTIVE | EXPIRED | CANCELLED | REJECTED); page/size/sort/search
+   * bị bỏ qua nên vẫn phải lọc & phân trang ở phía client.
+   * `id` trong mỗi phần tử là invoiceId, dùng cho API verify bên dưới.
    */
   getPartnerSubscriptions: async (params: GetPartnerSubscriptionsParams = {}) => {
     const query = buildQuery({
@@ -569,8 +565,8 @@ export const adminApi = {
   },
 
   /**
-   * API duyệt/từ chối đăng ký Partner đã được setup trước ở frontend.
-   * Backend dự kiến: PATCH /api/admin/subscription/{id}/verify?isApproved=true|false
+   * PATCH /api/admin/subscription/{id}/verify?isApproved=true|false
+   * `isApproved=false` khiến hoá đơn chuyển sang CANCELLED (không phải REJECTED).
    */
   verifyPartnerSubscription: async (subscriptionId: number, isApproved: boolean) => {
     return apiFetch<PartnerSubscription>(

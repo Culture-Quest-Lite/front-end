@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/app/ui-bits";
 import { adminApi, type PostItem } from "@/services/api/admin/adminApi";
+import { hotspotApi } from "@/services/api/hotspotApi";
+import { routeApi } from "@/services/api/routeApi";
 import {
   AlertTriangle,
   Check,
@@ -25,15 +27,8 @@ type OpenDialog =
   | { type: "reject"; itemId: number }
   | null;
 
-type SafeRecord = Record<string, unknown>;
-
-type PostDetail = PostItem & {
-  imageUrl?: string;
-  imageUrls?: string[];
-  mediaUrl?: string;
-  mediaUrls?: string[];
-  createdAt?: string;
-};
+/** Tên địa điểm/tuyến tra được theo id, dùng để không phải hiển thị id trần. */
+type NameMap = Record<number, string>;
 
 const postStatusLabels: Record<string, string> = {
   PENDING: "Chờ duyệt",
@@ -63,97 +58,18 @@ const rejectReasons = [
   "Khác",
 ];
 
-const DEMO_POSTS: PostDetail[] = [
-  {
-    postId: -1,
-    userId: 101,
-    username: "ngoccute",
-    displayName: "Nguyễn Thị Ngọc",
-    content:
-      "Hôm nay mình ghé Dinh Độc Lập vào buổi sáng, không gian rất đẹp và yên tĩnh. Mọi người nên đi trước 8 giờ để chụp hình đẹp hơn.",
-    status: "PENDING",
-    reason: "Được nhiều người báo cáo vì nghi ngờ nội dung sao chép.",
-    isTaggedHotspot: true,
-    isTaggedRoute: false,
-    createdAt: "2026-06-25T08:30:00",
-    imageUrl:
-      "https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=900&q=80",
-    tags: [
-      { tagId: 1, tagName: "Lịch sử" },
-      { tagId: 2, tagName: "Sài Gòn" },
-    ],
-    hotspots: [{ hotspotId: 12, hotspotName: "Dinh Độc Lập" }],
-  } as unknown as PostDetail,
-  {
-    postId: -2,
-    userId: 102,
-    username: "hoangpham",
-    displayName: "Phạm Hoàng",
-    content:
-      "Lần đầu tham quan Bưu điện Thành phố Hồ Chí Minh, kiến trúc Pháp rất đẹp. Bên trong vẫn còn hoạt động bình thường.",
-    status: "PENDING",
-    reason: "Ảnh nghi ngờ vi phạm bản quyền.",
-    isTaggedHotspot: true,
-    isTaggedRoute: true,
-    createdAt: "2026-06-24T15:12:00",
-    imageUrl:
-      "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?w=900&q=80",
-    tags: [
-      { tagId: 3, tagName: "Kiến trúc" },
-      { tagId: 4, tagName: "Checkin" },
-    ],
-    hotspots: [{ hotspotId: 18, title: "Bưu điện Thành phố" }],
-    routes: [{ routeId: 5, routeName: "Một ngày quanh Quận 1" }],
-  } as unknown as PostDetail,
-  {
-    postId: -3,
-    userId: 103,
-    username: "minhtravel",
-    displayName: "Trần Minh",
-    content:
-      "Nếu đi chợ Bến Thành thì nên gửi xe phía cổng Đông sẽ thuận tiện hơn rất nhiều.",
-    status: "APPROVED",
-    isTaggedHotspot: true,
-    isTaggedRoute: false,
-    createdAt: "2026-06-23T10:20:00",
-    imageUrl:
-      "https://images.unsplash.com/photo-1527631746610-bca00a040d60?w=900&q=80",
-    tags: ["Du lịch", "Mẹo hay"],
-    hotspots: [{ hotspotId: 20, name: "Chợ Bến Thành" }],
-  } as unknown as PostDetail,
-  {
-    postId: -4,
-    userId: 104,
-    username: "linhcute",
-    displayName: "Lê Khánh Linh",
-    content:
-      "Review quán cà phê gần Nhà thờ Đức Bà nhưng có chèn quá nhiều nội dung quảng cáo.",
-    status: "REJECTED",
-    reason: "Nội dung quảng cáo không đúng quy định.",
-    isTaggedHotspot: false,
-    isTaggedRoute: false,
-    createdAt: "2026-06-22T18:00:00",
-    imageUrl:
-      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=900&q=80",
-    tags: [{ tagId: 9, tagName: "Cafe" }],
-  } as unknown as PostDetail,
-];
-
-function getRecordValue(source: unknown, key: string) {
-  if (!source || typeof source !== "object") return undefined;
-  return (source as SafeRecord)[key];
+function getAuthorName(post: PostItem) {
+  return post.displayName || post.username || "Người dùng không xác định";
 }
 
-function getAuthorName(post: PostDetail) {
-  return post.displayName || post.username || `Người dùng #${post.userId}`;
-}
-
-function getPostImage(post: PostDetail) {
-  if (post.imageUrl) return post.imageUrl;
-  if (post.mediaUrl) return post.mediaUrl;
-  if (Array.isArray(post.imageUrls) && post.imageUrls.length > 0) return post.imageUrls[0];
-  if (Array.isArray(post.mediaUrls) && post.mediaUrls.length > 0) return post.mediaUrls[0];
-  return null;
+/**
+ * Ảnh của bài viết nằm trong `medias[].fileUrl` (khớp `MediaResponse.java`),
+ * backend không trả về `imageUrl`/`mediaUrls`.
+ */
+function getPostImages(post: PostItem) {
+  return (post.medias ?? [])
+    .filter((media) => !!media.fileUrl)
+    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
 }
 
 function getPostStatusLabel(status: string) {
@@ -171,67 +87,25 @@ function getCreatedText(createdAt?: string) {
   return date.toLocaleString("vi-VN");
 }
 
-function getObjectLabel(value: SafeRecord, preferredKeys: string[]) {
-  for (const key of preferredKeys) {
-    const found = value[key];
-    if (typeof found === "string" && found.trim()) return found.trim();
-    if (typeof found === "number") return String(found);
-  }
-  return "";
+function getPostTags(post: PostItem) {
+  return (post.tags ?? [])
+    .map((tag) => tag.tagName?.trim())
+    .filter((name): name is string => !!name);
 }
 
-function normalizeLabelList(value: unknown, preferredKeys: string[]) {
-  if (!Array.isArray(value)) return [];
-
-  return value
-    .map((item) => {
-      if (typeof item === "string" || typeof item === "number") return String(item);
-      if (item && typeof item === "object") {
-        const label = getObjectLabel(item as SafeRecord, preferredKeys);
-        return label || JSON.stringify(item);
-      }
-      return "";
-    })
-    .map((item) => item.trim())
-    .filter(Boolean);
+/** Đổi danh sách id sang tên; id nào chưa tra được thì bỏ qua thay vì hiện số. */
+function toNameList(ids: number[] | undefined, names: NameMap) {
+  if (!ids || ids.length === 0) return [];
+  return ids.map((id) => names[id]).filter((name): name is string => !!name);
 }
 
-function getPostTags(post: PostDetail) {
-  return normalizeLabelList(getRecordValue(post, "tags"), ["tagName", "name", "title", "label", "value"]);
-}
-
-function getPostHotspots(post: PostDetail) {
-  const objectList = normalizeLabelList(getRecordValue(post, "hotspots"), [
-    "hotspotName",
-    "name",
-    "title",
-    "displayName",
-  ]);
-  const idList = normalizeLabelList(getRecordValue(post, "hotspotIds"), ["hotspotId", "id"]);
-  return objectList.length > 0 ? objectList : idList;
-}
-
-function getPostRoutes(post: PostDetail) {
-  const objectList = normalizeLabelList(getRecordValue(post, "routes"), [
-    "routeName",
-    "name",
-    "title",
-    "displayName",
-  ]);
-  const idList = normalizeLabelList(getRecordValue(post, "routeIds"), ["routeId", "id"]);
-  return objectList.length > 0 ? objectList : idList;
-}
-
-function joinLabels(labels: string[]) {
-  return labels.length > 0 ? labels.join(", ") : "Không có";
-}
-
-function isDemoPost(post: PostDetail) {
-  return post.postId < 0;
+function joinLabels(labels: string[], hasIds: boolean) {
+  if (labels.length > 0) return labels.join(", ");
+  return hasIds ? "Đang tải tên..." : "Không có";
 }
 
 export default function ContentReviewPage() {
-  const [items, setItems] = useState<PostDetail[]>([]);
+  const [items, setItems] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<PostStatusFilter>("PENDING");
   const [error, setError] = useState<string | null>(null);
@@ -239,6 +113,8 @@ export default function ContentReviewPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [submittingId, setSubmittingId] = useState<number | null>(null);
+  const [hotspotNames, setHotspotNames] = useState<NameMap>({});
+  const [routeNames, setRouteNames] = useState<NameMap>({});
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -250,11 +126,12 @@ export default function ContentReviewPage() {
         size: 50,
       });
 
-      const visiblePosts = response.content.filter((post) => post.status !== "DELETED");
-      setItems(visiblePosts.length > 0 ? (visiblePosts as PostDetail[]) : DEMO_POSTS);
+      setItems(response.content.filter((post) => post.status !== "DELETED"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể tải hàng đợi duyệt bài đăng. Đang hiển thị dữ liệu mẫu.");
-      setItems(DEMO_POSTS);
+      setItems([]);
+      setError(
+        err instanceof Error ? err.message : "Không thể tải hàng đợi duyệt bài đăng.",
+      );
     } finally {
       setLoading(false);
     }
@@ -263,6 +140,62 @@ export default function ContentReviewPage() {
   useEffect(() => {
     void loadPosts();
   }, [loadPosts]);
+
+  // Bài viết chỉ mang hotspotIds/routeIds, phải tra thêm để hiện tên cho admin.
+  useEffect(() => {
+    const hotspotIds = [
+      ...new Set(items.flatMap((post) => post.hotspotIds ?? [])),
+    ].filter((id) => hotspotNames[id] === undefined);
+    const routeIds = [
+      ...new Set(items.flatMap((post) => post.routeIds ?? [])),
+    ].filter((id) => routeNames[id] === undefined);
+
+    if (hotspotIds.length === 0 && routeIds.length === 0) return;
+
+    let cancelled = false;
+
+    async function resolveNames() {
+      const [hotspots, routes] = await Promise.all([
+        Promise.allSettled(hotspotIds.map((id) => hotspotApi.getHotspotById(id))),
+        Promise.allSettled(routeIds.map((id) => routeApi.getRouteById(id))),
+      ]);
+
+      if (cancelled) return;
+
+      if (hotspotIds.length > 0) {
+        setHotspotNames((prev) => {
+          const next = { ...prev };
+          hotspotIds.forEach((id, index) => {
+            const result = hotspots[index];
+            next[id] =
+              result.status === "fulfilled"
+                ? (result.value.hotspotName?.trim() || "Địa điểm không có tên")
+                : "Địa điểm không còn tồn tại";
+          });
+          return next;
+        });
+      }
+
+      if (routeIds.length > 0) {
+        setRouteNames((prev) => {
+          const next = { ...prev };
+          routeIds.forEach((id, index) => {
+            const result = routes[index];
+            next[id] =
+              result.status === "fulfilled"
+                ? (result.value.routeName?.trim() || "Tuyến không có tên")
+                : "Tuyến không còn tồn tại";
+          });
+          return next;
+        });
+      }
+    }
+
+    void resolveNames();
+    return () => {
+      cancelled = true;
+    };
+  }, [items, hotspotNames, routeNames]);
 
   const filtered = useMemo(() => {
     const visibleItems = items.filter((item) => item.status !== "DELETED");
@@ -282,14 +215,7 @@ export default function ContentReviewPage() {
     setTimeout(() => setToast(null), 3000);
   }
 
-  async function handleApprove(post: PostDetail) {
-    if (isDemoPost(post)) {
-      setItems((prev) => prev.map((item) => (item.postId === post.postId ? { ...item, status: "APPROVED" } : item)));
-      setDialog(null);
-      showToast("Đã duyệt bài đăng mẫu.");
-      return;
-    }
-
+  async function handleApprove(post: PostItem) {
     setSubmittingId(post.postId);
     try {
       await adminApi.approvePost(post.postId);
@@ -309,23 +235,13 @@ export default function ContentReviewPage() {
     }
   }
 
-  function openRejectDialog(post: PostDetail) {
+  function openRejectDialog(post: PostItem) {
     setRejectReason("");
     setDialog({ type: "reject", itemId: post.postId });
   }
 
-  async function handleReject(post: PostDetail) {
+  async function handleReject(post: PostItem) {
     const reason = rejectReason.trim() || "Không phù hợp với tiêu chuẩn nội dung";
-
-    if (isDemoPost(post)) {
-      setItems((prev) =>
-        prev.map((item) => (item.postId === post.postId ? { ...item, status: "REJECTED", reason } : item)),
-      );
-      setDialog(null);
-      setRejectReason("");
-      showToast("Đã từ chối bài đăng mẫu.");
-      return;
-    }
 
     setSubmittingId(post.postId);
     try {
@@ -347,29 +263,22 @@ export default function ContentReviewPage() {
     }
   }
 
-  async function handleSoftDelete(post: PostDetail) {
-    if (isDemoPost(post)) {
-      setItems((prev) => prev.filter((item) => item.postId !== post.postId));
-      setDialog(null);
-      showToast("Đã xoá bài đăng mẫu khỏi danh sách.");
-      return;
-    }
-
+  async function handleDelete(post: PostItem) {
     setSubmittingId(post.postId);
     try {
-      await adminApi.banPost(post.postId, "Xóa mềm bởi admin qua kiểm duyệt");
+      await adminApi.banPost(post.postId, "Đã xoá bởi admin qua kiểm duyệt nội dung");
       setItems((prev) => prev.filter((item) => item.postId !== post.postId));
       setDialog(null);
-      showToast("Đã xoá mềm bài đăng.");
+      showToast("Đã xoá bài đăng.");
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Không thể xoá mềm bài đăng.");
+      showToast(err instanceof Error ? err.message : "Không thể xoá bài đăng.");
     } finally {
       setSubmittingId(null);
     }
   }
 
   return (
-    <div className="space-y-6 py-6">
+    <div className="space-y-5 py-5">
       {toast ? (
         <div className="fixed bottom-6 right-6 z-50 rounded-2xl bg-slate-900 px-4 py-3 text-sm text-white shadow-lg">
           {toast}
@@ -378,7 +287,7 @@ export default function ContentReviewPage() {
 
       <PageHeader
         title="Duyệt bài đăng"
-        subtitle="Xem chi tiết, duyệt, từ chối hoặc xoá mềm bài post do người dùng gửi lên."
+        subtitle="Xem chi tiết, duyệt, từ chối hoặc xoá bài đăng do người dùng gửi lên."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-muted-foreground">{pendingCount} chờ duyệt</span>
@@ -396,7 +305,7 @@ export default function ContentReviewPage() {
             key={item.value}
             type="button"
             onClick={() => setStatusFilter(item.value)}
-            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+            className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
               statusFilter === item.value
                 ? "bg-blue-600 text-white"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -418,8 +327,8 @@ export default function ContentReviewPage() {
           <Loader2 className="h-5 w-5 animate-spin" /> Đang tải hàng đợi duyệt bài đăng...
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-12 text-center">
-          <ShieldCheck className="mx-auto h-10 w-10 text-slate-300" />
+        <div className="cq-admin-panel p-12 text-center">
+          <ShieldCheck className="mx-auto h-9 w-9 text-slate-300" />
           <p className="mt-3 text-sm font-medium text-slate-600">Không có bài đăng phù hợp</p>
           <p className="mt-1 text-xs text-slate-400">Tất cả bài đăng trong bộ lọc này đã được xử lý.</p>
         </div>
@@ -433,7 +342,7 @@ export default function ContentReviewPage() {
               onView={() => setDialog({ type: "detail", itemId: post.postId })}
               onApprove={() => setDialog({ type: "approve", itemId: post.postId })}
               onReject={() => openRejectDialog(post)}
-              onSoftDelete={() => void handleSoftDelete(post)}
+              onDelete={() => void handleDelete(post)}
             />
           ))}
         </div>
@@ -444,6 +353,8 @@ export default function ContentReviewPage() {
           open
           type={dialog?.type ?? "detail"}
           post={selectedItem}
+          hotspotNames={hotspotNames}
+          routeNames={routeNames}
           reason={rejectReason}
           submitting={submittingId === selectedItem.postId}
           onReasonChange={setRejectReason}
@@ -454,7 +365,7 @@ export default function ContentReviewPage() {
           onApprove={() => void handleApprove(selectedItem)}
           onOpenReject={() => openRejectDialog(selectedItem)}
           onReject={() => void handleReject(selectedItem)}
-          onSoftDelete={() => void handleSoftDelete(selectedItem)}
+          onDelete={() => void handleDelete(selectedItem)}
         />
       ) : null}
     </div>
@@ -467,74 +378,48 @@ function PostReviewCard({
   onView,
   onApprove,
   onReject,
-  onSoftDelete,
+  onDelete,
 }: {
-  post: PostDetail;
+  post: PostItem;
   submitting: boolean;
   onView: () => void;
   onApprove: () => void;
   onReject: () => void;
-  onSoftDelete: () => void;
+  onDelete: () => void;
 }) {
-  const image = getPostImage(post);
+  const images = getPostImages(post);
   const isPending = post.status === "PENDING";
   const tags = getPostTags(post);
 
   return (
-    <div
-      className="
-        overflow-hidden
-        rounded-[28px]
-        border border-slate-200/60
-        bg-white
-        shadow-[0_2px_10px_rgba(15,23,42,0.04)]
-        transition-all duration-200
-        hover:border-slate-200/80
-        hover:shadow-[0_6px_20px_rgba(15,23,42,0.06)]
-        dark:border-zinc-800/60
-        dark:bg-zinc-950
-      "
-    >
-      <button
-        type="button"
-        onClick={onView}
-        className="block w-full text-left"
-      >
-        <div className="flex gap-4 p-4">
-          {image ? (
+    <div className="cq-admin-panel transition-all duration-200 hover:shadow-[0_10px_26px_rgba(15,23,42,0.06)]">
+      <button type="button" onClick={onView} className="block w-full text-left">
+        <div className="flex gap-3.5 p-4">
+          {images.length > 0 ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={image}
-              alt="Ảnh bài đăng"
-              className="h-24 w-24 flex-none rounded-2xl object-cover"
+              src={images[0].fileUrl}
+              alt={images[0].fileName ?? "Ảnh bài đăng"}
+              className="h-20 w-20 flex-none rounded-2xl object-cover"
             />
           ) : (
-            <div className="grid h-24 w-24 flex-none place-items-center rounded-2xl bg-blue-50 text-blue-600">
-              <MessageSquare className="h-8 w-8" />
+            <div className="grid h-20 w-20 flex-none place-items-center rounded-2xl bg-blue-50 text-blue-600">
+              <MessageSquare className="h-7 w-7" />
             </div>
           )}
 
           <div className="min-w-0 flex-1">
-            <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-              <span>Bài post</span>
-
+            <div className="mb-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span>Bài đăng</span>
               <Clock className="h-3 w-3" />
-
-              <span>
-                Gửi lúc {getCreatedText(post.createdAt)}
-              </span>
-
-              {isDemoPost(post) ? (
-                <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
-                  Demo
-                </span>
-              ) : null}
+              <span>Gửi lúc {getCreatedText(post.createdAt)}</span>
             </div>
 
-            <div className="line-clamp-2 text-base font-semibold leading-6 text-slate-950 dark:text-slate-50">
+            <div className="line-clamp-2 text-sm font-semibold leading-5 text-slate-950 dark:text-slate-50">
               {post.content || "Bài đăng không có nội dung"}
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
               <div className="grid h-5 w-5 place-items-center rounded-full bg-primary-soft text-[10px] font-bold text-primary">
                 {getAuthorName(post).charAt(0).toUpperCase()}
               </div>
@@ -545,7 +430,7 @@ function PostReviewCard({
 
               <span
                 className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${getPostStatusClass(
-                  post.status
+                  post.status,
                 )}`}
               >
                 {getPostStatusLabel(post.status)}
@@ -559,9 +444,7 @@ function PostReviewCard({
             ) : null}
 
             {post.reason ? (
-              <p className="mt-2 line-clamp-1 text-xs text-amber-700">
-                Lý do: {post.reason}
-              </p>
+              <p className="mt-2 line-clamp-1 text-xs text-amber-700">Lý do: {post.reason}</p>
             ) : null}
           </div>
         </div>
@@ -569,21 +452,14 @@ function PostReviewCard({
 
       <div className="mx-4 h-px bg-slate-100 dark:bg-zinc-800/70" />
 
-      <div className="grid grid-cols-4 px-2 py-2">
+      <div className="grid grid-cols-4 px-2 py-1.5">
         <button
           type="button"
           disabled={submitting}
           onClick={onView}
-          className="
-            flex items-center justify-center gap-1.5
-            rounded-xl py-2.5
-            text-sm font-medium text-slate-600
-            transition-colors
-            hover:bg-slate-50
-            disabled:opacity-50
-          "
+          className="flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50"
         >
-          <Eye className="h-4 w-4" />
+          <Eye className="h-3.5 w-3.5" />
           Xem
         </button>
 
@@ -591,16 +467,9 @@ function PostReviewCard({
           type="button"
           disabled={submitting || !isPending}
           onClick={onReject}
-          className="
-            flex items-center justify-center gap-1.5
-            rounded-xl py-2.5
-            text-sm font-medium text-red-600
-            transition-colors
-            hover:bg-red-50
-            disabled:opacity-40
-          "
+          className="flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-40"
         >
-          <X className="h-4 w-4" />
+          <X className="h-3.5 w-3.5" />
           Từ chối
         </button>
 
@@ -608,19 +477,12 @@ function PostReviewCard({
           type="button"
           disabled={submitting || !isPending}
           onClick={onApprove}
-          className="
-            flex items-center justify-center gap-1.5
-            rounded-xl py-2.5
-            text-sm font-medium text-emerald-600
-            transition-colors
-            hover:bg-emerald-50
-            disabled:opacity-40
-          "
+          className="flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-medium text-emerald-600 transition-colors hover:bg-emerald-50 disabled:opacity-40"
         >
           {submitting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
-            <Check className="h-4 w-4" />
+            <Check className="h-3.5 w-3.5" />
           )}
           Duyệt
         </button>
@@ -628,20 +490,13 @@ function PostReviewCard({
         <button
           type="button"
           disabled={submitting}
-          onClick={onSoftDelete}
-          className="
-            flex items-center justify-center gap-1.5
-            rounded-xl py-2.5
-            text-sm font-medium text-slate-500
-            transition-colors
-            hover:bg-slate-50
-            disabled:opacity-50
-          "
+          onClick={onDelete}
+          className="flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-50 disabled:opacity-50"
         >
           {submitting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5" />
           )}
           Xoá
         </button>
@@ -654,6 +509,8 @@ function PostReviewModal({
   open,
   type,
   post,
+  hotspotNames,
+  routeNames,
   reason,
   submitting,
   onReasonChange,
@@ -661,11 +518,13 @@ function PostReviewModal({
   onApprove,
   onOpenReject,
   onReject,
-  onSoftDelete,
+  onDelete,
 }: {
   open: boolean;
   type: "detail" | "approve" | "reject";
-  post: PostDetail;
+  post: PostItem;
+  hotspotNames: NameMap;
+  routeNames: NameMap;
   reason: string;
   submitting: boolean;
   onReasonChange: (value: string) => void;
@@ -673,7 +532,7 @@ function PostReviewModal({
   onApprove: () => void;
   onOpenReject: () => void;
   onReject: () => void;
-  onSoftDelete: () => void;
+  onDelete: () => void;
 }) {
   if (!open) return null;
 
@@ -681,7 +540,7 @@ function PostReviewModal({
     type === "approve"
       ? "Xem trước & duyệt bài đăng"
       : type === "reject"
-        ? `Từ chối bài đăng #${post.postId}`
+        ? `Từ chối bài đăng của ${getAuthorName(post)}`
         : "Chi tiết bài đăng";
 
   return (
@@ -689,10 +548,10 @@ function PostReviewModal({
       {type === "reject" ? (
         <RejectPreview post={post} reason={reason} onReasonChange={onReasonChange} />
       ) : (
-        <PostDetailPreview post={post} />
+        <PostDetailPreview post={post} hotspotNames={hotspotNames} routeNames={routeNames} />
       )}
 
-      <div className="mt-6 flex flex-wrap justify-end gap-3">
+      <div className="mt-5 flex flex-wrap justify-end gap-2.5">
         <Button variant="outline" onClick={onClose} disabled={submitting}>
           Huỷ
         </Button>
@@ -714,9 +573,9 @@ function PostReviewModal({
                 </Button>
               </>
             ) : null}
-            <Button variant="destructive" disabled={submitting} onClick={onSoftDelete} className="gap-1.5">
+            <Button variant="destructive" disabled={submitting} onClick={onDelete} className="gap-1.5">
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-              Xoá mềm
+              Xoá
             </Button>
           </>
         ) : (
@@ -734,16 +593,34 @@ function PostReviewModal({
   );
 }
 
-function PostDetailPreview({ post }: { post: PostDetail }) {
-  const image = getPostImage(post);
+function PostDetailPreview({
+  post,
+  hotspotNames,
+  routeNames,
+}: {
+  post: PostItem;
+  hotspotNames: NameMap;
+  routeNames: NameMap;
+}) {
+  const images = getPostImages(post);
   const tags = getPostTags(post);
-  const hotspots = getPostHotspots(post);
-  const routes = getPostRoutes(post);
+  const hotspots = toNameList(post.hotspotIds, hotspotNames);
+  const routes = toNameList(post.routeIds, routeNames);
 
   return (
     <div className="space-y-4 text-sm text-slate-700 dark:text-slate-300">
-      {image ? (
-        <img src={image} alt="Ảnh bài đăng" className="max-h-80 w-full rounded-3xl object-cover" />
+      {images.length > 0 ? (
+        <div className="grid gap-1.5 sm:grid-cols-2">
+          {images.map((media) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={media.mediaId}
+              src={media.fileUrl}
+              alt={media.fileName ?? "Ảnh bài đăng"}
+              className="max-h-64 w-full rounded-2xl object-cover"
+            />
+          ))}
+        </div>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -752,11 +629,6 @@ function PostDetailPreview({ post }: { post: PostDetail }) {
         {post.username ? <span>@{post.username}</span> : null}
         <Clock className="h-3.5 w-3.5" />
         <span>{getCreatedText(post.createdAt)}</span>
-        {isDemoPost(post) ? (
-          <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
-            Demo
-          </span>
-        ) : null}
       </div>
 
       <div>
@@ -765,12 +637,16 @@ function PostDetailPreview({ post }: { post: PostDetail }) {
       </div>
 
       <div className="grid gap-2 text-xs sm:grid-cols-2">
-        <Info label="Mã bài đăng" value={`#${post.postId}`} />
+        <Info label="Người đăng" value={getAuthorName(post)} />
         <Info label="Trạng thái" value={getPostStatusLabel(post.status)} />
-        <Info label="Gắn địa điểm" value={post.isTaggedHotspot ? "Có" : "Không"} />
-        <Info label="Gắn tuyến" value={post.isTaggedRoute ? "Có" : "Không"} />
-        <Info label="Địa điểm liên quan" value={joinLabels(hotspots)} />
-        <Info label="Tuyến liên quan" value={joinLabels(routes)} />
+        <Info
+          label="Địa điểm liên quan"
+          value={joinLabels(hotspots, (post.hotspotIds?.length ?? 0) > 0)}
+        />
+        <Info
+          label="Tuyến liên quan"
+          value={joinLabels(routes, (post.routeIds?.length ?? 0) > 0)}
+        />
       </div>
 
       {tags.length > 0 ? (
@@ -790,7 +666,7 @@ function PostDetailPreview({ post }: { post: PostDetail }) {
       ) : null}
 
       {post.reason ? (
-        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-3">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-700">
             <AlertTriangle className="h-3.5 w-3.5" /> Lý do báo cáo / từ chối
           </p>
@@ -806,19 +682,19 @@ function RejectPreview({
   reason,
   onReasonChange,
 }: {
-  post: PostDetail;
+  post: PostItem;
   reason: string;
   onReasonChange: (value: string) => void;
 }) {
   return (
     <div className="space-y-4 text-sm text-slate-700 dark:text-slate-300">
-      <div className="rounded-3xl bg-surface px-3 py-3">
+      <div className="rounded-2xl bg-surface px-3 py-3">
         <div className="text-[10px] text-muted-foreground">Nội dung bài đăng</div>
         <p className="mt-1 line-clamp-4 whitespace-pre-wrap text-sm">{post.content || "Không có nội dung."}</p>
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Chọn hoặc nhập lý do từ chối. Lý do này sẽ được gửi vào API rejectPost.
+        Chọn hoặc nhập lý do từ chối. Lý do này sẽ được gửi kèm khi từ chối bài đăng.
       </p>
 
       <div className="space-y-2">
@@ -841,7 +717,7 @@ function RejectPreview({
         value={reason}
         onChange={(e) => onReasonChange(e.target.value)}
         placeholder="Ghi chú bổ sung…"
-        className="w-full rounded-3xl border border-border bg-surface p-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 dark:bg-zinc-950 dark:text-slate-100"
+        className="w-full rounded-2xl border border-border bg-surface p-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 dark:bg-zinc-950 dark:text-slate-100"
       />
     </div>
   );
@@ -849,7 +725,7 @@ function RejectPreview({
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-3xl bg-surface px-3 py-2">
+    <div className="rounded-2xl bg-surface px-3 py-2">
       <div className="text-[10px] text-muted-foreground">{label}</div>
       <div className="font-medium">{value}</div>
     </div>
@@ -872,9 +748,9 @@ function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
       <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-zinc-950">
-        <div className="shrink-0 border-b border-border p-6">
+        <div className="shrink-0 border-b border-border p-5">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-slate-950 dark:text-slate-50">{title}</h2>
+            <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">{title}</h2>
             <button
               type="button"
               onClick={onClose}
@@ -885,7 +761,7 @@ function Modal({
             </button>
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-6">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
       </div>
     </div>
   );
