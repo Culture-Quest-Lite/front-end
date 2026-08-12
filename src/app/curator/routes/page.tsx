@@ -27,7 +27,7 @@ import {
   X,
 } from "lucide-react";
 
-const ROUTES_PER_PAGE = 4;
+const ROUTES_PER_PAGE = 6;
 const ROUTE_SUCCESS_TOAST_KEY = "curator-route-success-toast";
 
 const difficultyLabels: Record<string, string> = {
