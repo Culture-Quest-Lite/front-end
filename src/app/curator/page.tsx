@@ -134,7 +134,7 @@ export default function CuratorDashboardPage() {
         actions={
           <Link href="/curator/routes">
             <Button size="sm" variant="outline" className="gap-1.5">
-              <ShieldCheck className="w-4 h-4" /> {formatCount(pendingRoutes)} tuyến chờ xử lý
+              <ShieldCheck className="w-4 h-4" /> {formatCount(pendingRoutes)} tuyến đường chờ xử lý
             </Button>
           </Link>
         }
@@ -155,14 +155,14 @@ export default function CuratorDashboardPage() {
           tone="primary"
         />
         <StatCard
-          label="Hotspot xuất bản"
+          label="Địa điểm xuất bản"
           value={formatCount(content?.publishedHotspots)}
           delta={content ? `${formatCount(content.draftHotspots)} bản nháp` : "—"}
           icon={MapPin}
           tone="success"
         />
         <StatCard
-          label="Story xuất bản"
+          label="Câu chuyện xuất bản"
           value={formatCount(content?.publishedStories)}
           delta={content ? `${formatCount(content.draftStories)} bản nháp` : "—"}
           icon={BookOpen}
@@ -253,14 +253,14 @@ export default function CuratorDashboardPage() {
 
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <div className="text-sm font-semibold">Tuyến theo trạng thái</div>
+            <div className="text-sm font-semibold">Tuyến đường theo trạng thái</div>
             <Link href="/curator/routes" className="text-xs text-primary">
               Quản lý
             </Link>
           </div>
           {routeStatusRows.length === 0 ? (
             <p className="py-4 text-center text-xs text-slate-500">
-              Chưa có dữ liệu tuyến.
+              Chưa có dữ liệu tuyến đường.
             </p>
           ) : (
             <ul className="space-y-2.5">
@@ -294,7 +294,7 @@ export default function CuratorDashboardPage() {
         <div className="rounded-2xl bg-white p-4 shadow-sm lg:col-span-2">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm font-semibold">
-              Tuyến hành trình được tương tác nhiều nhất
+              Tuyến đường được tương tác nhiều nhất
             </div>
             <Link
               href="/curator/routes"
@@ -305,7 +305,7 @@ export default function CuratorDashboardPage() {
           </div>
           {topRoutes.length === 0 ? (
             <p className="py-16 text-center text-xs text-slate-500">
-              Chưa có tuyến nào được tham gia.
+              Chưa có tuyến đường nào được tham gia.
             </p>
           ) : (
             <>
@@ -380,9 +380,9 @@ export default function CuratorDashboardPage() {
 
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <div className="text-sm font-semibold">Hotspot check-in nhiều</div>
+            <div className="text-sm font-semibold">Địa điểm check-in nhiều</div>
             <Link href="/curator/hotspot" className="text-xs text-primary">
-              Xem hotspot
+              Xem địa điểm
             </Link>
           </div>
           {topHotspots.length === 0 ? (

@@ -43,7 +43,7 @@ const menuGroups: Array<{
       { title: "Tổng quan", href: "/curator", icon: LayoutDashboard },
       { title: "Địa điểm", href: "/curator/hotspot", icon: MapPin },
       { title: "Câu chuyện", href: "/curator/stories", icon: BookOpen },
-      { title: "Tuyến hành trình", href: "/curator/routes", icon: Map },
+      { title: "Tuyến đường", href: "/curator/routes", icon: Map },
       {
         title: "Cấp bậc",
         href: "/curator/levels",
