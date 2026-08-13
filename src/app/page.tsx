@@ -1,13 +1,19 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect, useRef, type FormEvent, type ReactNode } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  type ChangeEvent,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { loginByGoogle, loginByFacebook } from "@/lib/api";
-import { clearAuthSession, createSessionFromToken, saveAccessToken } from "@/lib/auth";
+import { notifyAuthSessionChanged } from "@/lib/auth";
 import { authApi } from "@/services/api";
-
 
 type TravelCardDefinition = {
   id: number;
@@ -74,11 +80,42 @@ const featuredCard = {
     "https://i.pinimg.com/1200x/65/58/cb/6558cbb31d2a7120730b678f406fdb9a.jpg",
 };
 
+type LoginFieldErrors = {
+  username: string;
+  password: string;
+};
+
+function createEmptyLoginErrors(): LoginFieldErrors {
+  return {
+    username: "",
+    password: "",
+  };
+}
+
+function validateUsername(value: string) {
+  if (!value.trim()) {
+    return "Vui lòng nhập tên đăng nhập.";
+  }
+
+  return "";
+}
+
+function validatePassword(value: string) {
+  if (!value) {
+    return "Vui lòng nhập mật khẩu.";
+  }
+
+  return "";
+}
+
 export default function TravelLogin() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>(
+    createEmptyLoginErrors,
+  );
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const loginRequestInFlight = useRef(false);
@@ -95,24 +132,26 @@ export default function TravelLogin() {
       void (async () => {
         setLoading(true);
         try {
-          const response = provider === "facebook"
-            ? await loginByFacebook(code, redirectUri)
-            : await loginByGoogle(code, redirectUri);
+          const response =
+            provider === "facebook"
+              ? await loginByFacebook(code, redirectUri)
+              : await loginByGoogle(code, redirectUri);
 
-          const accessToken = response.accessToken;
-          saveAccessToken(accessToken, response.expiresIn);
-          const session = createSessionFromToken(accessToken);
+          const session = response.session;
           if (session) {
             const redirectPath = getRedirectPathForRole(session.role);
             if (redirectPath) {
+              notifyAuthSessionChanged();
               window.location.href = redirectPath;
             } else {
-              clearAuthSession();
+              await authApi.logout().catch(() => undefined);
+              notifyAuthSessionChanged();
               setError("Bạn không có quyền truy cập");
               setLoading(false);
             }
           } else {
-            clearAuthSession();
+            await authApi.logout().catch(() => undefined);
+            notifyAuthSessionChanged();
             setError("Không thể xử lý thông tin người dùng. Vui lòng thử lại.");
             setLoading(false);
           }
@@ -122,13 +161,14 @@ export default function TravelLogin() {
             setError(
               err instanceof Error && err.message
                 ? err.message
-                : "Bạn không có quyền truy cập"
+                : "Bạn không có quyền truy cập",
             );
           } else {
-            const providerName = provider === "facebook" ? "Facebook" : "Google";
+            const providerName =
+              provider === "facebook" ? "Facebook" : "Google";
             setError(
               `Đăng nhập bằng ${providerName} thất bại: ` +
-                (err instanceof Error ? err.message : String(err))
+                (err instanceof Error ? err.message : String(err)),
             );
           }
           setLoading(false);
@@ -139,25 +179,31 @@ export default function TravelLogin() {
 
   const handleGoogleLogin = () => {
     sessionStorage.setItem("login_provider", "google");
-    const keycloakUrl = process.env.NEXT_PUBLIC_KEYCLOAK_URL ?? "http://localhost:8180";
-    const realm = process.env.NEXT_PUBLIC_KEYCLOAK_REALM ?? "culture-quest-lite";
-    const clientId = process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID ?? "identity-client";
+    const keycloakUrl =
+      process.env.NEXT_PUBLIC_KEYCLOAK_URL ?? "http://localhost:8180";
+    const realm =
+      process.env.NEXT_PUBLIC_KEYCLOAK_REALM ?? "culture-quest-lite";
+    const clientId =
+      process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID ?? "identity-client";
     const redirectUri = window.location.origin;
-    
+
     const url = `${keycloakUrl}/realms/${realm}/protocol/openid-connect/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20profile%20email&kc_idp_hint=google`;
-    
+
     window.location.href = url;
   };
 
   const handleFacebookLogin = () => {
     sessionStorage.setItem("login_provider", "facebook");
-    const keycloakUrl = process.env.NEXT_PUBLIC_KEYCLOAK_URL ?? "http://localhost:8180";
-    const realm = process.env.NEXT_PUBLIC_KEYCLOAK_REALM ?? "culture-quest-lite";
-    const clientId = process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID ?? "identity-client";
+    const keycloakUrl =
+      process.env.NEXT_PUBLIC_KEYCLOAK_URL ?? "http://localhost:8180";
+    const realm =
+      process.env.NEXT_PUBLIC_KEYCLOAK_REALM ?? "culture-quest-lite";
+    const clientId =
+      process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID ?? "identity-client";
     const redirectUri = window.location.origin;
-    
+
     const url = `${keycloakUrl}/realms/${realm}/protocol/openid-connect/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20profile%20email&kc_idp_hint=facebook`;
-    
+
     window.location.href = url;
   };
 
@@ -166,70 +212,56 @@ export default function TravelLogin() {
     if (loading || loginRequestInFlight.current) return;
 
     const normalizedUsername = username.trim();
-    if (!normalizedUsername || !password) {
-      setError("Vui lòng nhập tên đăng nhập và mật khẩu.");
+    const nextFieldErrors = {
+      username: validateUsername(normalizedUsername),
+      password: validatePassword(password),
+    };
+
+    if (username !== normalizedUsername) {
+      setUsername(normalizedUsername);
+    }
+
+    if (nextFieldErrors.username || nextFieldErrors.password) {
+      setFieldErrors(nextFieldErrors);
+      setError("");
       return;
     }
 
+    setFieldErrors(createEmptyLoginErrors());
     loginRequestInFlight.current = true;
     setError("");
     setLoading(true);
 
     try {
-      clearAuthSession();
-
-      console.log("Attempting login with username:", normalizedUsername);
       const response = await authApi.login(normalizedUsername, password);
-      console.log("Login response received:", { 
-        hasAccessToken: !!response.accessToken,
-        tokenType: response.tokenType,
-        expiresIn: response.expiresIn,
-      });
+      const session = response.session;
 
-      if (response.accessToken) {
-        saveAccessToken(response.accessToken, response.expiresIn);
-        const session = createSessionFromToken(response.accessToken);
-        console.log("User info extracted:", session);
-
-        if (!session) {
-          setError("Không thể xử lý thông tin người dùng. Vui lòng thử lại.");
-          setLoading(false);
-          loginRequestInFlight.current = false;
-          return;
-        }
-
-        console.log("Saving access token to cookie:", {
-          email: session.email,
-          role: session.role,
-        });
-
-        loginRequestInFlight.current = false;
-
-        const redirectPath = getRedirectPathForRole(session.role);
-        if (!redirectPath) {
-          clearAuthSession();
-          setError("Tài khoản này không có quyền truy cập khu vực quản trị.");
-          setLoading(false);
-          return;
-        }
-
-        console.log("Redirecting after login...", {
-          role: session.role,
-          redirectPath,
-        });
-        router.push(redirectPath);
-        if (redirectPath === "/admin") {
-          console.log("Redirecting to admin dashboard...");
-        } else {
-          console.log("Redirecting to curator dashboard...");
-        }
-      } else {
+      if (!session) {
         setError("Phản hồi từ máy chủ không hợp lệ. Vui lòng thử lại.");
         setLoading(false);
         loginRequestInFlight.current = false;
+        return;
       }
+
+      loginRequestInFlight.current = false;
+
+      const redirectPath = getRedirectPathForRole(session.role);
+      if (!redirectPath) {
+        await authApi.logout().catch(() => undefined);
+        notifyAuthSessionChanged();
+        setError("Tài khoản này không có quyền truy cập khu vực quản trị.");
+        setLoading(false);
+        loginRequestInFlight.current = false;
+        return;
+      }
+
+      notifyAuthSessionChanged();
+      router.push(redirectPath);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Đăng nhập thất bại. Vui lòng thử lại.";
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Đăng nhập thất bại. Vui lòng thử lại.";
       console.error("Login error:", err);
       setError(errorMessage);
       setLoading(false);
@@ -237,6 +269,43 @@ export default function TravelLogin() {
     }
   };
 
+  const handleUsernameChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextUsername = event.target.value;
+    setUsername(nextUsername);
+    setError("");
+    setFieldErrors((current) => ({
+      ...current,
+      username: current.username ? validateUsername(nextUsername) : "",
+    }));
+  };
+
+  const handlePasswordChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextPassword = event.target.value;
+    setPassword(nextPassword);
+    setError("");
+    setFieldErrors((current) => ({
+      ...current,
+      password: current.password ? validatePassword(nextPassword) : "",
+    }));
+  };
+
+  const handleUsernameBlur = () => {
+    const normalizedUsername = username.trim();
+    if (username !== normalizedUsername) {
+      setUsername(normalizedUsername);
+    }
+    setFieldErrors((current) => ({
+      ...current,
+      username: validateUsername(normalizedUsername),
+    }));
+  };
+
+  const handlePasswordBlur = () => {
+    setFieldErrors((current) => ({
+      ...current,
+      password: validatePassword(password),
+    }));
+  };
 
   return (
     <div className="h-dvh overflow-hidden bg-[linear-gradient(180deg,_#fbfbfc_0%,_#f6f8fb_100%)] px-4 py-4 sm:px-6 lg:px-8">
@@ -269,10 +338,16 @@ export default function TravelLogin() {
               </p>
             </div>
 
-            <form className="mt-7 space-y-3.5" onSubmit={handleSubmit}>
+            <form
+              className="mt-7 space-y-3.5"
+              noValidate
+              onSubmit={handleSubmit}
+            >
               {error && (
                 <div className="rounded-lg bg-red-50 p-3 text-center">
-                  <p className="text-[11px] font-medium text-red-800">{error}</p>
+                  <p className="text-[11px] font-medium text-red-800">
+                    {error}
+                  </p>
                 </div>
               )}
               <div>
@@ -281,13 +356,30 @@ export default function TravelLogin() {
                 </label>
                 <input
                   id="username"
-                  className="h-[3rem] w-full rounded-full bg-[#f1f6fb] px-5 text-[11px] text-slate-700 outline-none transition placeholder:text-slate-400 focus:bg-white focus:shadow-[0_0_0_4px_rgba(255,103,154,0.08)]"
-                  onChange={(event) => setUsername(event.target.value)}
+                  aria-describedby={
+                    fieldErrors.username ? "username-error" : undefined
+                  }
+                  aria-invalid={fieldErrors.username ? "true" : "false"}
+                  autoComplete="username"
+                  className={`h-[3rem] w-full rounded-full px-5 text-[11px] text-slate-700 outline-none transition placeholder:text-slate-400 ${
+                    fieldErrors.username
+                      ? "bg-red-50 shadow-[0_0_0_1px_rgba(220,38,38,0.25)] focus:bg-white focus:shadow-[0_0_0_4px_rgba(220,38,38,0.12)]"
+                      : "bg-[#f1f6fb] focus:bg-white focus:shadow-[0_0_0_4px_rgba(255,103,154,0.08)]"
+                  }`}
+                  onBlur={handleUsernameBlur}
+                  onChange={handleUsernameChange}
                   placeholder="Nhập tên đăng nhập"
-                  required
                   type="text"
                   value={username}
                 />
+                {fieldErrors.username ? (
+                  <p
+                    id="username-error"
+                    className="mt-1.5 px-5 text-[10px] font-medium text-red-600"
+                  >
+                    {fieldErrors.username}
+                  </p>
+                ) : null}
               </div>
 
               <div className="relative">
@@ -296,17 +388,28 @@ export default function TravelLogin() {
                 </label>
                 <input
                   id="password"
-                  className="h-[3rem] w-full rounded-full bg-[#f1f6fb] px-5 pr-12 text-[11px] text-slate-700 outline-none transition placeholder:text-slate-400 focus:bg-white focus:shadow-[0_0_0_4px_rgba(255,103,154,0.08)]"
-                  onChange={(event) => setPassword(event.target.value)}
+                  aria-describedby={
+                    fieldErrors.password ? "password-error" : undefined
+                  }
+                  aria-invalid={fieldErrors.password ? "true" : "false"}
+                  autoComplete="current-password"
+                  className={`h-[3rem] w-full rounded-full px-5 pr-12 text-[11px] text-slate-700 outline-none transition placeholder:text-slate-400 ${
+                    fieldErrors.password
+                      ? "bg-red-50 shadow-[0_0_0_1px_rgba(220,38,38,0.25)] focus:bg-white focus:shadow-[0_0_0_4px_rgba(220,38,38,0.12)]"
+                      : "bg-[#f1f6fb] focus:bg-white focus:shadow-[0_0_0_4px_rgba(255,103,154,0.08)]"
+                  }`}
+                  onBlur={handlePasswordBlur}
+                  onChange={handlePasswordChange}
                   placeholder="Nhập mật khẩu của bạn"
-                  required
                   type={isPasswordVisible ? "text" : "password"}
                   value={password}
                 />
                 <button
                   type="button"
                   onClick={() => setIsPasswordVisible((visible) => !visible)}
-                  aria-label={isPasswordVisible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                  aria-label={
+                    isPasswordVisible ? "Ẩn mật khẩu" : "Hiện mật khẩu"
+                  }
                   className="absolute right-4 top-1/2 inline-flex -translate-y-1/2 items-center justify-center text-slate-400 transition hover:text-[#dd4a8d]"
                 >
                   {isPasswordVisible ? (
@@ -315,6 +418,14 @@ export default function TravelLogin() {
                     <Eye className="h-4 w-4" />
                   )}
                 </button>
+                {fieldErrors.password ? (
+                  <p
+                    id="password-error"
+                    className="mt-1.5 px-5 text-[10px] font-medium text-red-600"
+                  >
+                    {fieldErrors.password}
+                  </p>
+                ) : null}
               </div>
 
               <div className="pr-2 text-right">
@@ -339,7 +450,7 @@ export default function TravelLogin() {
             <div className="mt-5">
               <div className="flex items-center gap-3 text-[10px] text-slate-400">
                 <div className="h-px flex-1 bg-slate-200" />
-                <span>Hhoặc tiếp tục với</span>
+                <span>Hoặc tiếp tục với</span>
                 <div className="h-px flex-1 bg-slate-200" />
               </div>
 
@@ -353,7 +464,6 @@ export default function TravelLogin() {
                 </SocialButton>
               </div>
             </div>
-
           </div>
 
           <div className="relative flex min-h-[360px] items-center justify-center lg:min-h-[520px] lg:justify-end">
@@ -556,7 +666,9 @@ function FacebookIcon() {
   );
 }
 
-function getRedirectPathForRole(role: "admin" | "curator" | "explorer" | "partner" ) {
+function getRedirectPathForRole(
+  role: "admin" | "curator" | "explorer" | "partner",
+) {
   if (role === "admin") {
     return "/admin";
   }

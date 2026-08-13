@@ -1,10 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import {
-  createSessionFromToken,
-  saveAccessToken,
-} from "@/lib/auth";
+import { notifyAuthSessionChanged } from "@/lib/auth";
 import { loginUser, type LoginCredentials } from "@/lib/api";
 
 export function useLogin() {
@@ -19,13 +16,12 @@ export function useLogin() {
 
     try {
       const response = await loginUser({ username, password });
-      saveAccessToken(response.accessToken, response.expiresIn);
-
-      const session = createSessionFromToken(response.accessToken);
+      const session = response.session;
       if (!session) {
         throw new Error("Không thể xử lý thông tin người dùng.");
       }
 
+      notifyAuthSessionChanged();
       setSuccess("Đăng nhập thành công. Đang chuyển hướng...\n");
       return session;
     } catch (err) {

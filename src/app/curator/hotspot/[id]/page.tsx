@@ -954,11 +954,11 @@ function buildDetailHotspot(
     relatedTopics: !hasBackendSource
       ? (fallbackHotspot?.relatedTopics ?? [])
       : [],
-    videoLabel: fallbackHotspot?.videoLabel,
+    videoLabel: !hasBackendSource ? fallbackHotspot?.videoLabel : undefined,
     videoUrl:
       (backendHotspot
         ? resolveHotspotMedia(backendHotspot.medias).videoUrl
-        : null) || fallbackHotspot?.videoUrl,
+        : null) || (!hasBackendSource ? fallbackHotspot?.videoUrl : undefined),
     xp:
       typeof backendHotspot?.xp === "number"
         ? `${backendHotspot.xp} XP`
@@ -975,7 +975,7 @@ function buildDetailHotspot(
       (backendHotspot
         ? resolveHotspotMedia(backendHotspot.medias).imageUrl
         : null) ||
-      fallbackHotspot?.image ||
+      (!hasBackendSource ? fallbackHotspot?.image : undefined) ||
       buildDefaultHotspotImage(title),
     tags: buildTagLabels(
       backendHotspot?.tags,
