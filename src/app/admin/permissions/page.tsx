@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/app/ui-bits";
 import { Button } from "@/components/ui/button";
 import {
   adminApi,
+  type UserProfile,
   type UserRole,
   type PermissionGroupResponse,
   type UserPermissionResponse,
@@ -16,6 +17,7 @@ import {
   Users,
   Loader2,
   Plus,
+  Search,
   Trash2,
   Check,
   X,
@@ -27,10 +29,10 @@ import {
 const ROLES: UserRole[] = ["EXPLORER", "CURATOR", "PARTNER", "ADMIN"];
 
 const roleLabels: Record<UserRole, string> = {
-  EXPLORER: "Explorer",
-  CURATOR: "Curator",
-  PARTNER: "Partner",
-  ADMIN: "Admin",
+  EXPLORER: "Người khám phá",
+  CURATOR: "Biên tập viên",
+  PARTNER: "Đối tác",
+  ADMIN: "Quản trị viên",
 };
 
 const roleColors: Record<UserRole, string> = {
@@ -75,7 +77,7 @@ export default function PermissionsPage() {
               : "text-slate-500 hover:text-slate-700"
           }`}
         >
-          <KeyRound className="h-4 w-4" /> Quyền của Role
+          <KeyRound className="h-4 w-4" /> Quyền theo vai trò
         </button>
         <button
           type="button"
@@ -269,8 +271,8 @@ function GroupCard({
   }, [someChecked, allChecked]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3">
+    <div className="cq-admin-panel">
+      <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50 px-4 py-2.5">
         <input
           ref={checkboxRef}
           type="checkbox"
@@ -310,12 +312,20 @@ function GroupCard({
 
 // ─── Tab 2: User Permissions ──────────────────────────────────────────────────
 
+const USER_PAGE_SIZE = 10;
+
 function UserPermissionsTab({ showToast }: { showToast: (msg: string) => void }) {
-  const [userIdInput, setUserIdInput] = useState("");
-  const [userId, setUserId] = useState<number | null>(null);
+  const [keyword, setKeyword] = useState("");
+  const [search, setSearch] = useState("");
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [overrides, setOverrides] = useState<UserPermissionResponse[]>([]);
   const [allGroups, setAllGroups] = useState<PermissionGroupResponse[]>([]);
+  const [listLoading, setListLoading] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -324,14 +334,47 @@ function UserPermissionsTab({ showToast }: { showToast: (msg: string) => void })
     adminApi.getPermissions().then(setAllGroups).catch(() => {});
   }, []);
 
-  async function handleSearch() {
-    const id = parseInt(userIdInput.trim(), 10);
-    if (!id || id <= 0) { setError("Vui lòng nhập User ID hợp lệ."); return; }
+  /**
+   * Danh sách người dùng hiện sẵn ngay khi mở tab để admin chọn trực tiếp,
+   * ô tìm kiếm chỉ để lọc bớt khi danh sách dài.
+   */
+  const loadUsers = useCallback(async () => {
+    setListLoading(true);
+    setListError(null);
+    try {
+      const res = await adminApi.getUsers({
+        page,
+        size: USER_PAGE_SIZE,
+        search: search || undefined,
+        sortBy: "createdAt",
+        sortDir: "desc",
+      });
+      setUsers(res.content);
+      setTotalPages(Math.max(1, res.page?.totalPages ?? 1));
+    } catch (err) {
+      setUsers([]);
+      setTotalPages(1);
+      setListError(err instanceof Error ? err.message : "Không thể tải danh sách người dùng.");
+    } finally {
+      setListLoading(false);
+    }
+  }, [page, search]);
+
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
+
+  function applySearch() {
+    setPage(0);
+    setSearch(keyword.trim());
+  }
+
+  async function selectUser(user: UserProfile) {
+    setSelectedUser(user);
     setLoading(true);
     setError(null);
-    setUserId(id);
     try {
-      const res = await adminApi.getUserPermissions(id);
+      const res = await adminApi.getUserPermissions(user.userId);
       setOverrides(res);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải quyền người dùng.");
@@ -342,10 +385,10 @@ function UserPermissionsTab({ showToast }: { showToast: (msg: string) => void })
   }
 
   async function handleDelete(code: string) {
-    if (!userId) return;
+    if (!selectedUser) return;
     setDeleting(code);
     try {
-      await adminApi.deleteUserPermission(userId, code);
+      await adminApi.deleteUserPermission(selectedUser.userId, code);
       setOverrides((prev) => prev.filter((o) => o.code !== code));
       showToast(`Đã xoá ngoại lệ quyền ${code}.`);
     } catch (err) {
@@ -356,101 +399,208 @@ function UserPermissionsTab({ showToast }: { showToast: (msg: string) => void })
   }
 
   async function handleUpsert(req: GrantUserPermissionRequest) {
-    if (!userId) return;
-    await adminApi.upsertUserPermission(userId, req);
-    const res = await adminApi.getUserPermissions(userId);
+    if (!selectedUser) return;
+    await adminApi.upsertUserPermission(selectedUser.userId, req);
+    const res = await adminApi.getUserPermissions(selectedUser.userId);
     setOverrides(res);
     showToast(`Đã ${req.granted ? "cấp" : "thu hồi"} quyền ${req.code}.`);
   }
 
+  const selectedName = selectedUser
+    ? selectedUser.displayName || selectedUser.username
+    : "";
+
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2">
-        <input
-          value={userIdInput}
-          onChange={(e) => setUserIdInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && void handleSearch()}
-          placeholder="Nhập User ID..."
-          className="w-48 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#D94A8D] focus:ring-2 focus:ring-[#F7DCE8]"
-        />
-        <Button size="sm" onClick={() => void handleSearch()} disabled={loading}>
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Tìm kiếm"}
-        </Button>
-        {userId ? (
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowModal(true)}>
-            <Plus className="h-4 w-4" /> Thêm ngoại lệ
+    <div className="grid gap-4 lg:grid-cols-[460px_1fr] xl:grid-cols-[560px_1fr]">
+      {/* Cột trái: danh sách người dùng để chọn */}
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <input
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && applySearch()}
+              placeholder="Tìm theo tên hoặc email..."
+              className="w-full rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-sm outline-none focus:border-[#D94A8D] focus:ring-2 focus:ring-[#F7DCE8]"
+            />
+          </div>
+          <Button size="sm" onClick={applySearch} disabled={listLoading}>
+            {listLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Tìm"}
           </Button>
+        </div>
+
+        {listError ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{listError}</div>
+        ) : null}
+
+        <div className="cq-admin-panel divide-y divide-slate-100">
+          {listLoading ? (
+            <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
+              <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
+            </div>
+          ) : users.length === 0 ? (
+            <div className="py-10 text-center text-sm text-slate-500">
+              Không tìm thấy người dùng phù hợp.
+            </div>
+          ) : (
+            users.map((user) => {
+              const active = selectedUser?.userId === user.userId;
+              return (
+                <button
+                  key={user.userId}
+                  type="button"
+                  onClick={() => void selectUser(user)}
+                  className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition ${
+                    active ? "bg-[#FFF3F8]" : "hover:bg-[#FFF9FC]"
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <p className={`truncate text-sm font-semibold ${active ? "text-[#D94A8D]" : "text-slate-800"}`}>
+                      {user.displayName || user.username}
+                    </p>
+                    <p className="truncate text-xs text-slate-500">{user.email}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${roleColors[user.role]}`}>
+                    {roleLabels[user.role]}
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        {totalPages > 1 ? (
+          <div className="flex items-center justify-between px-1 text-xs text-slate-500">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page === 0 || listLoading}
+              onClick={() => setPage((value) => Math.max(0, value - 1))}
+            >
+              Trước
+            </Button>
+            <span>
+              Trang {page + 1} / {totalPages}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page >= totalPages - 1 || listLoading}
+              onClick={() => setPage((value) => Math.min(totalPages - 1, value + 1))}
+            >
+              Sau
+            </Button>
+          </div>
         ) : null}
       </div>
 
-      {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
-      ) : null}
-
-      {userId && !loading ? (
-        overrides.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-12 text-center text-sm text-slate-500">
-            User #{userId} chưa có ngoại lệ quyền nào.
+      {/* Cột phải: ngoại lệ quyền của người đang chọn */}
+      <div className="space-y-3">
+        {!selectedUser ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-12 text-center">
+            <Users className="mx-auto h-8 w-8 text-slate-300" />
+            <p className="mt-3 text-sm font-medium text-slate-600">Chọn một người dùng ở danh sách bên trái</p>
+            <p className="mt-1 text-xs text-slate-400">
+              Ngoại lệ quyền sẽ đè lên quyền mặc định theo vai trò của người đó.
+            </p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  <th className="px-4 py-3 text-left">Mã quyền</th>
-                  <th className="px-4 py-3 text-left">Loại</th>
-                  <th className="px-4 py-3 text-left">Lý do</th>
-                  <th className="px-4 py-3 text-left">Hết hạn</th>
-                  <th className="px-4 py-3 text-left">Trạng thái</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {overrides.map((o) => (
-                  <tr key={o.code} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-700">{o.code}</td>
-                    <td className="px-4 py-3">
-                      {o.granted ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-                          <Check className="h-3 w-3" /> Cấp thêm
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
-                          <X className="h-3 w-3" /> Thu hồi
-                        </span>
-                      )}
-                    </td>
-                    <td className="max-w-[180px] truncate px-4 py-3 text-slate-500">{o.reason || "—"}</td>
-                    <td className="px-4 py-3 text-slate-500">
-                      {o.expiresAt ? new Date(o.expiresAt).toLocaleDateString("vi-VN") : "Vĩnh viễn"}
-                    </td>
-                    <td className="px-4 py-3">
-                      {o.expired ? (
-                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500">Đã hết hạn</span>
-                      ) : (
-                        <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-600">Đang hiệu lực</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        disabled={deleting === o.code}
-                        onClick={() => void handleDelete(o.code)}
-                        className="grid h-8 w-8 place-items-center rounded-lg text-red-500 transition hover:bg-red-50 disabled:opacity-40"
-                        aria-label="Xoá"
-                      >
-                        {deleting === o.code ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )
-      ) : null}
+          <>
+            <div className="cq-admin-panel flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-800">{selectedName}</p>
+                <p className="truncate text-xs text-slate-500">
+                  {selectedUser.email} · Vai trò: {roleLabels[selectedUser.role]}
+                </p>
+              </div>
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowModal(true)}>
+                <Plus className="h-4 w-4" /> Thêm ngoại lệ
+              </Button>
+            </div>
 
-      {showModal && userId ? (
+            {error ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+            ) : null}
+
+            {loading ? (
+              <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
+                <Loader2 className="h-4 w-4 animate-spin" /> Đang tải quyền cá nhân...
+              </div>
+            ) : overrides.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-12 text-center text-sm text-slate-500">
+                {selectedName} chưa có ngoại lệ quyền nào — đang dùng đúng quyền của vai trò{" "}
+                {roleLabels[selectedUser.role]}.
+              </div>
+            ) : (
+              <div className="cq-admin-panel">
+                <table className="cq-admin-table">
+                  <colgroup>
+                    <col className="w-[26%]" />
+                    <col className="w-[14%]" />
+                    <col className="w-[24%]" />
+                    <col className="w-[14%]" />
+                    <col className="w-[15%]" />
+                    <col className="w-[7%]" />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>Mã quyền</th>
+                      <th>Loại</th>
+                      <th>Lý do</th>
+                      <th>Hết hạn</th>
+                      <th>Trạng thái</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {overrides.map((o) => (
+                      <tr key={o.code}>
+                        <td className="font-mono text-xs font-semibold text-slate-700">{o.code}</td>
+                        <td>
+                          {o.granted ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                              <Check className="h-3 w-3" /> Cấp thêm
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+                              <X className="h-3 w-3" /> Thu hồi
+                            </span>
+                          )}
+                        </td>
+                        <td className="text-slate-500">{o.reason || "—"}</td>
+                        <td className="text-slate-500">
+                          {o.expiresAt ? new Date(o.expiresAt).toLocaleDateString("vi-VN") : "Vĩnh viễn"}
+                        </td>
+                        <td>
+                          {o.expired ? (
+                            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500">Đã hết hạn</span>
+                          ) : (
+                            <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-600">Đang hiệu lực</span>
+                          )}
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            disabled={deleting === o.code}
+                            onClick={() => void handleDelete(o.code)}
+                            className="grid h-8 w-8 place-items-center rounded-lg text-red-500 transition hover:bg-red-50 disabled:opacity-40"
+                            aria-label="Xoá"
+                          >
+                            {deleting === o.code ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {showModal && selectedUser ? (
         <AddPermissionModal
           allGroups={allGroups}
           onCancel={() => setShowModal(false)}

@@ -21,6 +21,92 @@ function formatDate(value?: string) {
   }).format(new Date(value));
 }
 
+/** Khớp `AuditAction.java` — hiển thị tiếng Việt thay cho tên enum. */
+const actionLabels: Record<string, string> = {
+  LOCK_USER: "Khoá người dùng",
+  UNLOCK_USER: "Mở khoá người dùng",
+  UPDATE_USER_ROLE: "Đổi vai trò người dùng",
+  APPROVE_POST: "Duyệt bài đăng",
+  REJECT_POST: "Từ chối bài đăng",
+  BAN_POST: "Xoá bài đăng",
+  VERIFY_SUBSCRIPTION: "Xác minh hồ sơ đối tác",
+  CREATE_SUBSCRIPTION_PLAN: "Tạo gói đăng ký",
+  UPDATE_SUBSCRIPTION_PLAN: "Cập nhật gói đăng ký",
+  DELETE_SUBSCRIPTION_PLAN: "Xoá gói đăng ký",
+  UPDATE_ROLE_PERMISSION: "Cập nhật quyền vai trò",
+  UPDATE_USER_PERMISSION: "Cập nhật quyền cá nhân",
+  UNKNOWN: "Không xác định",
+};
+
+function getActionLabel(action?: string) {
+  if (!action) return "Không xác định";
+  return actionLabels[action] ?? action;
+}
+
+/** Tên bảng trong audit log → tên đối tượng bằng tiếng Việt. */
+const tableNameLabels: Record<string, string> = {
+  users: "Người dùng",
+  posts: "Bài đăng",
+  hotspots: "Địa điểm",
+  routes: "Tuyến hành trình",
+  stories: "Câu chuyện",
+  tags: "Thẻ",
+  levels: "Cấp độ",
+  vouchers: "Voucher",
+  invoice: "Hoá đơn đối tác",
+  invoices: "Hoá đơn đối tác",
+  subscription_plans: "Gói đăng ký",
+  subscriptionplan: "Gói đăng ký",
+  permissions: "Quyền",
+  role_permissions: "Quyền theo vai trò",
+  user_permissions: "Quyền cá nhân",
+};
+
+/**
+ * Khoá có thể dùng làm tên đối tượng, xếp theo mức độ dễ hiểu với người đọc.
+ * Audit log không trả kèm tên nên phải lấy từ oldValue/newValue.
+ */
+const recordNameKeys = [
+  "displayName",
+  "shopName",
+  "subscriptionPlanName",
+  "hotspotName",
+  "routeName",
+  "storyName",
+  "tagName",
+  "levelName",
+  "voucherName",
+  "title",
+  "name",
+  "username",
+  "code",
+  "email",
+  "content",
+];
+
+function getTableLabel(tableName?: string) {
+  if (!tableName) return "Không rõ đối tượng";
+  return tableNameLabels[tableName.toLowerCase()] ?? tableName;
+}
+
+/** Tên đối tượng đọc được, thay cho việc hiện thẳng recordId. */
+function getRecordName(item: AuditLog) {
+  for (const source of [item.newValue, item.oldValue]) {
+    const parsed = normalizeValue(source);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) continue;
+
+    const record = parsed as Record<string, unknown>;
+    for (const key of recordNameKeys) {
+      const value = record[key];
+      if (typeof value === "string" && value.trim()) {
+        const text = value.trim();
+        return text.length > 60 ? `${text.slice(0, 60)}…` : text;
+      }
+    }
+  }
+  return null;
+}
+
 function normalizeValue(value: unknown): unknown {
   if (typeof value !== "string") return value;
   const trimmed = value.trim();
@@ -129,15 +215,15 @@ export default function ReviewHistoryPage() {
         <div className="grid gap-3 lg:grid-cols-[minmax(240px,1fr)_180px_180px_150px_150px]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm theo mã bản ghi..." className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm outline-none focus:border-[#E6A8C5] focus:ring-4 focus:ring-[#FCEAF3]" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm theo mã bản ghi hoặc endpoint..." className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm outline-none focus:border-[#E6A8C5] focus:ring-4 focus:ring-[#FCEAF3]" />
           </div>
           <select value={action} onChange={(event) => setAction(event.target.value)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm">
             <option value="">Tất cả hành động</option>
-            {actions.map((value) => <option key={value} value={value}>{value}</option>)}
+            {actions.map((value) => <option key={value} value={value}>{getActionLabel(value)}</option>)}
           </select>
           <select value={tableName} onChange={(event) => setTableName(event.target.value)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm">
-            <option value="">Tất cả bảng</option>
-            {tables.map((value) => <option key={value} value={value}>{value}</option>)}
+            <option value="">Tất cả đối tượng</option>
+            {tables.map((value) => <option key={value} value={value}>{getTableLabel(value)}</option>)}
           </select>
           <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm" />
           <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm" />
@@ -147,36 +233,52 @@ export default function ReviewHistoryPage() {
 
       {error && <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1050px] text-left">
-            <thead className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-[0.08em] text-slate-500">
-              <tr>
-                <th className="px-5 py-3.5">Thời gian</th>
-                <th className="px-5 py-3.5">Người thực hiện</th>
-                <th className="px-5 py-3.5">Hành động</th>
-                <th className="px-5 py-3.5">Đối tượng</th>
-                <th className="px-5 py-3.5 text-right">Chi tiết</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && <tr><td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-500">Đang tải audit log...</td></tr>}
-              {!loading && items.length === 0 && <tr><td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-500">Không có dữ liệu phù hợp.</td></tr>}
-              {!loading && items.map((item) => (
-                <tr key={item.logId} className="border-b border-slate-100 last:border-0 hover:bg-[#FFF9FC]">
-                  <td className="px-5 py-4 text-sm text-slate-600">{formatDate(item.createdAt)}</td>
-                  <td className="px-5 py-4">
-                    <p className="text-sm font-semibold text-slate-800">{item.actor?.displayName || item.actor?.username || "Hệ thống"}</p>
+      <section className="cq-admin-panel">
+        {/* table-layout: fixed (class cq-admin-table) để nội dung xuống dòng
+            trong khung, không cần scroll ngang. */}
+        <table className="cq-admin-table">
+          <colgroup>
+            <col className="w-[18%]" />
+            <col className="w-[22%]" />
+            <col className="w-[20%]" />
+            <col className="w-[28%]" />
+            <col className="w-[12%]" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Thời gian</th>
+              <th>Người thực hiện</th>
+              <th>Hành động</th>
+              <th>Đối tượng</th>
+              <th className="text-right">Chi tiết</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && <tr><td colSpan={5} className="py-12 text-center text-slate-500">Đang tải audit log...</td></tr>}
+            {!loading && items.length === 0 && <tr><td colSpan={5} className="py-12 text-center text-slate-500">Không có dữ liệu phù hợp.</td></tr>}
+            {!loading && items.map((item) => {
+              const recordName = getRecordName(item);
+
+              return (
+                <tr key={item.logId}>
+                  <td className="text-slate-600">{formatDate(item.createdAt)}</td>
+                  <td>
+                    <p className="font-semibold text-slate-800">{item.actor?.displayName || item.actor?.username || "Hệ thống"}</p>
                     <p className="text-xs text-slate-500">{item.actor?.role || "SYSTEM"}</p>
                   </td>
-                  <td className="px-5 py-4"><span className="rounded-full bg-[#FFF0F7] px-2.5 py-1 text-xs font-semibold text-[#D94A8D] ring-1 ring-[#F1C9DC]">{item.action}</span></td>
-                  <td className="px-5 py-4 text-sm text-slate-700"><span className="font-medium">{item.tableName || "—"}</span><span className="ml-1 text-slate-400">#{item.recordId || "—"}</span></td>
-                  <td className="px-5 py-4 text-right"><Button size="sm" variant="outline" onClick={() => setSelected(item)}>Xem</Button></td>
+                  <td>
+                    <span className="inline-block rounded-full bg-[#FFF0F7] px-2.5 py-1 text-xs font-semibold text-[#D94A8D] ring-1 ring-[#F1C9DC]">{getActionLabel(item.action)}</span>
+                  </td>
+                  <td className="text-slate-700">
+                    <p className="font-medium">{getTableLabel(item.tableName)}</p>
+                    <p className="text-xs text-slate-500">{recordName ?? "Không xác định được tên"}</p>
+                  </td>
+                  <td className="text-right"><Button size="sm" variant="outline" onClick={() => setSelected(item)}>Xem</Button></td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              );
+            })}
+          </tbody>
+        </table>
         <div className="border-t border-slate-100 p-4"><Pagination page={page} totalPages={totalPages} totalItems={totalElements} pageSize={PAGE_SIZE} onPageChange={setPage} /></div>
       </section>
 
@@ -191,10 +293,10 @@ export default function ReviewHistoryPage() {
             <div className="flex shrink-0 items-start justify-between border-b border-slate-100 bg-white px-5 py-4 sm:px-7 sm:py-5">
               <div className="min-w-0 pr-4">
                 <p className="text-xs font-semibold uppercase tracking-wider text-[#D94A8D]">
-                  Audit #{selected.logId}
+                  {getTableLabel(selected.tableName)}
                 </p>
                 <h2 className="mt-1 truncate text-lg font-semibold text-slate-900 sm:text-xl">
-                  {selected.action}
+                  {getActionLabel(selected.action)}
                 </h2>
               </div>
               <Button
@@ -208,8 +310,9 @@ export default function ReviewHistoryPage() {
 
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
               <div className="space-y-5">
-                <div className="grid gap-3 md:grid-cols-3">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   <Info icon={User} label="Người thực hiện" value={selected.actor?.displayName || selected.actor?.username || "Hệ thống"} />
+                  <Info icon={FileText} label="Đối tượng" value={getRecordName(selected) ?? getTableLabel(selected.tableName)} />
                   <Info icon={Server} label="IP" value={selected.ipAddress || "—"} />
                   <Info icon={Clock3} label="Thời gian" value={formatDate(selected.createdAt)} />
                 </div>

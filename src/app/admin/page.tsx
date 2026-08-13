@@ -6,13 +6,19 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { getRedirectPathForRole } from "@/lib/access-control";
 import { PageHeader, StatCard, StatusPill } from "@/components/app/ui-bits";
-import { audit, reports } from "@/data/demo";
+import { UserAvatar, roleClasses, roleLabels } from "@/components/admin/UserAvatar";
 import {
   adminApi,
   type AdminDashboard,
+  type AuditLog,
   type PostItem,
+  type PostReportItem,
   type UserProfile,
 } from "@/services/api/admin/adminApi";
+import {
+  getActionLabel,
+  getAuditTargetLabel,
+} from "@/lib/audit-labels";
 import {
   formatChangeLabel,
   formatCompactCurrency,
@@ -32,7 +38,6 @@ import {
   ShieldCheck,
   Users,
   TrendingUp,
-  ArrowUpRight,
   Activity,
   Clock,
   FileText,
@@ -57,6 +62,8 @@ export default function AdminDashboardPage() {
   const router = useRouter();
   const [recentUsers, setRecentUsers] = useState<UserProfile[]>([]);
   const [pendingPosts, setPendingPosts] = useState<PostItem[]>([]);
+  const [recentReports, setRecentReports] = useState<PostReportItem[]>([]);
+  const [recentAudits, setRecentAudits] = useState<AuditLog[]>([]);
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [range, setRange] = useState<DashboardRange>("day");
@@ -125,6 +132,30 @@ export default function AdminDashboardPage() {
       } catch {
         setRecentUsers([]);
         setPendingPosts([]);
+      }
+    })();
+
+    // Báo cáo mới + hoạt động quản trị: lấy từ API thật (trước đây là dữ liệu
+    // giả trong @/data/demo nên hiện tên người dùng và đối tượng không có thật).
+    void (async () => {
+      try {
+        setRecentReports(await adminApi.getPostReports());
+      } catch {
+        setRecentReports([]);
+      }
+    })();
+
+    void (async () => {
+      try {
+        const res = await adminApi.getAuditLogs({
+          page: 0,
+          size: 4,
+          sortBy: "createdAt",
+          sortDir: "desc",
+        });
+        setRecentAudits(res.content ?? []);
+      } catch {
+        setRecentAudits([]);
       }
     })();
   }, [session?.role, session?.token]);
@@ -201,7 +232,7 @@ export default function AdminDashboardPage() {
           tone="primary"
         />
         <StatCard
-          label="Hotspot xuất bản"
+          label="Địa điểm đã xuất bản"
           value={formatCount(summary?.publishedHotspots)}
           delta={
             summary
@@ -225,7 +256,7 @@ export default function AdminDashboardPage() {
         <StatCard
           label="Chờ duyệt"
           value={formatCount(summary?.pendingPosts)}
-          delta="Bài đăng pending"
+          delta="Bài đăng chờ duyệt"
           icon={FileText}
           tone="warning"
         />
@@ -260,7 +291,7 @@ export default function AdminDashboardPage() {
           tone="info"
         />
         <StatCard
-          label="Doanh thu Partner"
+          label="Doanh thu đối tác"
           value={formatCompactCurrency(revenue?.partnerRevenue)}
           delta={
             revenue
@@ -273,7 +304,7 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="rounded-2xl bg-white p-4 shadow-sm lg:col-span-2">
+        <div className="cq-admin-panel p-4 lg:col-span-2">
           <div className="flex items-start justify-between gap-3 mb-3">
             <div>
               <div className="text-sm font-semibold">Lượt check-in</div>
@@ -347,7 +378,7 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-4 shadow-sm">
+        <div className="cq-admin-panel p-4">
           <div className="flex items-start justify-between gap-2 mb-3">
             <div>
               <div className="text-sm font-semibold">Tăng trưởng người dùng</div>
@@ -408,7 +439,7 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="rounded-2xl bg-white p-4 shadow-sm xl:col-span-2">
+        <div className="cq-admin-panel p-4 xl:col-span-2">
           <div className="flex items-start justify-between gap-3 mb-3">
             <div>
               <div className="text-sm font-semibold">Tuyến tương tác nhiều nhất</div>
@@ -416,12 +447,6 @@ export default function AdminDashboardPage() {
                 Top {routeEngagement.length || 5} theo lượt bắt đầu
               </div>
             </div>
-            <Link
-              href="/admin/analytics"
-              className="shrink-0 text-xs text-primary inline-flex items-center gap-0.5"
-            >
-              Xem tất cả <ArrowUpRight className="w-3 h-3" />
-            </Link>
           </div>
 
           {/* Dữ liệu route là bảng xếp hạng 5 dòng có tên dài + một tỉ lệ, nên
@@ -490,7 +515,7 @@ export default function AdminDashboardPage() {
           )}
         </div>
 
-        <div className="rounded-2xl bg-white p-4 shadow-sm">
+        <div className="cq-admin-panel p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm font-semibold">Hàng đợi duyệt</div>
             <Link href="/admin/content-review" className="text-xs text-primary">
@@ -528,36 +553,43 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="rounded-2xl bg-white p-4 shadow-sm xl:col-span-2">
+        <div className="cq-admin-panel p-4 xl:col-span-2">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm font-semibold">Người dùng gần đây</div>
             <Link href="/admin/users-manager" className="text-xs text-primary">
               Quản lý
             </Link>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {recentUsers.length === 0 ? (
               <p className="py-4 text-center text-xs text-slate-500">Chưa có dữ liệu người dùng.</p>
             ) : (
               recentUsers.map((user) => {
                 const name = user.displayName || user.username;
-                const avatar =
-                  user.avatarUrl ||
-                  `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`;
                 return (
                   <div
                     key={user.userId}
-                    className="flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50 p-3"
+                    className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-2.5"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={avatar} alt={name} className="h-11 w-11 rounded-full object-cover" />
+                    <UserAvatar
+                      avatarUrl={user.avatarUrl}
+                      displayName={name}
+                      className="h-10 w-10"
+                      iconClassName="h-5 w-5"
+                    />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{name}</p>
-                      <p className="text-xs text-slate-500">{user.email}</p>
+                      <p className="truncate text-sm font-medium">{name}</p>
+                      <p className="truncate text-xs text-slate-500">{user.email}</p>
                     </div>
-                    <div className="text-xs text-slate-500 text-right">
-                      <div>{user.role}</div>
-                      <div>{user.totalPoints ?? 0} điểm</div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${roleClasses[user.role]}`}
+                      >
+                        {roleLabels[user.role]}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        {formatCount(user.totalPoints)} điểm
+                      </span>
                     </div>
                   </div>
                 );
@@ -566,42 +598,49 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-4 shadow-sm">
+        <div className="cq-admin-panel p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm font-semibold">Báo cáo mới</div>
             <Link href="/admin/moderation" className="text-xs text-primary">
               Xem tất cả
             </Link>
           </div>
-          <div className="space-y-3">
-            {reports.slice(0, 3).map((report) => (
-              <div
-                key={report.id}
-                className="rounded-2xl border border-slate-200/70 p-3"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-medium">{report.type}</div>
-                    <p className="text-xs text-slate-500">{report.target}</p>
+          <div className="space-y-2.5">
+            {recentReports.length === 0 ? (
+              <p className="py-4 text-center text-xs text-slate-500">
+                Không có báo cáo nào đang chờ xử lý.
+              </p>
+            ) : (
+              recentReports.slice(0, 3).map((report) => (
+                <div
+                  key={report.postActionId}
+                  className="rounded-2xl border border-slate-100 p-2.5"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">Bài đăng bị báo cáo</div>
+                      <p className="truncate text-xs text-slate-500">
+                        Người báo cáo: {report.createdDisplayName}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-[11px] font-semibold text-slate-500">
+                      {new Date(report.createdAt).toLocaleDateString("vi-VN")}
+                    </span>
                   </div>
-                  <span className="text-[11px] font-semibold text-slate-500">
-                    {new Date(report.at).toLocaleDateString("vi-VN")}
-                  </span>
+                  <p className="mt-2 line-clamp-2 text-xs text-slate-600">{report.comment}</p>
+                  <div className="mt-2.5 flex items-center justify-end text-[11px] text-slate-500">
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-700">
+                      Chờ xử lý
+                    </span>
+                  </div>
                 </div>
-                <p className="mt-2 text-xs text-slate-600">{report.reason}</p>
-                <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
-                  <span>{report.reporter}</span>
-                  <span className="rounded-full bg-slate-100 px-2 py-1">
-                    {report.status}
-                  </span>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
 
-      <div className="rounded-2xl bg-white p-4 shadow-sm">
+      <div className="cq-admin-panel p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="text-sm font-semibold">
             Hoạt động quản trị gần đây
@@ -610,24 +649,34 @@ export default function AdminDashboardPage() {
             Xem lịch sử
           </Link>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {audit.slice(0, 4).map((entry) => (
-            <div
-              key={entry.id}
-              className="rounded-2xl border border-slate-200/70 p-3"
-            >
-              <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                <ShieldCheck className="w-4 h-4 text-primary" />
-                <span>{entry.action}</span>
+        {recentAudits.length === 0 ? (
+          <p className="py-4 text-center text-xs text-slate-500">
+            Chưa có hoạt động quản trị nào được ghi lại.
+          </p>
+        ) : (
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            {recentAudits.map((entry) => (
+              <div key={entry.logId} className="rounded-2xl border border-slate-100 p-2.5">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-primary" />
+                  <span className="truncate">{getActionLabel(entry.action)}</span>
+                </div>
+                {/* Đối tượng hiện tên đọc được (lấy từ oldValue/newValue), không hiện recordId. */}
+                <p className="mt-2 truncate text-xs text-slate-500">
+                  {getAuditTargetLabel(entry)}
+                </p>
+                <div className="mt-2.5 flex items-center justify-between gap-2 text-[11px] text-slate-500">
+                  <span className="truncate">
+                    {entry.actor?.displayName || entry.actor?.username || "Hệ thống"}
+                  </span>
+                  <span className="shrink-0">
+                    {new Date(entry.createdAt).toLocaleDateString("vi-VN")}
+                  </span>
+                </div>
               </div>
-              <p className="mt-2 text-xs text-slate-500">{entry.target}</p>
-              <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
-                <span>{entry.who}</span>
-                <span>{new Date(entry.at).toLocaleDateString("vi-VN")}</span>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

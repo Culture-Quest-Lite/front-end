@@ -26,141 +26,7 @@ import {
   type PartnerSubscriptionStatus,
 } from "@/services/api/admin/adminApi";
 
-/**
- * Trang hiện dùng dữ liệu mẫu để có thể làm UI trước khi backend hoàn thiện.
- * Khi backend có API, đổi thành false và gọi:
- * adminApi.getPartnerSubscriptions(...)
- * adminApi.verifyPartnerSubscription(item.id, true | false)
- */
 const PAGE_SIZE = 5;
-
-const mockSubscriptions: PartnerSubscription[] = [
-  {
-    id: 1042,
-    partnerId: 221,
-    partnerName: "Nguyễn Minh Anh",
-    subscriptionPlanId: 6,
-    subscriptionPlanName: "Partner Pro",
-    shopName: "Gốm Việt Heritage",
-    address: "28 Nguyễn Thái Học, Ba Đình, Hà Nội",
-    latitude: 21.0291,
-    longitude: 105.8332,
-    billingCycle: "YEARLY",
-    status: "PENDING",
-    startDate: "2026-07-10T08:30:00",
-    attachments: [
-      {
-        index: 0,
-        name: "Giấy tờ xác minh",
-        kind: "pdf",
-        previewUrl: "/api/admin/partner-files/1042/0",
-      },
-      {
-        index: 1,
-        name: "mat-tien-cua-hang.jpg",
-        kind: "image",
-        previewUrl: "/api/admin/partner-files/1042/1",
-      },
-    ],
-  },
-  {
-    id: 1041,
-    partnerId: 218,
-    partnerName: "Trần Quốc Bảo",
-    subscriptionPlanId: 6,
-    subscriptionPlanName: "Partner Pro",
-    shopName: "Mây Tre Hội An",
-    address: "71 Trần Phú, Hội An, Quảng Nam",
-    latitude: 15.8794,
-    longitude: 108.334,
-    billingCycle: "MONTHLY",
-    status: "PENDING",
-    startDate: "2026-07-09T14:10:00",
-    attachments: [
-      {
-        index: 0,
-        name: "Giấy tờ xác minh",
-        kind: "pdf",
-        previewUrl: "/api/admin/partner-files/1041/0",
-      },
-    ],
-  },
-  {
-    id: 1038,
-    partnerId: 205,
-    partnerName: "Lê Thu Hà",
-    subscriptionPlanId: 6,
-    subscriptionPlanName: "Partner Pro",
-    shopName: "Sắc Việt Souvenir",
-    address: "15 Lê Lợi, Huế",
-    billingCycle: "YEARLY",
-    status: "ACTIVE",
-    startDate: "2026-07-05T09:00:00",
-    endDate: "2027-07-05T09:00:00",
-    isVerified: true,
-    attachments: [
-      {
-        index: 0,
-        name: "Giấy tờ xác minh",
-        kind: "pdf",
-        previewUrl: "/api/admin/partner-files/1038/0",
-      },
-    ],
-  },
-  {
-    id: 1035,
-    partnerId: 199,
-    partnerName: "Phạm Hoàng Long",
-    subscriptionPlanId: 6,
-    subscriptionPlanName: "Partner Pro",
-    shopName: "Đặc Sản Miền Trung",
-    address: "102 Võ Nguyên Giáp, Đà Nẵng",
-    billingCycle: "MONTHLY",
-    status: "REJECTED",
-    startDate: "2026-07-02T11:20:00",
-    isVerified: false,
-    attachments: [
-      {
-        index: 0,
-        name: "Giấy tờ xác minh",
-        kind: "pdf",
-        previewUrl: "/api/admin/partner-files/1035/0",
-      },
-    ],
-  },
-  {
-    id: 1032,
-    partnerId: 188,
-    partnerName: "Vũ Thanh Tùng",
-    subscriptionPlanId: 6,
-    subscriptionPlanName: "Partner Pro",
-    shopName: "Thổ Cẩm Tây Bắc",
-    address: "36 Fansipan, Sa Pa, Lào Cai",
-    billingCycle: "YEARLY",
-    status: "PAYMENT_PENDING",
-    startDate: "2026-06-28T16:45:00",
-  },
-  {
-    id: 1029,
-    partnerId: 180,
-    partnerName: "Đỗ Khánh Linh",
-    subscriptionPlanId: 6,
-    subscriptionPlanName: "Partner Pro",
-    shopName: "Làng Nghề Việt",
-    address: "Bát Tràng, Gia Lâm, Hà Nội",
-    billingCycle: "YEARLY",
-    status: "PENDING",
-    startDate: "2026-06-25T10:15:00",
-    attachments: [
-      {
-        index: 0,
-        name: "Giấy tờ xác minh",
-        kind: "pdf",
-        previewUrl: "/api/admin/partner-files/1029/0",
-      },
-    ],
-  },
-];
 
 const statusMeta: Record<
   PartnerSubscriptionStatus,
@@ -195,10 +61,29 @@ const statusMeta: Record<
     className: "bg-slate-100 text-slate-600 ring-slate-200",
   },
   CANCELLED: {
-    label: "Đã hủy",
-    className: "bg-slate-100 text-slate-600 ring-slate-200",
+    label: "Đã từ chối",
+    className: "bg-rose-50 text-rose-700 ring-rose-200",
   },
 };
+
+const fallbackStatusMeta = {
+  label: "Không xác định",
+  className: "bg-slate-100 text-slate-600 ring-slate-200",
+};
+
+function getStatusMeta(status?: PartnerSubscriptionStatus) {
+  if (!status) return statusMeta.PENDING;
+  return statusMeta[status] ?? fallbackStatusMeta;
+}
+
+/**
+ * Khi admin từ chối, backend đặt `InvoiceStatus.CANCELLED` (xem
+ * `PartnerSubscriptionServiceImpl#verifiedSubscription`) — không có REJECTED.
+ * CANCELLED chỉ do luồng từ chối này sinh ra, nên coi cả hai là "đã từ chối".
+ */
+function isRejected(status?: PartnerSubscriptionStatus) {
+  return status === "REJECTED" || status === "CANCELLED";
+}
 
 type StatusFilter = "ALL" | PartnerSubscriptionStatus;
 
@@ -231,7 +116,7 @@ export default function PartnerVerificationPage() {
       total: items.length,
       pending: items.filter((item) => item.status === "PENDING").length,
       approved: items.filter((item) => item.status === "ACTIVE").length,
-      rejected: items.filter((item) => item.status === "REJECTED").length,
+      rejected: items.filter((item) => isRejected(item.status)).length,
     }),
     [items],
   );
@@ -239,13 +124,14 @@ export default function PartnerVerificationPage() {
   const filtered = useMemo(() => {
     const keyword = search.trim().toLowerCase();
     return items.filter((item) => {
-      const matchesStatus = status === "ALL" || item.status === status;
+      const matchesStatus =
+        status === "ALL" ||
+        (status === "REJECTED" ? isRejected(item.status) : item.status === status);
       const matchesSearch =
         !keyword ||
         [item.shopName, item.partnerName, item.subscriptionPlanName, item.address]
           .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(keyword)) ||
-        String(item.id).includes(keyword);
+          .some((value) => String(value).toLowerCase().includes(keyword));
       return matchesStatus && matchesSearch;
     });
   }, [items, search, status]);
@@ -288,7 +174,7 @@ export default function PartnerVerificationPage() {
     setError(null);
     try {
       const updated = await adminApi.verifyPartnerSubscription(id, approved);
-      const nextStatus: PartnerSubscriptionStatus = approved ? "ACTIVE" : "REJECTED";
+      const nextStatus: PartnerSubscriptionStatus = approved ? "ACTIVE" : "CANCELLED";
       const normalized = { ...updated, status: updated.status ?? nextStatus, isVerified: approved };
       setItems((current) => current.map((item) => item.id === id ? { ...item, ...normalized } : item));
       setSelected((current) => current?.id === id ? { ...current, ...normalized } : current);
@@ -302,14 +188,15 @@ export default function PartnerVerificationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FC]">
-      <PageHeader title="Duyệt đăng ký đối tác" actions={<Button variant="outline" onClick={() => void loadSubscriptions()} disabled={loading}>Làm mới</Button>} />
+    <div>
+      <PageHeader
+        title="Duyệt đăng ký đối tác"
+        subtitle="Kiểm tra hồ sơ cửa hàng và xác nhận quyền đối tác cho người đăng ký."
+        actions={<Button variant="outline" size="sm" onClick={() => void loadSubscriptions()} disabled={loading}>Làm mới</Button>}
+      />
 
-      <main className="space-y-5 px-6 pb-8 pt-6 lg:px-8">
-        <p className="-mt-2 text-sm text-slate-500">
-          Kiểm tra hồ sơ cửa hàng và xác nhận quyền Partner cho người đăng ký.
-        </p>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <main className="space-y-5 pt-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard icon={Building2} label="Tổng hồ sơ" value={stats.total} />
           <StatCard icon={Clock3} label="Chờ duyệt" value={stats.pending} />
           <StatCard icon={CheckCircle2} label="Đã duyệt" value={stats.approved} />
@@ -320,7 +207,7 @@ export default function PartnerVerificationPage() {
           <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
         )}
 
-        <section className="rounded-2xl border border-slate-200/80 bg-white shadow-[0_12px_34px_rgba(15,23,42,0.05)]">
+        <section className="cq-admin-panel">
           <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="relative w-full lg:max-w-md">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -330,7 +217,7 @@ export default function PartnerVerificationPage() {
                   setSearch(event.target.value);
                   setPage(1);
                 }}
-                placeholder="Tìm theo cửa hàng, đối tác hoặc mã hồ sơ..."
+                placeholder="Tìm theo tên cửa hàng, đối tác hoặc địa chỉ..."
                 className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-700 outline-none transition focus:border-[#E6A8C5] focus:ring-4 focus:ring-[#FCEAF3]"
               />
             </div>
@@ -358,94 +245,79 @@ export default function PartnerVerificationPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-left">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/70 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                  <th className="px-5 py-3.5">Đối tác / cửa hàng</th>
-                  <th className="px-5 py-3.5">Gói đăng ký</th>
-                  <th className="px-5 py-3.5">Ngày gửi</th>
-                  <th className="px-5 py-3.5">Trạng thái</th>
-                  <th className="px-5 py-3.5 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading && (
-                  <tr><td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-500">Đang tải hồ sơ...</td></tr>
-                )}
-                {!loading && visibleItems.length === 0 && (
-                  <tr><td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-500">Không có hồ sơ phù hợp.</td></tr>
-                )}
-                {!loading && visibleItems.map((item) => {
-                  const meta = statusMeta[item.status ?? "PENDING"];
-                  return (
-                    <tr
-                      key={item.id}
-                      className="border-b border-slate-100 last:border-0 hover:bg-[#FFF9FC]"
-                    >
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FFF0F7] text-[#D94A8D]">
-                            <Store className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <p className="font-semibold text-slate-800">{item.shopName}</p>
-                            <p className="mt-0.5 text-xs text-slate-500">
-                              {item.partnerName} · #{item.id}
-                            </p>
-                          </div>
+          {/* Cùng class bảng với các trang admin khác; table-layout fixed nên
+              nội dung tự xuống dòng, không phải scroll ngang. */}
+          <table className="cq-admin-table">
+            <colgroup>
+              <col className="w-[32%]" />
+              <col className="w-[20%]" />
+              <col className="w-[16%]" />
+              <col className="w-[14%]" />
+              <col className="w-[18%]" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Đối tác / cửa hàng</th>
+                <th>Gói đăng ký</th>
+                <th>Ngày gửi</th>
+                <th>Trạng thái</th>
+                <th className="text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr><td colSpan={5} className="py-12 text-center text-slate-500">Đang tải hồ sơ...</td></tr>
+              )}
+              {!loading && visibleItems.length === 0 && (
+                <tr><td colSpan={5} className="py-12 text-center text-slate-500">Không có hồ sơ phù hợp.</td></tr>
+              )}
+              {!loading && visibleItems.map((item) => {
+                const meta = getStatusMeta(item.status);
+                return (
+                  <tr key={item.id}>
+                    <td>
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#FFF0F7] text-[#D94A8D]">
+                          <Store className="h-4 w-4" />
                         </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <p className="text-sm font-medium text-slate-700">
-                          {item.subscriptionPlanName}
-                        </p>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {item.billingCycle === "YEARLY" ? "Theo năm" : "Theo tháng"}
-                        </p>
-                      </td>
-                      <td className="px-5 py-4 text-sm text-slate-600">
-                        {formatDate(item.startDate)}
-                      </td>
-                      <td className="px-5 py-4">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${meta.className}`}
-                        >
-                          {meta.label}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            className="h-9 rounded-xl border-slate-200 bg-white px-3 text-slate-700 shadow-sm hover:bg-slate-50"
-                            onClick={() => setSelected(item)}
-                          >
-                            Xem hồ sơ
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-800">{item.shopName}</p>
+                          <p className="mt-0.5 text-xs text-slate-500">{item.partnerName}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <p className="font-medium text-slate-700">{item.subscriptionPlanName}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {item.billingCycle === "YEARLY" ? "Theo năm" : "Theo tháng"}
+                      </p>
+                    </td>
+                    <td className="text-slate-600">{formatDate(item.startDate)}</td>
+                    <td>
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${meta.className}`}
+                      >
+                        {meta.label}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setSelected(item)}>
+                          Xem hồ sơ
+                        </Button>
+                        {item.status === "PENDING" && (
+                          <Button size="sm" className="gap-1.5" onClick={() => updateStatus(item.id, true)}>
+                            <ShieldCheck className="h-4 w-4" />
+                            Duyệt
                           </Button>
-                          {item.status === "PENDING" && (
-                            <Button
-                              className="h-9 rounded-xl bg-[#D94A8D] px-3 text-white shadow-sm hover:bg-[#C43D7D]"
-                              onClick={() => updateStatus(item.id, true)}
-                            >
-                              <ShieldCheck className="mr-1.5 h-4 w-4" />
-                              Duyệt
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-
-            {visibleItems.length === 0 && (
-              <div className="px-6 py-14 text-center text-sm text-slate-500">
-                Không tìm thấy hồ sơ phù hợp.
-              </div>
-            )}
-          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
 
           <div className="flex items-center justify-between border-t border-slate-100 px-5 py-4">
             <p className="text-xs text-slate-500">
@@ -480,11 +352,11 @@ export default function PartnerVerificationPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-[2px]">
           <div className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
             <div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-100 bg-white/95 px-6 py-5 backdrop-blur">
-              <div>
+              <div className="min-w-0 pr-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#D94A8D]">
-                  Hồ sơ #{selected.id}
+                  Hồ sơ đối tác · {formatDate(selected.startDate)}
                 </p>
-                <h2 className="mt-1 text-xl font-semibold text-slate-900">
+                <h2 className="mt-1 truncate text-lg font-semibold text-slate-900">
                   {selected.shopName}
                 </h2>
               </div>

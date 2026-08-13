@@ -552,3 +552,139 @@
   outline: none;
   box-shadow: 0 0 0 4px rgba(255, 103, 154, 0.10);
 }
+
+/* ─── Admin: đồng nhất cỡ chữ với Curator (admin trước đây to hơn hẳn) ────── */
+.cq-admin-compact .cq-page-title {
+  font-size: 1.35rem;
+}
+@media (min-width: 640px) {
+  .cq-admin-compact .cq-page-title {
+    font-size: 1.6rem;
+  }
+}
+
+.cq-admin-compact .text-xs {
+  font-size: 11px;
+  line-height: 1.45;
+}
+.cq-admin-compact .text-sm {
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.cq-admin-compact .text-base {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.cq-admin-compact .text-lg {
+  font-size: 14.5px;
+  line-height: 1.4;
+}
+.cq-admin-compact .text-xl {
+  font-size: 16px;
+  line-height: 1.35;
+}
+.cq-admin-compact .text-2xl {
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+/* Nút và ô nhập dùng cùng kích thước với Curator. */
+.cq-admin-compact [data-slot="button"][data-size="default"] {
+  height: 1.9rem;
+  padding-inline: 0.7rem;
+}
+.cq-admin-compact [data-slot="button"][data-size="sm"] {
+  height: 1.75rem;
+  padding-inline: 0.65rem;
+}
+.cq-admin-compact [data-slot="button"][data-size="lg"] {
+  height: 2rem;
+  padding-inline: 0.85rem;
+}
+.cq-admin-compact [data-slot="button"][data-size="icon"] {
+  width: 1.9rem;
+  height: 1.9rem;
+}
+.cq-admin-compact [data-slot="button"] svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+.cq-admin-compact input,
+.cq-admin-compact select,
+.cq-admin-compact textarea {
+  font-size: 12.5px;
+}
+.cq-admin-compact .h-11 {
+  height: 2.35rem;
+}
+.cq-admin-compact .h-12 {
+  height: 2.5rem;
+}
+
+/* Khung của từng mục nhạt hơn, tránh cảm giác nhiều viền đậm lồng nhau. */
+.cq-admin-compact .border-slate-100,
+.cq-admin-compact .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #f3f5f9;
+}
+.cq-admin-compact .border-slate-200,
+.cq-admin-compact .border-border,
+.cq-admin-compact .divide-border > :not([hidden]) ~ :not([hidden]) {
+  border-color: #f0f3f8;
+}
+.cq-admin-compact .border-primary {
+  border-color: #f7dce8;
+}
+
+/* Nằm trong @layer components để utility của Tailwind (border-l-4, py-12...)
+   viết trên cùng element vẫn đè được các giá trị mặc định ở đây. */
+@layer components {
+
+/* Thẻ chung cho các mục cài đặt / thống kê. */
+.card-elev {
+  background-color: #fcfcfd;
+  border: 1px solid #f0f3f8;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.035);
+}
+
+/* ─── Admin: khung + bảng dùng chung cho mọi trang CRUD ──────────────────── */
+.cq-admin-panel {
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid #f0f3f8;
+  background-color: #fcfcfd;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+/* table-layout: fixed + wrap để bảng luôn vừa khung, không phải scroll ngang. */
+.cq-admin-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  text-align: left;
+}
+.cq-admin-table th {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #f0f3f8;
+  background-color: #f7f9fc;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #70798a;
+  white-space: nowrap;
+}
+.cq-admin-table td {
+  padding: 0.7rem 0.75rem;
+  border-bottom: 1px solid #f3f5f9;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+.cq-admin-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.cq-admin-table tbody tr:hover {
+  background-color: #fff9fc;
+}
+
+}
