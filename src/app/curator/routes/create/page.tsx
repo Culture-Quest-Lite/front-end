@@ -194,11 +194,6 @@ function parsePositiveNumber(value: string) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-function parseNonNegativeInteger(value: string) {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
-}
-
 function isPublishedHotspot(hotspot: BackendHotspot) {
   return hotspot.status?.trim().toUpperCase() === "PUBLISHED";
 }
@@ -586,8 +581,6 @@ export default function CuratorRouteCreatePage() {
   const [routeDescription, setRouteDescription] = useState("");
   const [routeDurationInput, setRouteDurationInput] = useState("");
   const [routeDistanceInput, setRouteDistanceInput] = useState("");
-  const [routeXpInput, setRouteXpInput] = useState("");
-  const [routePointInput, setRoutePointInput] = useState("");
   const [routeDifficulty, setRouteDifficulty] =
     useState<RouteDifficulty>("MEDIUM");
   const [routeStatus, setRouteStatus] = useState<RouteStatus>("DRAFT");
@@ -678,8 +671,6 @@ export default function CuratorRouteCreatePage() {
         setRouteStatus(route.status ?? "DRAFT");
         setRouteDurationInput(String(route.estimateTime ?? 0));
         setRouteDistanceInput(String(route.totalDistance ?? 0));
-        setRouteXpInput(String(route.xp ?? 0));
-        setRoutePointInput(String(route.point ?? 0));
         const routeCoverUrl = getRouteCoverFromResponse(route);
         setExistingCoverImageUrl(routeCoverUrl);
         setCoverPreviewUrl(routeCoverUrl);
@@ -911,22 +902,12 @@ export default function CuratorRouteCreatePage() {
       : Math.max(selectedHotspots.length * 0.8, 1)
     ).toFixed(totalComputedRouteDistanceMeters > 0 ? 2 : 1),
   );
-  const suggestedRouteXp = Math.max(
-    totalSelectedStories * 10,
-    selectedHotspots.length * 25,
-    50,
-  );
-  const suggestedRoutePoint = Math.max(selectedHotspots.length * 20, 50);
   const parsedDurationMinutes = parsePositiveNumber(routeDurationInput);
   const parsedDistanceKilometers = parsePositiveNumber(routeDistanceInput);
-  const parsedRouteXp = parseNonNegativeInteger(routeXpInput);
-  const parsedRoutePoint = parseNonNegativeInteger(routePointInput);
   const resolvedDurationMinutes =
     parsedDurationMinutes ?? suggestedDurationMinutes;
   const resolvedDistanceKilometers =
     parsedDistanceKilometers ?? suggestedDistanceKilometers;
-  const resolvedRouteXp = parsedRouteXp ?? suggestedRouteXp;
-  const resolvedRoutePoint = parsedRoutePoint ?? suggestedRoutePoint;
   const hotspotPageCount = Math.max(
     1,
     Math.ceil(filteredHotspots.length / HOTSPOTS_PER_PAGE),
@@ -949,9 +930,7 @@ export default function CuratorRouteCreatePage() {
     Boolean(routeTitle.trim()) &&
     selectedTagIds.length > 0 &&
     parsedDurationMinutes !== null &&
-    parsedDistanceKilometers !== null &&
-    parsedRouteXp !== null &&
-    parsedRoutePoint !== null;
+    parsedDistanceKilometers !== null;
 
   const hotspotSelectionComplete = selectedHotspots.length >= 4;
   const storyConfigurationComplete =
@@ -1103,16 +1082,6 @@ export default function CuratorRouteCreatePage() {
         return;
       }
 
-      if (parsedRouteXp === null) {
-        setError("Vui lòng nhập điểm XP hợp lệ.");
-        return;
-      }
-
-      if (parsedRoutePoint === null) {
-        setError("Vui lòng nhập điểm thưởng hợp lệ.");
-        return;
-      }
-
       setActiveStep(2);
       return;
     }
@@ -1200,19 +1169,15 @@ export default function CuratorRouteCreatePage() {
       return;
     }
 
-    const incomingFiles = Array.from(fileList).filter((file) =>
+    const firstImageFile = Array.from(fileList).find((file) =>
       file.type.startsWith("image/"),
     );
 
-    const nextFiles = [
-      ...selectedFiles,
-      ...incomingFiles.filter(
-        (file) =>
-          !selectedFiles.some(
-            (item) => item.name === file.name && item.size === file.size,
-          ),
-      ),
-    ];
+    if (!firstImageFile) {
+      return;
+    }
+
+    const nextFiles = [firstImageFile];
 
     setSelectedFiles(nextFiles);
     syncCoverPreview(nextFiles);
@@ -1266,14 +1231,6 @@ export default function CuratorRouteCreatePage() {
       throw new Error("Vui lòng nhập quãng đường ước tính lớn hơn 0.");
     }
 
-    if (parsedRouteXp === null) {
-      throw new Error("Vui lòng nhập XP hợp lệ.");
-    }
-
-    if (parsedRoutePoint === null) {
-      throw new Error("Vui lòng nhập điểm thưởng hợp lệ.");
-    }
-
     if (selectedHotspotIds.length < 4) {
       throw new Error("Tuyến cần ít nhất 4 địa điểm.");
     }
@@ -1298,10 +1255,8 @@ export default function CuratorRouteCreatePage() {
       hotspotIds: selectedHotspotIds,
       storyIds: selectedStoryIds,
       tagId: selectedTagIds[0],
-      xp: parsedRouteXp,
-      point: parsedRoutePoint,
       status: routeStatus,
-      files: isEditing ? undefined : selectedFiles,
+      imageFile: isEditing ? null : (selectedFiles[0] ?? null),
     };
   }
 
@@ -1429,32 +1384,6 @@ export default function CuratorRouteCreatePage() {
                   className={FORM_INPUT_CLASS}
                 />
               </div>
-
-              <div>
-                <label className="cq-label mb-2 block">Điểm XP</label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={routeXpInput}
-                  onChange={(event) => setRouteXpInput(event.target.value)}
-                  placeholder="Ví dụ: 100"
-                  className={FORM_INPUT_CLASS}
-                />
-              </div>
-
-              <div>
-                <label className="cq-label mb-2 block">Điểm thưởng</label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={routePointInput}
-                  onChange={(event) => setRoutePointInput(event.target.value)}
-                  placeholder="Ví dụ: 100"
-                  className={FORM_INPUT_CLASS}
-                />
-              </div>
             </div>
           </section>
 
@@ -1501,7 +1430,6 @@ export default function CuratorRouteCreatePage() {
                 <input
                   type="file"
                   accept="image/*"
-                  multiple
                   disabled={isEditing}
                   className="hidden"
                   onChange={(event) => {
@@ -1861,18 +1789,6 @@ export default function CuratorRouteCreatePage() {
               <p className="cq-label">Quãng đường ước tính</p>
               <p className="text-[13px] font-normal text-slate-900">
                 {estimatedDistance}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="cq-label">Điểm XP</p>
-              <p className="text-[13px] font-normal text-slate-900">
-                {resolvedRouteXp}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="cq-label">Điểm thưởng</p>
-              <p className="text-[13px] font-normal text-slate-900">
-                {resolvedRoutePoint}
               </p>
             </div>
             <div className="space-y-1">

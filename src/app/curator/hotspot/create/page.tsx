@@ -47,8 +47,6 @@ type HotspotFormState = {
   zoneMode: CheckInZoneMode;
   checkInRadius: string;
   boundaryGeoJson: string;
-  xp: string;
-  point: string;
   estimatedDurationMin: string;
   estimatedDurationMax: string;
   startTime: string;
@@ -71,8 +69,6 @@ const defaultHotspotForm: HotspotFormState = {
   zoneMode: "radius",
   checkInRadius: String(DEFAULT_CHECK_IN_RADIUS),
   boundaryGeoJson: "",
-  xp: "",
-  point: "",
   estimatedDurationMin: "",
   estimatedDurationMax: "",
   startTime: "",
@@ -733,40 +729,6 @@ function HotspotCreatePageContent() {
                     className="h-60 w-full min-w-0 resize-none break-words rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
-                <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
-                  <div>
-                    <label className="cq-label mb-2 block">
-                      XP thưởng <span className="text-rose-500">*</span>
-                    </label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={formState.xp}
-                      onChange={(event) =>
-                        updateField("xp", event.target.value)
-                      }
-                      placeholder="Hãy nhập XP thưởng"
-                      className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                  <div>
-                    <label className="cq-label mb-2 block">
-                      Điểm thưởng <span className="text-rose-500">*</span>
-                    </label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={formState.point}
-                      onChange={(event) =>
-                        updateField("point", event.target.value)
-                      }
-                      placeholder="Hãy nhập điểm thưởng"
-                      className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                </div>
               </div>
             </section>
 
@@ -1406,8 +1368,6 @@ function buildCreatePayload(
     hotspotName,
     latitude,
     longitude,
-    xp: parseIntegerField("XP thưởng", formState.xp),
-    point: parseIntegerField("điểm thưởng", formState.point),
     estimatedDurationMin,
     estimatedDurationMax,
     startTime: normalizeTimeForApi("thời gian bắt đầu", formState.startTime),
@@ -1671,8 +1631,6 @@ function syncFormStateWithResponse(
       response.historyInformation?.trim() || current.historyInformation,
     latitude: formatNumberInputValue(response.latitude, current.latitude),
     longitude: formatNumberInputValue(response.longitude, current.longitude),
-    xp: formatNumberInputValue(response.xp, current.xp),
-    point: formatNumberInputValue(response.point, current.point),
     estimatedDurationMin: formatNumberInputValue(
       response.estimatedDurationMin,
       current.estimatedDurationMin,
