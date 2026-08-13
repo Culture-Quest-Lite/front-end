@@ -1,6 +1,7 @@
 import http from "node:http";
 import https from "node:https";
 import { NextRequest, NextResponse } from "next/server";
+import { extractUserFromToken } from "@/lib/access-control";
 
 const BACKEND_API_BASE_URL =
   process.env.API_BASE_URL ??
@@ -39,7 +40,11 @@ async function proxyAuthRequest(request: NextRequest, context: AuthRouteContext)
     backendRequest
   );
   const responseText = backendResponse.body;
-  const nextResponse = new NextResponse(responseText, {
+  const sanitizedResponseText =
+    backendResponse.statusCode >= 200 && backendResponse.statusCode < 300
+      ? buildSanitizedResponseBody(authPath, responseText)
+      : responseText;
+  const nextResponse = new NextResponse(sanitizedResponseText, {
     status: backendResponse.statusCode,
     headers: buildForwardHeaders(backendResponse.headers),
   });
@@ -51,10 +56,10 @@ async function proxyAuthRequest(request: NextRequest, context: AuthRouteContext)
 
   if (backendResponse.statusCode >= 200 && backendResponse.statusCode < 300) {
     syncAccessTokenCookie(nextResponse, authPath, responseText, request);
+  }
 
-    if (authPath[0] === "logout") {
-      clearAccessTokenCookie(nextResponse, request);
-    }
+  if (authPath[0] === "logout") {
+    clearAuthCookies(nextResponse, request);
   }
 
   for (const setCookieHeader of backendResponse.setCookies) {
@@ -218,7 +223,7 @@ function syncAccessTokenCookie(
     response.cookies.set({
       name: ACCESS_TOKEN_COOKIE_KEY,
       value: payload.accessToken,
-      httpOnly: false,
+      httpOnly: true,
       maxAge:
         typeof payload.expiresIn === "number"
           ? payload.expiresIn
@@ -232,11 +237,21 @@ function syncAccessTokenCookie(
   }
 }
 
-function clearAccessTokenCookie(response: NextResponse, request: NextRequest) {
+function clearAuthCookies(response: NextResponse, request: NextRequest) {
   response.cookies.set({
     name: ACCESS_TOKEN_COOKIE_KEY,
     value: "",
-    httpOnly: false,
+    httpOnly: true,
+    maxAge: 0,
+    path: "/",
+    sameSite: "lax",
+    secure: request.nextUrl.protocol === "https:",
+  });
+
+  response.cookies.set({
+    name: "refresh_token",
+    value: "",
+    httpOnly: true,
     maxAge: 0,
     path: "/",
     sameSite: "lax",
@@ -271,6 +286,28 @@ function getTokenMaxAge(token: string) {
     return maxAge > 0 ? maxAge : 0;
   } catch {
     return undefined;
+  }
+}
+
+function buildSanitizedResponseBody(authPath: string[], responseText: string) {
+  if (!ACCESS_TOKEN_ROUTE_NAMES.has(authPath[0])) {
+    return responseText;
+  }
+
+  try {
+    const payload = JSON.parse(responseText) as {
+      accessToken?: string;
+    };
+
+    if (typeof payload.accessToken !== "string" || payload.accessToken.length === 0) {
+      return responseText;
+    }
+
+    return JSON.stringify({
+      session: extractUserFromToken(payload.accessToken),
+    });
+  } catch {
+    return responseText;
   }
 }
 

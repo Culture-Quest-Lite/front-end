@@ -1,9 +1,8 @@
 import { apiFetch } from "@/lib/api";
+import type { AccessTokenSession } from "@/lib/access-control";
 
 export interface LoginResponse {
-  accessToken: string;
-  tokenType: string;
-  expiresIn: number;
+  session: AccessTokenSession | null;
 }
 
 export interface TokenData {
@@ -139,7 +138,7 @@ export const authApi = {
 
   // Đăng nhập Google OAuth2
   loginByGoogle: async (data: OAuthLoginRequest) => {
-    return apiFetch("/api/auth/login-by-google", {
+    return apiFetch<LoginResponse>("/api/auth/login-by-google", {
       method: "POST",
       headers: {
         "X-Client-Type": "web",
@@ -151,7 +150,7 @@ export const authApi = {
 
   // Đăng nhập Facebook OAuth2
   loginByFacebook: async (data: OAuthLoginRequest) => {
-    return apiFetch("/api/auth/login-by-facebook", {
+    return apiFetch<LoginResponse>("/api/auth/login-by-facebook", {
       method: "POST",
       headers: {
         "X-Client-Type": "web",
