@@ -1,3 +1,5 @@
+import type { AccessTokenSession } from "@/lib/access-control";
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
@@ -10,6 +12,10 @@ export interface ApiResponse<T> {
   status: string;
   data?: T;
   message?: string;
+}
+
+export interface AuthenticatedSessionResponse {
+  session: AccessTokenSession | null;
 }
 
 export type ApiRequestOptions = Omit<RequestInit, "body"> & {
@@ -202,7 +208,7 @@ export async function fetchAuditHistory() {
 }
 
 export async function loginUser(credentials: LoginCredentials) {
-  return apiFetch<KeycloakTokenResponse>("/api/auth/login", {
+  return apiFetch<AuthenticatedSessionResponse>("/api/auth/login", {
     method: "POST",
     headers: {
       "X-Client-Type": "web",
@@ -224,9 +230,7 @@ export async function fetchUserProfile(token: string) {
 }
 
 export interface KeycloakTokenResponse {
-  accessToken: string;
-  tokenType: string;
-  expiresIn: number;
+  session: AccessTokenSession | null;
 }
 
 export async function loginByGoogle(code: string, redirectUri: string) {
@@ -257,6 +261,13 @@ export async function logoutUser() {
     headers: {
       "X-Client-Type": "web",
     },
+    sameOrigin: true,
+  });
+}
+
+export async function fetchCurrentSession() {
+  return apiFetch<AuthenticatedSessionResponse>("/api/auth/session", {
+    cache: "no-store",
     sameOrigin: true,
   });
 }

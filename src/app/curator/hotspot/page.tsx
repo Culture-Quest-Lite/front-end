@@ -441,14 +441,14 @@ function findFallbackHotspot(hotspot: BackendHotspot) {
   );
 }
 
-function buildTagLabels(tags?: BackendHotspot["tags"], fallback?: HotspotItem) {
+function buildTagLabels(tags?: BackendHotspot["tags"]) {
   const mappedTags =
     tags
       ?.map((tag) => tag.tagName?.trim())
       .filter((tagName): tagName is string => Boolean(tagName))
       .map((tagName) => `#${tagName}`) ?? [];
 
-  return mappedTags.length > 0 ? mappedTags : (fallback?.tags ?? []);
+  return mappedTags;
 }
 
 function getSearchFieldOption(field: SearchField) {
@@ -1120,9 +1120,9 @@ function buildHotspotCards(
         typeof hotspot.longitude === "number"
           ? "GPS OK"
           : fallback?.gps || "",
-      image: backendImageUrl || fallback?.image || "",
+      image: backendImageUrl || "",
       rawTagNames,
-      tags: buildTagLabels(hotspot.tags, fallback),
+      tags: buildTagLabels(hotspot.tags),
     };
   });
 }

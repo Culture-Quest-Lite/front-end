@@ -78,30 +78,18 @@ export default function AdminDashboardPage() {
   );
 
   useEffect(() => {
-    console.log("Admin page - useEffect triggered", {
-      loading,
-      hasSession: !!session,
-      sessionRole: session?.role,
-      sessionEmail: session?.email
-    });
-
     if (!loading) {
-      // Check if user has session
       if (!session) {
-        console.warn("No session found, redirecting to login");
         router.replace("/");
         return;
       }
 
       if (session.role !== "admin") {
-        console.warn("User role not authorized:", session.role, "redirecting to login");
         router.replace(getRedirectPathForRole(session.role) ?? "/");
         return;
       }
-
-      console.log("Admin page: User authorized with role:", session.role);
     }
-  }, [loading, router, session?.email, session?.role]);
+  }, [loading, router, session]);
 
   useEffect(() => {
     if (!session || session.role !== "admin") return;
@@ -158,7 +146,7 @@ export default function AdminDashboardPage() {
         setRecentAudits([]);
       }
     })();
-  }, [session?.role, session?.token]);
+  }, [session, range]);
 
   if (loading) {
     return null;

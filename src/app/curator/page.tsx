@@ -55,31 +55,19 @@ export default function CuratorDashboardPage() {
         );
       }
     })();
-  }, [session?.role, session?.token]);
+  }, [session]);
 
   useEffect(() => {
-    console.log("Curator page - useEffect triggered", {
-      loading,
-      hasSession: !!session,
-      sessionRole: session?.role,
-      sessionEmail: session?.email
-    });
-
     if (!loading) {
-      // Check if user has session
       if (!session) {
-        console.warn("No session found, redirecting to login");
         router.replace("/");
         return;
       }
 
       if (session.role !== "curator") {
-        console.warn("User role not authorized:", session.role, "redirecting to login");
         router.replace(getRedirectPathForRole(session.role) ?? "/");
         return;
       }
-
-      console.log("Curator page: User authorized");
     }
   }, [loading, router, session]);
 
