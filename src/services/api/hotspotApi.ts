@@ -62,8 +62,6 @@ export interface CreateHotspotPayload {
   checkInRadius?: number;
   /** GeoJSON Polygon đã stringify. Có polygon thì backend ưu tiên polygon hơn bán kính. */
   boundaryGeoJson?: string;
-  xp: number;
-  point: number;
   estimatedDurationMin: number;
   estimatedDurationMax: number;
   startTime: string;

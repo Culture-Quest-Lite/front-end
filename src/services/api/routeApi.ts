@@ -20,10 +20,10 @@ export interface RoutePayload {
   hotspotIds: number[];
   storyIds?: number[];
   tagId: number;
-  xp: number;
-  point: number;
+  xp?: number;
+  point?: number;
   status?: RouteStatus;
-  files?: File[];
+  imageFile?: File | null;
 }
 
 export interface RouteHotspotResponse {
@@ -134,11 +134,13 @@ function normalizePage<T>(raw: RawPageMaybeNested<T>): PageResponse<T> {
   };
 }
 
-/** Build multipart payload for route create/update requests. */
+/** Build multipart payload for route create requests. */
 function buildRouteFormData(payload: RoutePayload) {
   const formData = new FormData();
 
-  payload.files?.forEach((file) => formData.append("files", file));
+  if (payload.imageFile) {
+    formData.append("imageFile", payload.imageFile);
+  }
   formData.append("routeName", payload.routeName);
   if (payload.description?.trim()) {
     formData.append("description", payload.description.trim());
@@ -156,8 +158,6 @@ function buildRouteFormData(payload: RoutePayload) {
     });
   }
   formData.append("tagId", String(payload.tagId));
-  formData.append("xp", String(payload.xp));
-  formData.append("point", String(payload.point));
   if (payload.status) formData.append("status", payload.status);
   return formData;
 }
@@ -229,8 +229,6 @@ function toRoutePayload(route: RouteResponse, status?: RouteStatus): RoutePayloa
       (() => {
         throw new Error("Route không có tagId để cập nhật.");
       })(),
-    xp: route.xp ?? 0,
-    point: route.point ?? 0,
     status: status ?? route.status,
   };
 }
@@ -283,7 +281,7 @@ export const routeApi = {
 
   updateRoute: async (routeId: number, payload: RoutePayload) => {
     const jsonPayload = { ...payload };
-    delete jsonPayload.files;
+    delete jsonPayload.imageFile;
 
     const route = await apiFetch<RouteResponse>(`${ROUTE_BASE_URL}/${routeId}`, {
       method: "PUT",

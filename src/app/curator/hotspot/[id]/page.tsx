@@ -36,6 +36,9 @@ const BACKEND_API_BASE_URL =
   process.env.API_BASE_URL ??
   process.env.NEXT_PUBLIC_API_BASE_URL ??
   "https://api.culturequestlite.com";
+const NORMALIZED_BACKEND_API_BASE_URL = BACKEND_API_BASE_URL.endsWith("/")
+  ? BACKEND_API_BASE_URL.slice(0, -1)
+  : BACKEND_API_BASE_URL;
 
 const ACCESS_TOKEN_COOKIE_KEY = "culture-quest-access-token";
 
@@ -647,7 +650,7 @@ async function getHotspotFromBackend(hotspotId: number) {
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
     const response = await fetch(
-      `${BACKEND_API_BASE_URL}/api/v1/hotspots/${hotspotId}`,
+      `${NORMALIZED_BACKEND_API_BASE_URL}/api/v1/hotspots/${hotspotId}`,
       {
         method: "GET",
         headers,
@@ -690,7 +693,7 @@ async function getCreatorDisplayName(userId: number) {
     const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
 
     const response = await fetch(
-      `${BACKEND_API_BASE_URL}/api/users/${userId}`,
+      `${NORMALIZED_BACKEND_API_BASE_URL}/api/users/${userId}`,
       {
         method: "GET",
         headers,
