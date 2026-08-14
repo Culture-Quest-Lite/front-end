@@ -801,17 +801,19 @@ function buildHotspotMediaKey(media: NonNullable<BackendHotspot["medias"]>[numbe
 }
 
 function resolveHotspotStories(stories?: BackendHotspot["stories"]) {
-  return [...(stories ?? [])].sort((storyA, storyB) => {
-    const orderDiff =
-      (storyA.orderIndex ?? Number.MAX_SAFE_INTEGER) -
-      (storyB.orderIndex ?? Number.MAX_SAFE_INTEGER);
+  return [...(stories ?? [])]
+    .filter((story) => story.status?.trim().toUpperCase() === "PUBLISHED")
+    .sort((storyA, storyB) => {
+      const orderDiff =
+        (storyA.orderIndex ?? Number.MAX_SAFE_INTEGER) -
+        (storyB.orderIndex ?? Number.MAX_SAFE_INTEGER);
 
-    if (orderDiff !== 0) {
-      return orderDiff;
-    }
+      if (orderDiff !== 0) {
+        return orderDiff;
+      }
 
-    return storyA.storyId - storyB.storyId;
-  });
+      return storyA.storyId - storyB.storyId;
+    });
 }
 
 function isImageStoryMedia(media?: BackendStoryMedia) {

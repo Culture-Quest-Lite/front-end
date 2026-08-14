@@ -15,7 +15,6 @@ import { ArrowLeft, ImagePlus, Save, Video, Volume2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { downloadMediaBlob } from "@/lib/media-download";
 import {
   hotspotApi,
   storyApi,
@@ -180,31 +179,6 @@ function buildMediaItemFromFile(type: MediaType, file: File): MediaItem {
   };
 }
 
-async function resolveMediaItemToFile(item: MediaItem) {
-  if (item.file instanceof File) {
-    return item.file;
-  }
-
-  if (!item.fileUrl) {
-    throw new Error(`Không thể chuẩn bị lại file "${item.name}" để cập nhật.`);
-  }
-
-  let blob: Blob;
-
-  try {
-    blob = await downloadMediaBlob(item.fileUrl);
-  } catch {
-    throw new Error(
-      `Không thể tải lại file "${item.name}" từ hệ thống để cập nhật.`,
-    );
-  }
-
-  return new File([blob], item.name, {
-    type: blob.type || item.mimeType || undefined,
-    lastModified: Date.now(),
-  });
-}
-
 function appendStoryFields(formData: FormData, fields: UpdateStoryFields) {
   formData.append("title", fields.title);
   formData.append("content", fields.content);
@@ -213,18 +187,23 @@ function appendStoryFields(formData: FormData, fields: UpdateStoryFields) {
   formData.append("audioScript", fields.audioScript ?? "");
 }
 
-async function buildStoryUpdateFormData(
+function getNewMediaFiles(mediaItems: MediaItem[]) {
+  return mediaItems.flatMap((item) =>
+    item.file instanceof File ? [item.file] : [],
+  );
+}
+
+function buildStoryUpdateFormData(
   fields: UpdateStoryFields,
-  mediaItems?: MediaItem[],
+  files?: File[],
 ) {
   const formData = new FormData();
   appendStoryFields(formData, fields);
 
-  if (!mediaItems) {
+  if (!files || files.length === 0) {
     return formData;
   }
 
-  const files = await Promise.all(mediaItems.map(resolveMediaItemToFile));
   files.forEach((file) => formData.append("files", file));
   return formData;
 }
@@ -489,10 +468,10 @@ export default function EditStoryPage() {
         hotspotId: parsedHotspotId,
         audioScript: normalizedAudioScript,
       };
-      const mediaItems = hasMediaChanges
-        ? Object.values(mediaByType).flat()
+      const newMediaFiles = hasMediaChanges
+        ? getNewMediaFiles(Object.values(mediaByType).flat())
         : undefined;
-      const payload = await buildStoryUpdateFormData(fields, mediaItems);
+      const payload = buildStoryUpdateFormData(fields, newMediaFiles);
 
       const response = await storyApi.updateStory(storyId, payload);
       setSubmitSuccess("Câu chuyện đã được cập nhật thành công.");
@@ -709,16 +688,22 @@ export default function EditStoryPage() {
                                   Mở file
                                 </a>
                               ) : null}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleRemoveMedia(typeOption.type, item.id)
-                                }
-                                className="rounded p-1 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
-                                disabled={isSubmitting}
-                              >
-                                <X className="h-4 w-4 text-red-600" />
-                              </button>
+                              {item.isExisting ? (
+                                <span className="rounded border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-400">
+                                  Giữ media cũ
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleRemoveMedia(typeOption.type, item.id)
+                                  }
+                                  className="rounded p-1 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+                                  disabled={isSubmitting}
+                                >
+                                  <X className="h-4 w-4 text-red-600" />
+                                </button>
+                              )}
                             </div>
                           ))}
 
@@ -735,6 +720,13 @@ export default function EditStoryPage() {
                             + Thêm {typeOption.label}
                           </button>
                         </div>
+
+                        {items.some((item) => item.isExisting) ? (
+                          <p className="text-xs text-slate-500">
+                            Media hiện tại sẽ được giữ nguyên. Khi cập nhật
+                            story, hệ thống chỉ tải thêm file mới.
+                          </p>
+                        ) : null}
                       </div>
                     );
                   })}
