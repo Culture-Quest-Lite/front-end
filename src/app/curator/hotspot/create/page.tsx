@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
+import { PageLoading } from "@/components/app/page-loading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { buildTagToken } from "@/lib/tags";
@@ -496,9 +497,7 @@ function HotspotCreatePageContent() {
       </div>
 
       {isLoadingHotspot ? (
-        <div className="rounded-3xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-700">
-          Đang tải dữ liệu địa điểm để chỉnh sửa...
-        </div>
+        <PageLoading className="min-h-[140px] rounded-3xl border border-slate-200 shadow-none" spinnerClassName="h-6 w-6" />
       ) : null}
 
       {loadHotspotError ? (
@@ -1200,11 +1199,7 @@ function HotspotCreatePageContent() {
 }
 
 function HotspotCreatePageFallback() {
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-      Đang tải trình tạo địa điểm...
-    </div>
-  );
+  return <PageLoading className="min-h-[calc(100vh-8rem)]" />;
 }
 
 function ResultRow({ label, value }: { label: string; value: string }) {

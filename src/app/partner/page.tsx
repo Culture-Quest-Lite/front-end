@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { PageLoading } from "@/components/app/page-loading";
 import { PageHeader } from "@/components/app/ui-bits";
 import { partnerApi, type VoucherResponse, type PartnerDashboardResponse } from "@/services/api/partner/partnerApi";
 import {
@@ -540,11 +541,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 function LoadingBox() {
-  return (
-    <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-      Đang tải dữ liệu...
-    </div>
-  );
+  return <PageLoading className="mt-5 min-h-[160px] rounded-2xl border border-slate-200 shadow-none" spinnerClassName="h-6 w-6" />;
 }
 
 function EmptyBox({ text }: { text: string }) {

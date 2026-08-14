@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Suspense, useState, type FormEvent } from "react";
 import { ArrowLeft, Eye, EyeOff, LockKeyhole } from "lucide-react";
 
+import { PageLoading } from "@/components/app/page-loading";
+
 type TravelCardDefinition = {
   id: number;
   alt: string;
@@ -235,15 +237,7 @@ function HeroPostcards() {
 }
 
 function ResetPasswordFallback() {
-  return (
-    <div className="flex h-dvh items-center justify-center bg-[linear-gradient(180deg,_#fbfbfc_0%,_#f6f8fb_100%)] px-4">
-      <div className="w-full max-w-[420px] rounded-[28px] bg-white/90 p-8 text-center shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
-        <p className="text-[13px] font-semibold text-slate-700">
-          Đang tải giao diện...
-        </p>
-      </div>
-    </div>
-  );
+  return <PageLoading fullscreen />;
 }
 
 function DecorativePaths() {

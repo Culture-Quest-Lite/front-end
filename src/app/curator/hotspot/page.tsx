@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "react-toastify";
+import { PageLoading } from "@/components/app/page-loading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -1966,9 +1967,7 @@ export default function Page() {
           ) : null}
 
           {isLoading ? (
-            <div className="rounded-[1.5rem] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
-              Đang tải danh sách địa điểm...
-            </div>
+            <PageLoading className="min-h-[320px] rounded-[1.5rem] border border-slate-200 shadow-none" spinnerClassName="h-6 w-6" />
           ) : null}
 
           {loadError ? (

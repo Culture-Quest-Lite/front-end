@@ -417,10 +417,6 @@ export default function CuratorTagsPage() {
               </div>
 
               <div className="mt-4 space-y-4">
-                {isLoadingTags ? (
-                  <p className="cq-page-subtitle">Đang tải thống kê thẻ...</p>
-                ) : null}
-
                 {tags.map((tag) => {
                   const totalUsage = getTagTotalUsage(tag);
                   const totalUsageWidth =
@@ -510,9 +506,7 @@ export default function CuratorTagsPage() {
 
                 <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
                   <span>
-                    {isLoadingTags
-                      ? "Đang tải dữ liệu..."
-                      : `${totalElements} kết quả`}
+                    {isLoadingTags ? "—" : `${totalElements} kết quả`}
                   </span>
                   {!isLoadingTags ? (
                     <>

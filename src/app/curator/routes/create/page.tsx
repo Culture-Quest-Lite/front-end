@@ -22,6 +22,7 @@ import {
   X,
 } from "lucide-react";
 
+import { PageLoading } from "@/components/app/page-loading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouteRoadPaths } from "@/hooks/use-route-road-paths";
@@ -124,9 +125,10 @@ const RouteHotspotMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="grid h-[360px] place-items-center rounded-3xl border border-emerald-100 bg-emerald-50/60 text-sm text-slate-500">
-        Đang tải bản đồ...
-      </div>
+      <PageLoading
+        className="h-[360px] min-h-0 rounded-3xl border border-slate-200 shadow-none"
+        spinnerClassName="h-7 w-7"
+      />
     ),
   },
 );
@@ -421,10 +423,10 @@ function StoryAccordionCard({
       {expanded ? (
         <div className="border-t border-slate-200 px-5 py-4">
           {isLoading ? (
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <LoaderCircle className="h-4 w-4 animate-spin text-emerald-600" />
-              Đang tải câu chuyện cho địa điểm này...
-            </div>
+            <PageLoading
+              className="min-h-[112px] rounded-2xl border border-slate-200 shadow-none"
+              spinnerClassName="h-6 w-6 text-emerald-600"
+            />
           ) : loadError ? (
             <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               {loadError}
@@ -2028,11 +2030,7 @@ export default function CuratorRouteCreatePage() {
   }, []);
 
   if (isLoading) {
-    return (
-      <div className="rounded-3xl border border-dashed border-emerald-200 bg-white px-6 py-12 text-center text-sm text-slate-500">
-        Đang tải dữ liệu trình tạo tuyến...
-      </div>
-    );
+    return <PageLoading className="min-h-[calc(100vh-8rem)]" />;
   }
 
   return (
