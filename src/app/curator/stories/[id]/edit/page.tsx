@@ -59,7 +59,7 @@ type HotspotOption = {
   label: string;
 };
 
-const MAX_MEDIA_TOTAL = 5;
+const MAX_MEDIA_TOTAL = 10;
 
 const mediaTypeOptions: MediaTypeOption[] = [
   { type: "audio", label: "Audio", icon: Volume2, accept: "audio/*" },
@@ -689,7 +689,7 @@ export default function EditStoryPage() {
                               ) : null}
                               {item.isExisting ? (
                                 <span className="rounded border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-400">
-                                  Giữ media cũ
+                                  Media hiện có
                                 </span>
                               ) : (
                                 <button
@@ -722,8 +722,9 @@ export default function EditStoryPage() {
 
                         {items.some((item) => item.isExisting) ? (
                           <p className="text-xs text-slate-500">
-                            Media hiện tại sẽ được giữ nguyên. Khi cập nhật
-                            story, hệ thống chỉ tải thêm file mới.
+                            Backend hiện chỉ hỗ trợ giữ media cũ và tải thêm
+                            media mới. Muốn xóa hoặc thay thế media cũ thì cần
+                            backend hỗ trợ riêng.
                           </p>
                         ) : null}
                       </div>

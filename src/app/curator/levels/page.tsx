@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useDeferredValue, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -26,7 +27,18 @@ type LevelItem = {
   updatedAt: string | null;
 };
 
+type LevelActionMenuState = {
+  levelId: string;
+  left: number;
+  top?: number;
+  bottom?: number;
+};
+
 const LEVELS_PER_PAGE = 8;
+const ACTION_MENU_WIDTH = 176;
+const ACTION_MENU_HEIGHT = 132;
+const ACTION_MENU_GAP = 10;
+const ACTION_MENU_VIEWPORT_PADDING = 16;
 
 function normalizeText(value: string) {
   return value
@@ -214,7 +226,7 @@ export default function CuratorLevelsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [reloadVersion, setReloadVersion] = useState(0);
-  const [openMenuLevelId, setOpenMenuLevelId] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState<LevelActionMenuState | null>(null);
   const [pendingDeleteLevel, setPendingDeleteLevel] =
     useState<LevelItem | null>(null);
   const [deletingLevelId, setDeletingLevelId] = useState<string | null>(null);
@@ -268,13 +280,13 @@ export default function CuratorLevelsPage() {
       }
 
       if (!event.target.closest("[data-level-actions]")) {
-        setOpenMenuLevelId(null);
+        setOpenMenu(null);
       }
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setOpenMenuLevelId(null);
+        setOpenMenu(null);
         setPendingDeleteLevel(null);
       }
     };
@@ -287,6 +299,24 @@ export default function CuratorLevelsPage() {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
+
+  useEffect(() => {
+    if (!openMenu) {
+      return;
+    }
+
+    const handleViewportChange = () => {
+      setOpenMenu(null);
+    };
+
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
+
+    return () => {
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
+    };
+  }, [openMenu]);
 
   const filteredLevels = levels.filter((level) => {
     if (!normalizedQuery) {
@@ -313,25 +343,94 @@ export default function CuratorLevelsPage() {
     (safeCurrentPage - 1) * LEVELS_PER_PAGE,
     safeCurrentPage * LEVELS_PER_PAGE,
   );
+  const activeMenuLevel = openMenu
+    ? levels.find((level) => level.id === openMenu.levelId) ?? null
+    : null;
+  const actionMenuStyle =
+    openMenu === null
+      ? undefined
+      : openMenu.top !== undefined
+        ? { left: openMenu.left, top: openMenu.top }
+        : {
+            left: openMenu.left,
+            bottom: openMenu.bottom ?? ACTION_MENU_VIEWPORT_PADDING,
+          };
 
   function handleSearchChange(value: string) {
+    setOpenMenu(null);
     setSearchQuery(value);
     setCurrentPage(1);
   }
 
   function handleReload() {
-    setOpenMenuLevelId(null);
+    setOpenMenu(null);
     setReloadVersion((current) => current + 1);
   }
 
   function handlePageChange(page: number) {
-    setOpenMenuLevelId(null);
+    setOpenMenu(null);
     setCurrentPage(page);
   }
 
   function handleDeleteRequest(level: LevelItem) {
-    setOpenMenuLevelId(null);
+    setOpenMenu(null);
     setPendingDeleteLevel(level);
+  }
+
+  function handleToggleActionMenu(
+    levelId: string,
+    triggerElement: HTMLButtonElement,
+  ) {
+    if (openMenu?.levelId === levelId) {
+      setOpenMenu(null);
+      return;
+    }
+
+    const buttonRect = triggerElement.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const maxLeft = Math.max(
+      ACTION_MENU_VIEWPORT_PADDING,
+      viewportWidth - ACTION_MENU_WIDTH - ACTION_MENU_VIEWPORT_PADDING,
+    );
+    const left = Math.min(
+      Math.max(ACTION_MENU_VIEWPORT_PADDING, buttonRect.right - ACTION_MENU_WIDTH),
+      maxLeft,
+    );
+    const hasSpaceBelow =
+      viewportHeight - buttonRect.bottom >=
+      ACTION_MENU_HEIGHT + ACTION_MENU_GAP + ACTION_MENU_VIEWPORT_PADDING;
+    const hasSpaceAbove =
+      buttonRect.top >=
+      ACTION_MENU_HEIGHT + ACTION_MENU_GAP + ACTION_MENU_VIEWPORT_PADDING;
+
+    if (!hasSpaceBelow && hasSpaceAbove) {
+      const maxBottom = Math.max(
+        ACTION_MENU_VIEWPORT_PADDING,
+        viewportHeight - ACTION_MENU_HEIGHT - ACTION_MENU_VIEWPORT_PADDING,
+      );
+
+      setOpenMenu({
+        levelId,
+        left,
+        bottom: Math.min(
+          viewportHeight - buttonRect.top + ACTION_MENU_GAP,
+          maxBottom,
+        ),
+      });
+      return;
+    }
+
+    const maxTop = Math.max(
+      ACTION_MENU_VIEWPORT_PADDING,
+      viewportHeight - ACTION_MENU_HEIGHT - ACTION_MENU_VIEWPORT_PADDING,
+    );
+
+    setOpenMenu({
+      levelId,
+      left,
+      top: Math.min(buttonRect.bottom + ACTION_MENU_GAP, maxTop),
+    });
   }
 
   async function handleConfirmDeleteLevel() {
@@ -426,115 +525,93 @@ export default function CuratorLevelsPage() {
               </Button>
             </div>
           ) : filteredLevels.length > 0 ? (
-            <div className="rounded-[1.5rem] border border-slate-200 bg-white overflow-visible">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[860px] table-fixed border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/90">
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                      Cấp bậc
-                    </th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                      Mô tả
-                    </th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                      Khoảng XP
-                    </th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                      Ngày tạo
-                    </th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                      Cập nhật
-                    </th>
-                    <th className="px-4 py-4 text-center text-xs font-semibold uppercase tracking-[0.14em] text-slate-400 whitespace-nowrap">
-                      Thao tác
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedLevels.map((level, index) => (
-                    <tr
-                      key={`${level.id}-${index}`}
-                      className={cn(
-                        "border-t border-slate-200 align-middle",
-                        openMenuLevelId === level.id && "relative z-20",
-                      )}
-                    >
-                      <td className="px-4 py-4 text-left">
-                        <p className="break-words text-[0.8125rem] font-semibold text-slate-950">
-                          {level.name}
-                        </p>
-                      </td>
-                      <td className="px-4 py-4 text-left">
-                        <p className="line-clamp-2 break-words text-xs leading-5 text-slate-500 sm:text-sm">
-                          {level.description ?? "Không có mô tả bổ sung."}
-                        </p>
-                      </td>
-                      <td className="px-4 py-4 text-left">
-                        <span className="inline-flex rounded-full bg-[#FFF1F7] px-2.5 py-1 text-xs font-medium leading-5 text-[#D94A8D] ring-1 ring-[#F7DCE8]">
-                          {formatXpRange(level)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-left text-xs leading-5 text-slate-500 sm:text-sm">
-                        {formatDateTime(level.createdAt)}
-                      </td>
-                      <td className="px-4 py-4 text-left text-xs leading-5 text-slate-500 sm:text-sm">
-                        {formatDateTime(level.updatedAt)}
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        <div
-                          className="relative flex justify-center overflow-visible"
-                          data-level-actions
-                        >
-                          <button
-                            type="button"
-                            aria-haspopup="menu"
-                            aria-expanded={openMenuLevelId === level.id}
-                            onClick={() =>
-                              setOpenMenuLevelId(
-                                openMenuLevelId === level.id ? null : level.id,
-                              )
-                            }
-                            className={cn(
-                              "inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700",
-                              openMenuLevelId === level.id && "bg-slate-100",
-                            )}
-                            aria-label={`Tác vụ cho ${level.name}`}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </button>
-
-                          {openMenuLevelId === level.id ? (
-                            <div
-                              role="menu"
-                              className="absolute right-0 top-[calc(100%+0.6rem)] w-44 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
-                            >
-                              <Link
-                                href={`/curator/levels/${level.backendId ?? level.id}`}
-                                role="menuitem"
-                                onClick={() => setOpenMenuLevelId(null)}
-                                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-                              >
-                                <Pencil className="h-4 w-4" />
-                                <span>Chỉnh sửa</span>
-                              </Link>
-
-                              <button
-                                type="button"
-                                role="menuitem"
-                                onClick={() => handleDeleteRequest(level)}
-                                className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-slate-100 px-3 pt-3 pb-2.5 text-left text-sm font-medium text-red-500 transition hover:bg-red-50"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                <span>Xóa cấp bậc</span>
-                              </button>
-                            </div>
-                          ) : null}
-                        </div>
-                      </td>
+            <div className="rounded-[1.5rem] border border-slate-200 bg-white">
+              <div>
+                <table className="w-full table-fixed border-collapse">
+                  <colgroup>
+                    <col className="w-[27%]" />
+                    <col className="w-[31%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[11%]" />
+                    <col className="w-[11%]" />
+                    <col className="w-[10%]" />
+                  </colgroup>
+                  <thead>
+                    <tr className="bg-slate-50/90">
+                      <th className="px-3 py-4 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                        Cấp bậc
+                      </th>
+                      <th className="px-3 py-4 pr-2 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                        Mô tả
+                      </th>
+                      <th className="py-4 pl-1 pr-2 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                        Khoảng XP
+                      </th>
+                      <th className="px-2 py-4 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                        Ngày tạo
+                      </th>
+                      <th className="px-2 py-4 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                        Cập nhật
+                      </th>
+                      <th className="px-2 py-4 text-center text-xs font-semibold uppercase tracking-[0.14em] whitespace-nowrap text-slate-400">
+                        Thao tác
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
+                  </thead>
+                  <tbody>
+                    {paginatedLevels.map((level, index) => (
+                      <tr
+                        key={`${level.id}-${index}`}
+                        className="border-t border-slate-200 align-middle"
+                      >
+                        <td className="px-3 py-4 text-left">
+                          <p className="break-words text-[0.8125rem] font-normal leading-5 text-slate-950 sm:text-sm">
+                            {level.name}
+                          </p>
+                        </td>
+                        <td className="px-3 py-4 pr-2 text-left">
+                          <p className="line-clamp-2 break-words text-xs leading-5 text-slate-500 sm:text-sm">
+                            {level.description ?? "Không có mô tả bổ sung."}
+                          </p>
+                        </td>
+                        <td className="py-4 pl-1 pr-2 text-left">
+                          <span className="inline-flex max-w-full whitespace-normal rounded-full bg-[#FFF1F7] px-2.5 py-1 text-xs font-medium leading-5 text-[#D94A8D] ring-1 ring-[#F7DCE8]">
+                            {formatXpRange(level)}
+                          </span>
+                        </td>
+                        <td className="px-2 py-4 text-left text-xs leading-5 break-words text-slate-500 sm:text-sm">
+                          {formatDateTime(level.createdAt)}
+                        </td>
+                        <td className="px-2 py-4 text-left text-xs leading-5 break-words text-slate-500 sm:text-sm">
+                          {formatDateTime(level.updatedAt)}
+                        </td>
+                        <td className="px-2 py-4 text-center">
+                          <div className="flex justify-center" data-level-actions>
+                            <button
+                              type="button"
+                              aria-haspopup="menu"
+                              aria-expanded={openMenu?.levelId === level.id}
+                              aria-controls={
+                                openMenu?.levelId === level.id
+                                  ? `level-actions-menu-${level.id}`
+                                  : undefined
+                              }
+                              onClick={(event) =>
+                                handleToggleActionMenu(level.id, event.currentTarget)
+                              }
+                              className={cn(
+                                "inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700",
+                                openMenu?.levelId === level.id && "bg-slate-100",
+                              )}
+                              aria-label={`Tác vụ cho ${level.name}`}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
                 </table>
               </div>
             </div>
@@ -617,6 +694,39 @@ export default function CuratorLevelsPage() {
           </div>
         </div>
       ) : null}
+
+      {activeMenuLevel && openMenu && actionMenuStyle
+        ? createPortal(
+            <div
+              id={`level-actions-menu-${activeMenuLevel.id}`}
+              role="menu"
+              data-level-actions
+              className="fixed z-50 w-44 rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.4)]"
+              style={actionMenuStyle}
+            >
+              <Link
+                href={`/curator/levels/${activeMenuLevel.backendId ?? activeMenuLevel.id}`}
+                role="menuitem"
+                onClick={() => setOpenMenu(null)}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+              >
+                <Pencil className="h-4 w-4" />
+                <span>Chỉnh sửa</span>
+              </Link>
+
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => handleDeleteRequest(activeMenuLevel)}
+                className="mt-1 flex w-full items-center gap-3 rounded-xl border-t border-slate-100 px-3 pt-3 pb-2.5 text-left text-sm font-medium text-red-500 transition hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>Xóa cấp bậc</span>
+              </button>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
