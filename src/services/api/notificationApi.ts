@@ -58,16 +58,28 @@ export const notificationApi = {
     });
   },
   markAsRead(id: number) {
-    return apiFetch<NotificationItem>(`/api/notifications/${id}/read`, {
+    return apiFetch<string>(`/api/notifications/${id}/read`, {
       method: "PATCH",
       sameOrigin: true,
     });
   },
-  testPush() {
-    return apiFetch<NotificationItem | string | { message?: string }>("/api/notifications/test-push", {
-      method: "POST",
-      sameOrigin: true,
-    });
+
+  /**
+   * Backend chưa có endpoint đánh dấu đã đọc hàng loạt, nên phải duyệt các trang
+   * thông báo để lấy toàn bộ id chưa đọc rồi gọi PATCH /{id}/read cho từng cái.
+   */
+  async getUnreadIds(size = 100, maxPages = 10) {
+    const ids: number[] = [];
+    for (let page = 0; page < maxPages; page += 1) {
+      const result = await this.getNotifications(page, size);
+      const content = result.content ?? [];
+      content.forEach((item) => {
+        if (!item.isRead) ids.push(item.id);
+      });
+      const totalPages = result.totalPages ?? result.page?.totalPages ?? 1;
+      if (content.length < size || page + 1 >= totalPages) break;
+    }
+    return ids;
   },
 
   /** Đăng ký / cập nhật FCM device token cho user hiện tại */

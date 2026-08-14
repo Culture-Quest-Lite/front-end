@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, Check, Loader2, Send } from "lucide-react";
+import { Bell, Check, CheckCheck, Loader2 } from "lucide-react";
 import { notificationApi, type NotificationItem } from "@/services/api/notificationApi";
 
 function formatDate(value: string) {
@@ -18,8 +18,7 @@ export function NotificationBell() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [markingAll, setMarkingAll] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const loadSeqRef = useRef(0);
   const readIdsRef = useRef(new Set<number>());
@@ -106,23 +105,24 @@ export function NotificationBell() {
     }
   }
 
-  async function sendTestNotification() {
-    setTesting(true);
-    setTestMessage(null);
+  async function markAllRead() {
+    if (markingAll || unread === 0) return;
+
+    setMarkingAll(true);
+    setItems((current) => current.map((value) => ({ ...value, isRead: true })));
+    setUnread(0);
+
     try {
-      const result = await notificationApi.testPush();
-      const message =
-        typeof result === "string"
-          ? result
-          : result && typeof result === "object" && "message" in result && typeof result.message === "string"
-            ? result.message
-            : "Đã gửi thông báo test thành công.";
-      setTestMessage(message || "Đã gửi thông báo test thành công.");
-      await load();
-    } catch (error) {
-      setTestMessage(error instanceof Error ? error.message : "Không thể gửi thông báo test.");
+      const ids = await notificationApi.getUnreadIds();
+      const results = await Promise.allSettled(ids.map((id) => notificationApi.markAsRead(id)));
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled") readIdsRef.current.add(ids[index]);
+      });
+    } catch {
+      // load() bên dưới sẽ đồng bộ lại trạng thái thật từ server
     } finally {
-      setTesting(false);
+      setMarkingAll(false);
+      await load();
     }
   }
 
@@ -155,24 +155,22 @@ export function NotificationBell() {
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => void sendTestNotification()}
-                disabled={testing}
-                className="flex items-center gap-1 text-xs font-semibold text-[#D94A8D] disabled:opacity-50"
+                onClick={() => void markAllRead()}
+                disabled={markingAll || unread === 0}
+                className="flex items-center gap-1 text-xs font-semibold text-[#D94A8D] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                Gửi test
+                {markingAll ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <CheckCheck className="h-3.5 w-3.5" />
+                )}
+                Đọc tất cả
               </button>
               <button type="button" onClick={() => void load()} className="text-xs font-semibold text-slate-500 hover:text-[#D94A8D]">
                 Làm mới
               </button>
             </div>
           </div>
-
-          {testMessage && (
-            <div className={`border-b px-4 py-2 text-xs ${testMessage.includes("thành công") ? "border-emerald-100 bg-emerald-50 text-emerald-700" : "border-rose-100 bg-rose-50 text-rose-700"}`}>
-              {testMessage}
-            </div>
-          )}
 
           <div className="max-h-[420px] overflow-y-auto">
             {loading && items.length === 0 ? (
