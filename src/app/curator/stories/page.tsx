@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "react-toastify";
+import { PageLoading } from "@/components/app/page-loading";
 import {
   ChevronDown,
   Eye,
@@ -826,9 +827,7 @@ export default function CuratorStoriesPage() {
                 Không thể tải câu chuyện: {loadStoriesError}
               </div>
             ) : isLoadingStories ? (
-              <div className="rounded-[1.5rem] border border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-600">
-                Đang tải dữ liệu câu chuyện...
-              </div>
+              <PageLoading className="min-h-[320px] rounded-[1.5rem] border border-slate-200 shadow-none" spinnerClassName="h-6 w-6" />
             ) : stories.length > 0 ? (
               <div className="rounded-[1.5rem] border border-slate-200 bg-white overflow-visible">
                 <div className="w-full overflow-x-auto">

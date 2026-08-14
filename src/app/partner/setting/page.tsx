@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { PageLoading } from "@/components/app/page-loading";
 import { PageHeader } from "@/components/app/ui-bits";
 import {
   partnerApi,
@@ -115,9 +116,7 @@ export default function PartnerSettingPage() {
           </div>
 
           {loading ? (
-            <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-              Đang tải dữ liệu...
-            </div>
+            <PageLoading className="mt-6 min-h-[160px] rounded-2xl border border-slate-200 shadow-none" spinnerClassName="h-6 w-6" />
           ) : (
             <div className="mt-6 space-y-4 text-sm text-slate-600">
               <InfoRow label="Tên đối tác" value={currentUser?.displayName || currentUser?.username || "—"} />
@@ -143,7 +142,7 @@ export default function PartnerSettingPage() {
           </div>
 
           {loading ? (
-            <p className="mt-4 text-sm text-slate-500">Đang tải gói subscription...</p>
+            <PageLoading className="mt-4 min-h-[112px] rounded-2xl border border-slate-200 shadow-none" spinnerClassName="h-6 w-6" />
           ) : currentSubscription ? (
             <div className="mt-4 space-y-2 text-sm text-slate-600">
               <InfoRow label="Trạng thái" value={statusLabels[currentSubscription.status ?? ""] ?? currentSubscription.status ?? "—"} />

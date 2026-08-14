@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Clock3, ShieldCheck, Tag, User, Loader2 } from "lucide-react";
+import { ArrowLeft, Clock3, ShieldCheck, Tag, User } from "lucide-react";
+import { PageLoading } from "@/components/app/page-loading";
 import { adminApi, type PostItem } from "@/services/api/admin/adminApi";
 import { ApprovalActionsClient } from "./ApprovalActionsClient";
 
@@ -82,11 +83,7 @@ export default function ApprovalDetailPage() {
   }, [postId]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-20 text-sm text-slate-500">
-        <Loader2 className="h-5 w-5 animate-spin" /> Đang tải chi tiết...
-      </div>
-    );
+    return <PageLoading className="min-h-[calc(100vh-8rem)]" />;
   }
 
   if (error || !item) {

@@ -13,6 +13,7 @@ import { useRouter, useParams } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import { ArrowLeft, ImagePlus, Save, Video, Volume2, X } from "lucide-react";
 
+import { PageLoading } from "@/components/app/page-loading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -516,9 +517,7 @@ export default function EditStoryPage() {
       </header>
 
       {isLoading ? (
-        <div className="text-center py-10">
-          <p className="text-slate-600">Đang tải...</p>
-        </div>
+        <PageLoading className="min-h-[320px] rounded-[1.5rem] border border-slate-200 shadow-none" spinnerClassName="h-6 w-6" />
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-5 pb-10">
           {/* Error and Success Messages */}

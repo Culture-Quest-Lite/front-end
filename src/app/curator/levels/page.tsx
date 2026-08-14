@@ -5,6 +5,7 @@ import { useDeferredValue, useEffect, useState } from "react";
 import { MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 
+import { PageLoading } from "@/components/app/page-loading";
 import { CuratorPagination } from "@/components/curator/CuratorPagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -402,22 +403,13 @@ export default function CuratorLevelsPage() {
           </div>
 
           <span className="text-sm text-slate-500">
-            {isLoadingLevels
-              ? "Đang tải dữ liệu..."
-              : `${filteredLevels.length} cấp bậc`}
+            {isLoadingLevels ? "—" : `${filteredLevels.length} cấp bậc`}
           </span>
         </div>
 
         <section className="flex flex-1 flex-col gap-5">
           {isLoadingLevels ? (
-            <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5">
-              <div className="space-y-3 animate-pulse">
-                <div className="h-5 w-48 rounded-full bg-slate-100" />
-                <div className="h-16 rounded-2xl bg-slate-50" />
-                <div className="h-16 rounded-2xl bg-slate-50" />
-                <div className="h-16 rounded-2xl bg-slate-50" />
-              </div>
-            </div>
+            <PageLoading className="min-h-[320px] rounded-[1.5rem] border border-slate-200 shadow-none" />
           ) : loadError ? (
             <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 px-5 py-10 text-center">
               <p className="cq-card-title text-rose-700">

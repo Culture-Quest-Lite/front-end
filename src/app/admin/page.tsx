@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PageLoading } from "@/components/app/page-loading";
 import { useAuth } from "@/hooks/use-auth";
 import { getRedirectPathForRole } from "@/lib/access-control";
 import { PageHeader, StatCard, StatusPill } from "@/components/app/ui-bits";
@@ -149,7 +150,7 @@ export default function AdminDashboardPage() {
   }, [session, range]);
 
   if (loading) {
-    return null;
+    return <PageLoading className="min-h-[calc(100vh-8rem)]" />;
   }
 
   if (!session) {

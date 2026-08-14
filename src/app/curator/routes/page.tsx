@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "react-toastify";
+import { PageLoading } from "@/components/app/page-loading";
 import { CuratorPagination } from "@/components/curator/CuratorPagination";
 import { Input } from "@/components/ui/input";
 import {
@@ -1257,9 +1258,7 @@ export default function CuratorRoutesPage() {
         ) : null}
 
         {isLoading ? (
-          <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-500">
-            Đang tải danh sách tuyến...
-          </div>
+          <PageLoading className="min-h-[320px] border border-slate-200 shadow-none" />
         ) : routes.length === 0 ? (
           <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-500">
             {debouncedQuickSearch

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { PageLoading } from "@/components/app/page-loading";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/app/ui-bits";
 import { adminApi, type PostItem } from "@/services/api/admin/adminApi";
@@ -101,7 +102,7 @@ function toNameList(ids: number[] | undefined, names: NameMap) {
 
 function joinLabels(labels: string[], hasIds: boolean) {
   if (labels.length > 0) return labels.join(", ");
-  return hasIds ? "Đang tải tên..." : "Không có";
+  return hasIds ? "—" : "Không có";
 }
 
 export default function ContentReviewPage() {
@@ -323,9 +324,7 @@ export default function ContentReviewPage() {
       ) : null}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
-          <Loader2 className="h-5 w-5 animate-spin" /> Đang tải hàng đợi duyệt bài đăng...
-        </div>
+        <PageLoading className="min-h-[320px]" />
       ) : filtered.length === 0 ? (
         <div className="cq-admin-panel p-12 text-center">
           <ShieldCheck className="mx-auto h-9 w-9 text-slate-300" />

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 
+import { PageLoading } from "@/components/app/page-loading";
 import { TagIdentityChip } from "@/components/curator/TagIdentityChip";
 import {
   formatTagDateTime,
@@ -110,16 +111,7 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
   }, [tagId]);
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <PageHeader />
-
-        <section className="rounded-[1.75rem] border border-dashed border-slate-300 bg-white px-5 py-10 text-center shadow-sm sm:px-6">
-          <p className="cq-card-title">Đang tải chi tiết thẻ</p>
-          <p className="cq-page-subtitle mt-2">Đang lấy dữ liệu</p>
-        </section>
-      </div>
-    );
+    return <PageLoading className="min-h-[calc(100vh-8rem)]" />;
   }
 
   if (!backendTag) {

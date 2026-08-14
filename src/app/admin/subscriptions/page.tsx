@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
+import { PageLoading } from "@/components/app/page-loading";
 import { PageHeader } from "@/components/app/ui-bits";
 import { Button } from "@/components/ui/button";
 import {
@@ -555,9 +556,7 @@ export default function SubscriptionsPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
-          <Loader2 className="h-5 w-5 animate-spin" /> Đang tải gói dịch vụ...
-        </div>
+        <PageLoading className="min-h-[320px]" />
       ) : filteredPlans.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-12 text-center text-sm text-slate-500">
           Chưa có gói dịch vụ nào phù hợp.

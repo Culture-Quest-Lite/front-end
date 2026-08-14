@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Clock3, MapPin, Route, Sparkles, Tag } from "lucide-react";
+import { ArrowLeft, Clock3, Route, Sparkles, Tag } from "lucide-react";
 
+import { PageLoading } from "@/components/app/page-loading";
 import { routeApi, type RouteResponse } from "@/services/api/routeApi";
 
 const difficultyLabels: Record<string, string> = {
@@ -106,11 +107,7 @@ export default function CuratorRouteDetailPage() {
   }, [route]);
 
   if (isLoading) {
-    return (
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-        Đang tải chi tiết tuyến...
-      </div>
-    );
+    return <PageLoading className="min-h-[calc(100vh-8rem)]" />;
   }
 
   if (error || !route) {
