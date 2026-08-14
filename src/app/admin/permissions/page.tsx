@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { PageLoading } from "@/components/app/page-loading";
 import { PageHeader } from "@/components/app/ui-bits";
 import { Button } from "@/components/ui/button";
 import {
@@ -161,11 +162,7 @@ function RolePermissionsTab({ showToast }: { showToast: (msg: string) => void })
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-20 text-sm text-slate-500">
-        <Loader2 className="h-5 w-5 animate-spin" /> Đang tải...
-      </div>
-    );
+    return <PageLoading className="min-h-[320px]" />;
   }
   if (error) {
     return (
@@ -436,9 +433,7 @@ function UserPermissionsTab({ showToast }: { showToast: (msg: string) => void })
 
         <div className="cq-admin-panel divide-y divide-slate-100">
           {listLoading ? (
-            <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
-              <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
-            </div>
+            <PageLoading className="min-h-[160px] rounded-none shadow-none" spinnerClassName="h-6 w-6" />
           ) : users.length === 0 ? (
             <div className="py-10 text-center text-sm text-slate-500">
               Không tìm thấy người dùng phù hợp.
@@ -524,9 +519,7 @@ function UserPermissionsTab({ showToast }: { showToast: (msg: string) => void })
             ) : null}
 
             {loading ? (
-              <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
-                <Loader2 className="h-4 w-4 animate-spin" /> Đang tải quyền cá nhân...
-              </div>
+              <PageLoading className="min-h-[240px] shadow-none" spinnerClassName="h-6 w-6" />
             ) : overrides.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-12 text-center text-sm text-slate-500">
                 {selectedName} chưa có ngoại lệ quyền nào — đang dùng đúng quyền của vai trò{" "}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { PageLoading } from "@/components/app/page-loading";
 import { PageHeader } from "@/components/app/ui-bits";
 import {
   partnerApi,
@@ -526,9 +527,7 @@ export default function PartnerVouchersPage() {
       ) : null}
 
       {isLoading ? (
-        <div className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-12 text-sm text-slate-500">
-          <Loader2 className="h-4 w-4 animate-spin" /> Đang tải dữ liệu...
-        </div>
+        <PageLoading className="min-h-[320px] rounded-2xl border border-slate-200 shadow-none" spinnerClassName="h-6 w-6" />
       ) : (
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 px-5 py-4 sm:flex sm:items-center sm:justify-between">

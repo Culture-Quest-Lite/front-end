@@ -6,6 +6,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, Pencil, Plus } from "lucide-react";
 import { toast } from "react-toastify";
 
+import { PageLoading } from "@/components/app/page-loading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type BackendLevelRecord, levelApi } from "@/services/api";
@@ -243,9 +244,7 @@ export function LevelEditorForm({ mode, levelId }: LevelEditorFormProps) {
       </div>
 
       {isEditMode && isLoadingLevel ? (
-        <div className="rounded-3xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-700">
-          Đang tải dữ liệu cấp bậc để chỉnh sửa...
-        </div>
+        <PageLoading className="min-h-[140px] rounded-3xl border border-slate-200 shadow-none" spinnerClassName="h-6 w-6" />
       ) : null}
 
       {isEditMode && loadError ? (

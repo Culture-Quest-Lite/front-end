@@ -197,12 +197,12 @@ export default function ModerationPage() {
       ) : null}
 
       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-        <ul className="space-y-3">
-          {isLoading ? (
-            <li className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-8 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
-            </li>
-          ) : reportGroups.length === 0 ? (
+          <ul className="space-y-3">
+            {isLoading ? (
+              <li className="rounded-2xl border border-slate-200 bg-white p-8">
+                <Loader2 className="mx-auto h-5 w-5 animate-spin text-slate-400" />
+              </li>
+            ) : reportGroups.length === 0 ? (
             <li className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-muted-foreground">
               Không có báo cáo nào đang chờ xử lý.
             </li>

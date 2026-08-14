@@ -216,9 +216,8 @@ export function GoongMapPreview({
 
             {isLoadingMap ? (
               <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
-                <div className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm">
-                  <LoaderCircle className="h-4 w-4 animate-spin" />
-                  Đang tải bản đồ Goong...
+                <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm">
+                  <LoaderCircle className="h-5 w-5 animate-spin text-slate-500" />
                 </div>
               </div>
             ) : null}

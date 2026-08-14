@@ -5,7 +5,15 @@ import { PageHeader } from "@/components/app/ui-bits";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/admin/Pagination";
 import { adminApi, type AuditLog } from "@/services/api/admin/adminApi";
-import { RefreshCcw, Search, User, Server, Clock3, FileText } from "lucide-react";
+import {
+  RefreshCcw,
+  Search,
+  User,
+  Server,
+  Clock3,
+  FileText,
+  Loader2,
+} from "lucide-react";
 
 const PAGE_SIZE = 10;
 
@@ -228,7 +236,7 @@ export default function ReviewHistoryPage() {
           <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm" />
           <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm" />
         </div>
-        <p className="mt-3 text-sm text-slate-500">{loading ? "Đang tải..." : `${totalElements} bản ghi`}</p>
+        <p className="mt-3 text-sm text-slate-500">{loading ? "—" : `${totalElements} bản ghi`}</p>
       </section>
 
       {error && <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
@@ -254,7 +262,13 @@ export default function ReviewHistoryPage() {
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={5} className="py-12 text-center text-slate-500">Đang tải audit log...</td></tr>}
+            {loading && (
+              <tr>
+                <td colSpan={5} className="py-12 text-center">
+                  <Loader2 className="mx-auto h-5 w-5 animate-spin text-slate-400" />
+                </td>
+              </tr>
+            )}
             {!loading && items.length === 0 && <tr><td colSpan={5} className="py-12 text-center text-slate-500">Không có dữ liệu phù hợp.</td></tr>}
             {!loading && items.map((item) => {
               const recordName = getRecordName(item);

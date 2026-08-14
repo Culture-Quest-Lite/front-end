@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { PageLoading } from "@/components/app/page-loading";
 import { getRedirectPathForRole } from "@/lib/access-control";
 import { PageHeader, StatCard } from "@/components/app/ui-bits";
 import { useAuth } from "@/hooks/use-auth";
@@ -72,7 +73,7 @@ export default function CuratorDashboardPage() {
   }, [loading, router, session]);
 
   if (loading) {
-    return null;
+    return <PageLoading className="min-h-[calc(100vh-8rem)]" />;
   }
 
   if (!session) {

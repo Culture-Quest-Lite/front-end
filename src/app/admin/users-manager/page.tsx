@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { PageLoading } from "@/components/app/page-loading";
 import { PageHeader } from "@/components/app/ui-bits";
 import {
   adminApi,
@@ -302,8 +303,8 @@ export default function UsersManagerPage() {
 
           <ul className="space-y-2 p-2 md:p-3">
             {loading ? (
-              <li className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
-                <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
+              <li>
+                <PageLoading className="min-h-[160px] rounded-2xl border border-slate-200 shadow-none" spinnerClassName="h-6 w-6" />
               </li>
             ) : users.length === 0 ? (
               <li className="py-10 text-center text-sm text-slate-500">

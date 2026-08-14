@@ -10,6 +10,7 @@ import {
   Clock3,
   ExternalLink,
   FileText,
+  Loader2,
   MapPin,
   Maximize2,
   Search,
@@ -266,7 +267,11 @@ export default function PartnerVerificationPage() {
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={5} className="py-12 text-center text-slate-500">Đang tải hồ sơ...</td></tr>
+                <tr>
+                  <td colSpan={5} className="py-12 text-center">
+                    <Loader2 className="mx-auto h-5 w-5 animate-spin text-slate-400" />
+                  </td>
+                </tr>
               )}
               {!loading && visibleItems.length === 0 && (
                 <tr><td colSpan={5} className="py-12 text-center text-slate-500">Không có hồ sơ phù hợp.</td></tr>

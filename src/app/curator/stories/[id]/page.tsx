@@ -13,6 +13,7 @@ import {
   Volume2,
 } from "lucide-react";
 
+import { PageLoading } from "@/components/app/page-loading";
 import { cn } from "@/lib/utils";
 import {
   hotspotApi,
@@ -228,17 +229,12 @@ export default function StoryDetailPage() {
   const currentImageUrl = imageUrls[safeActiveImageIndex] ?? imageUrls[0] ?? "";
   const currentHotspotId = getValidHotspotId(story?.hotspotId);
   const normalizedAudioScript = story?.audioScript?.trim() ?? "";
-  const isHotspotLoading =
-    currentHotspotId !== null &&
-    resolvedHotspot?.hotspotId !== currentHotspotId;
   const hotspotLabel =
     currentHotspotId === null
       ? "Chưa liên kết hotspot"
       : resolvedHotspot?.hotspotId === currentHotspotId
         ? resolvedHotspot.hotspotName
-        : isHotspotLoading
-          ? "Đang tải hotspot..."
-          : `Hotspot #${currentHotspotId}`;
+        : `Hotspot #${currentHotspotId}`;
 
   const nextImage = () =>
     setActiveImageIndex((index) =>
@@ -293,9 +289,7 @@ export default function StoryDetailPage() {
       </div>
 
       {isLoading ? (
-        <div className="rounded-[1.25rem] border border-slate-200 bg-white px-5 py-7 text-center text-[13px] text-slate-600">
-          Đang tải câu chuyện...
-        </div>
+        <PageLoading className="min-h-[320px] rounded-[1.25rem] border border-slate-200 shadow-none" spinnerClassName="h-6 w-6" />
       ) : error ? (
         <div className="rounded-[1.25rem] border border-rose-200 bg-rose-50 px-5 py-7 text-center text-[13px] text-rose-700">
           {error}
