@@ -46,7 +46,7 @@ type HotspotOption = {
   label: string;
 };
 
-const MAX_MEDIA_TOTAL = 5;
+const MAX_MEDIA_TOTAL = 10;
 
 const mediaTypeOptions: MediaTypeOption[] = [
   { type: "audio", label: "Audio", icon: Volume2, accept: "audio/*" },
@@ -187,9 +187,15 @@ export default function CreateStoryPage() {
       }
 
       setMediaByType((current) => {
-        const reservedCount = countMediaItems(current) - current[type].length;
-        const availableSlots = Math.max(MAX_MEDIA_TOTAL - reservedCount, 0);
+        const availableSlots = Math.max(
+          MAX_MEDIA_TOTAL - countMediaItems(current),
+          0,
+        );
         const limitedFiles = nextFiles.slice(0, availableSlots);
+        if (limitedFiles.length === 0) {
+          return current;
+        }
+
         const nextItems = limitedFiles.map((file) => ({
           id: `${type}-${file.name}-${file.lastModified}`,
           name: file.name,
@@ -198,16 +204,9 @@ export default function CreateStoryPage() {
           file,
         }));
 
-        if (type === "image") {
-          return {
-            ...current,
-            image: [...current.image, ...nextItems].slice(0, availableSlots),
-          };
-        }
-
         return {
           ...current,
-          [type]: nextItems.slice(0, 1),
+          [type]: [...current[type], ...nextItems],
         };
       });
 
@@ -491,7 +490,7 @@ export default function CreateStoryPage() {
                       ref={getInputRef(option.type)}
                       type="file"
                       accept={option.accept}
-                      multiple={option.type === "image"}
+                      multiple
                       className="hidden"
                       onChange={handleMediaChange(option.type)}
                     />
