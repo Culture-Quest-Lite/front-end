@@ -112,9 +112,6 @@ function HotspotCreatePageContent() {
   const [existingHotspotMedias, setExistingHotspotMedias] = useState<
     BackendHotspotMedia[]
   >([]);
-  const [removedExistingMediaIds, setRemovedExistingMediaIds] = useState<
-    number[]
-  >([]);
   const [selectedMedia, setSelectedMedia] =
     useState<HotspotMediaCollection>(defaultSelectedMedia);
   const [lastSubmittedPayload, setLastSubmittedPayload] =
@@ -151,7 +148,6 @@ function HotspotCreatePageContent() {
 
         setFormState(syncFormStateWithResponse(defaultHotspotForm, response));
         setExistingHotspotMedias(resolveOrderedHotspotMedias(response.medias));
-        setRemovedExistingMediaIds([]);
         setSelectedMedia(defaultSelectedMedia);
         setCreatedHotspot(null);
       } catch (error) {
@@ -228,11 +224,7 @@ function HotspotCreatePageContent() {
   }, [formState.address, shouldSearchAddress]);
 
   const selectedFiles = [...selectedMedia.image, ...selectedMedia.video];
-  const visibleExistingHotspotMedias = isEditMode
-    ? existingHotspotMedias.filter(
-        (media) => !removedExistingMediaIds.includes(media.mediaId),
-      )
-    : [];
+  const visibleExistingHotspotMedias = isEditMode ? existingHotspotMedias : [];
   const existingImageMedias = visibleExistingHotspotMedias.filter(
     isImageHotspotMedia,
   );
@@ -361,12 +353,6 @@ function HotspotCreatePageContent() {
     }));
   }
 
-  function handleRemoveExistingMedia(mediaId: number) {
-    setRemovedExistingMediaIds((current) =>
-      current.includes(mediaId) ? current : [...current, mediaId],
-    );
-  }
-
   async function handleResolveAddressFromGoong() {
     const trimmedAddress = formState.address.trim();
 
@@ -444,7 +430,6 @@ function HotspotCreatePageContent() {
 
       setCreatedHotspot(response);
       setExistingHotspotMedias(resolveOrderedHotspotMedias(response.medias));
-      setRemovedExistingMediaIds([]);
       setSelectedMedia(defaultSelectedMedia);
       setFormState((current) => syncFormStateWithResponse(current, response));
 
@@ -921,16 +906,6 @@ function HotspotCreatePageContent() {
                               key={media.mediaId}
                               className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300"
                             >
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleRemoveExistingMedia(media.mediaId);
-                                }}
-                                className="absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow-sm transition hover:bg-white hover:text-rose-600"
-                                aria-label={`Xóa ${buildBackendMediaLabel(media, `Ảnh ${index + 1}`)}`}
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
                               <a href={fileUrl} target="_blank" rel="noreferrer">
                                 <Image
                                   src={fileUrl}
@@ -955,6 +930,10 @@ function HotspotCreatePageContent() {
                           );
                         })}
                       </div>
+                      <p className="text-xs text-slate-500">
+                        Ảnh hiện có sẽ được giữ nguyên. Khi chỉnh sửa hotspot,
+                        hệ thống chỉ tải thêm ảnh mới.
+                      </p>
                     </div>
                   ) : null}
 
@@ -1075,21 +1054,18 @@ function HotspotCreatePageContent() {
                                 >
                                   Mở file
                                 </a>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleRemoveExistingMedia(media.mediaId)
-                                  }
-                                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-rose-600"
-                                  aria-label={`Xóa ${buildBackendMediaLabel(media, `Video ${index + 1}`)}`}
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
+                                <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-400">
+                                  Giữ media cũ
+                                </span>
                               </div>
                             </div>
                           );
                         })}
                       </div>
+                      <p className="text-xs text-slate-500">
+                        Video hiện có sẽ được giữ nguyên. Khi chỉnh sửa hotspot,
+                        hệ thống chỉ tải thêm video mới.
+                      </p>
                     </div>
                   ) : null}
 
