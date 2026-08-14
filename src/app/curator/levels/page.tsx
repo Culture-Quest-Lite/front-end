@@ -532,9 +532,8 @@ export default function CuratorLevelsPage() {
                     <col className="w-[27%]" />
                     <col className="w-[31%]" />
                     <col className="w-[10%]" />
-                    <col className="w-[11%]" />
-                    <col className="w-[11%]" />
-                    <col className="w-[10%]" />
+                    <col className="w-[14%]" />
+                    <col className="w-[18%]" />
                   </colgroup>
                   <thead>
                     <tr className="bg-slate-50/90">
@@ -549,9 +548,6 @@ export default function CuratorLevelsPage() {
                       </th>
                       <th className="px-2 py-4 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
                         Ngày tạo
-                      </th>
-                      <th className="px-2 py-4 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                        Cập nhật
                       </th>
                       <th className="px-2 py-4 text-center text-xs font-semibold uppercase tracking-[0.14em] whitespace-nowrap text-slate-400">
                         Thao tác
@@ -581,9 +577,6 @@ export default function CuratorLevelsPage() {
                         </td>
                         <td className="px-2 py-4 text-left text-xs leading-5 break-words text-slate-500 sm:text-sm">
                           {formatDateTime(level.createdAt)}
-                        </td>
-                        <td className="px-2 py-4 text-left text-xs leading-5 break-words text-slate-500 sm:text-sm">
-                          {formatDateTime(level.updatedAt)}
                         </td>
                         <td className="px-2 py-4 text-center">
                           <div className="flex justify-center" data-level-actions>
