@@ -139,8 +139,12 @@ function getHotspotCover(hotspot: BackendHotspot) {
   );
 }
 
+function isPublishedStory(story: BackendStory) {
+  return story.status?.trim().toUpperCase() === "PUBLISHED";
+}
+
 function resolveStories(stories?: BackendStory[]) {
-  return [...(stories ?? [])].sort((storyA, storyB) => {
+  return [...(stories ?? [])].filter(isPublishedStory).sort((storyA, storyB) => {
     const orderDiff =
       (storyA.orderIndex ?? Number.MAX_SAFE_INTEGER) -
       (storyB.orderIndex ?? Number.MAX_SAFE_INTEGER);
@@ -727,6 +731,7 @@ export default function CuratorRouteCreatePage() {
             const response = await storyApi.getStories({
               hotspotId,
               size: 500,
+              status: "PUBLISHED",
             });
 
             return {

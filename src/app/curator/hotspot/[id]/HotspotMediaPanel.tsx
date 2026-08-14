@@ -34,7 +34,7 @@ export function HotspotMediaPanel({
     setActiveIndex((i) => (i - 1 + images.length) % images.length);
   const next = () => setActiveIndex((i) => (i + 1) % images.length);
   const mediaViewportClassName =
-    "relative h-[220px] w-full overflow-hidden bg-slate-100 sm:h-[260px] lg:h-[320px]";
+    "relative h-[280px] w-full overflow-hidden bg-slate-100 sm:h-[360px] lg:h-[430px]";
 
   return (
     <div className="space-y-3">
