@@ -59,72 +59,6 @@ const statusClasses: Record<VoucherStatus, string> = {
   DELETED: "bg-slate-100 text-slate-400",
 };
 
-const DEMO_VOUCHERS: VoucherResponse[] = [
-  {
-    voucherId: 1001,
-    imageUrl: null,
-    partnerId: 501,
-    partnerName: "Đối tác demo",
-    voucherCode: "DEMO2026",
-    voucherName: "Giảm giá mùa hè",
-    description: "Dữ liệu demo giúp bạn nhìn giao diện quản lý voucher.",
-    discountType: "PERCENTAGE",
-    discountValue: 20,
-    maxDiscountAmount: 100000,
-    minOrderAmount: 200000,
-    pointsRequired: 120,
-    quantityTotal: 120,
-    quantityRemaining: 54,
-    status: "ACTIVE",
-    startDate: "2026-07-01T00:00:00",
-    endDate: "2026-07-31T23:59:59",
-    createdAt: "2026-06-20T10:00:00",
-    updatedAt: "2026-06-20T10:00:00",
-  },
-  {
-    voucherId: 1002,
-    imageUrl: null,
-    partnerId: 501,
-    partnerName: "Đối tác demo",
-    voucherCode: "WELCOME50",
-    voucherName: "Voucher chào mừng",
-    description: "Giảm 50k cho đơn hàng đầu tiên.",
-    discountType: "FIXED_AMOUNT",
-    discountValue: 50000,
-    maxDiscountAmount: null,
-    minOrderAmount: 150000,
-    pointsRequired: 80,
-    quantityTotal: 80,
-    quantityRemaining: 12,
-    status: "INACTIVE",
-    startDate: "2026-06-15T00:00:00",
-    endDate: "2026-08-15T23:59:59",
-    createdAt: "2026-06-18T08:30:00",
-    updatedAt: "2026-06-18T08:30:00",
-  },
-  {
-    voucherId: 1003,
-    imageUrl: null,
-    partnerId: 501,
-    partnerName: "Đối tác demo",
-    voucherCode: "HOTDEAL10",
-    voucherName: "Giảm trực tiếp 10%",
-    description: "Voucher mẫu dùng để minh họa giao diện quản lý.",
-    discountType: "PERCENTAGE",
-    discountValue: 10,
-    maxDiscountAmount: 50000,
-    minOrderAmount: 100000,
-    pointsRequired: 60,
-    quantityTotal: 60,
-    quantityRemaining: 0,
-    status: "EXPIRED",
-    startDate: "2026-05-01T00:00:00",
-    endDate: "2026-06-01T23:59:59",
-    createdAt: "2026-04-20T11:45:00",
-    updatedAt: "2026-06-01T23:59:59",
-  },
-];
-
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(value);
 }
@@ -211,11 +145,7 @@ export default function PartnerVouchersPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isDemoMode = !isLoading && vouchers.length === 0;
-  const visibleVouchers = isDemoMode ? DEMO_VOUCHERS : vouchers.filter((voucher) => voucher.status !== "DELETED");
-  const displayVouchers = visibleVouchers;
-  const displayTotalItems = visibleVouchers.length;
-  const displayTotalPages = isDemoMode ? 1 : totalPages;
+  const displayVouchers = vouchers.filter((voucher) => voucher.status !== "DELETED");
 
   // Backend nhận đúng MỘT ảnh ở field `imageFile`, dùng chung cho cả tạo mới
   // lẫn chỉnh sửa. Bỏ trống khi sửa = giữ nguyên ảnh cũ.
@@ -530,64 +460,66 @@ export default function PartnerVouchersPage() {
         <PageLoading className="min-h-[320px] rounded-2xl border border-slate-200 shadow-none" spinnerClassName="h-6 w-6" />
       ) : (
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 px-5 py-4 sm:flex sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-slate-900">Bảng quản lý voucher</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                {isDemoMode
-                  ? "Hiển thị dữ liệu demo khi danh sách voucher thực tế đang trống."
-                  : "Duyệt và quản lý voucher hiện có của cửa hàng."
-                }
-              </p>
-            </div>
-            {isDemoMode ? (
-              <span className="mt-3 inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 sm:mt-0">
-                Dữ liệu demo
-              </span>
-            ) : null}
+          <div className="border-b border-slate-200 px-5 py-4">
+            <h2 className="text-base font-semibold text-slate-900">Bảng quản lý voucher</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Duyệt và quản lý voucher hiện có của cửa hàng.
+            </p>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-              <thead className="bg-slate-50 text-slate-500">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">Mã</th>
-                  <th className="px-4 py-3 font-semibold">Ảnh</th>
-                  <th className="px-4 py-3 font-semibold">Tên voucher</th>
-                  <th className="px-4 py-3 font-semibold">Giảm</th>
-                  <th className="px-4 py-3 font-semibold">Trạng thái</th>
-                  <th className="px-4 py-3 font-semibold">Còn / Tổng</th>
-                  <th className="px-4 py-3 font-semibold">Hết hạn</th>
-                  <th className="px-4 py-3 font-semibold">Hành động</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 bg-white">
-                {displayVouchers.map((voucher) => {
-                  const used = Math.max(0, voucher.quantityTotal - voucher.quantityRemaining);
-                  const isDemoRow = isDemoMode;
-                  return (
+          {displayVouchers.length === 0 ? (
+            <div className="px-5 py-14 text-center">
+              <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
+                <Ticket className="h-6 w-6" />
+              </div>
+              <p className="mt-3 text-sm font-medium text-slate-600">
+                {query.trim() || statusFilter !== "all"
+                  ? "Không tìm thấy voucher nào khớp với bộ lọc."
+                  : "Cửa hàng chưa có voucher nào."}
+              </p>
+              <p className="mt-1 text-sm text-slate-400">
+                {query.trim() || statusFilter !== "all"
+                  ? "Thử đổi từ khoá tìm kiếm hoặc chọn trạng thái khác."
+                  : "Bấm “Tạo voucher mới” để thêm voucher đầu tiên."}
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                <thead className="bg-slate-50 text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Mã</th>
+                    <th className="px-4 py-3 font-semibold">Ảnh</th>
+                    <th className="px-4 py-3 font-semibold">Tên voucher</th>
+                    <th className="px-4 py-3 font-semibold">Giảm</th>
+                    <th className="px-4 py-3 font-semibold">Trạng thái</th>
+                    <th className="px-4 py-3 font-semibold">Còn / Tổng</th>
+                    <th className="px-4 py-3 font-semibold">Hết hạn</th>
+                    <th className="px-4 py-3 font-semibold">Hành động</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {displayVouchers.map((voucher) => (
                     <VoucherTableRow
                       key={voucher.voucherId}
                       voucher={voucher}
-                      used={used}
-                      isDemo={isDemoRow}
                       isStatusLoading={statusLoadingId === voucher.voucherId}
-                      onEdit={() => (isDemoRow ? undefined : openEdit(voucher))}
-                      onDelete={() => (isDemoRow ? undefined : setPendingDeleteId(voucher.voucherId))}
-                      onToggleStatus={() => (isDemoRow ? undefined : void handleToggleStatus(voucher))}
+                      onEdit={() => openEdit(voucher)}
+                      onDelete={() => setPendingDeleteId(voucher.voucherId)}
+                      onToggleStatus={() => void handleToggleStatus(voucher)}
                     />
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
       )}
 
       <PaginationBar
         page={page}
-        totalPages={displayTotalPages}
-        totalItems={displayTotalItems}
+        totalPages={totalPages}
+        totalItems={totalItems}
         pageSize={PAGE_SIZE}
         onPageChange={setPage}
       />
@@ -643,16 +575,12 @@ export default function PartnerVouchersPage() {
 
 function VoucherTableRow({
   voucher,
-  used,
-  isDemo,
   isStatusLoading,
   onEdit,
   onDelete,
   onToggleStatus,
 }: {
   voucher: VoucherResponse;
-  used: number;
-  isDemo: boolean;
   isStatusLoading: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -696,7 +624,6 @@ function VoucherTableRow({
           <button
             type="button"
             onClick={onEdit}
-            disabled={isDemo}
             className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Pencil className="h-3.5 w-3.5" /> Sửa
@@ -704,7 +631,7 @@ function VoucherTableRow({
           <button
             type="button"
             onClick={onToggleStatus}
-            disabled={isDemo || isStatusLoading || voucher.status === "EXPIRED" || voucher.status === "DELETED"}
+            disabled={isStatusLoading || voucher.status === "EXPIRED" || voucher.status === "DELETED"}
             className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isStatusLoading ? (
@@ -723,7 +650,6 @@ function VoucherTableRow({
           <button
             type="button"
             onClick={onDelete}
-            disabled={isDemo}
             className="inline-flex items-center gap-1 rounded-xl border border-red-200 px-2.5 py-1 text-[11px] font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Trash2 className="h-3.5 w-3.5" /> Xoá
