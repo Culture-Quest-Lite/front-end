@@ -169,6 +169,57 @@ export interface HandlePostReportRequest {
   reason: string;
 }
 
+/** Khớp `ReviewStatus.java`. REPORTING = có báo cáo chưa xử lý, REPORTED = admin
+ * đã chấp nhận báo cáo và gỡ đánh giá. */
+export type ReviewStatus =
+  | "ACTIVE"
+  | "HIDDEN"
+  | "DELETED"
+  | "REPORTING"
+  | "REPORTED";
+
+export type ReviewTargetType = "HOTSPOT" | "ROUTE" | "STORY";
+
+/** Khớp `ReviewResponse.java`. */
+export interface ReviewItem {
+  reviewId: number;
+  userId: number;
+  username: string;
+  displayName: string;
+  avatarUrl?: string;
+  targetType?: ReviewTargetType;
+  targetId?: number;
+  rating?: number;
+  comment: string;
+  status: ReviewStatus;
+  medias?: PostMedia[];
+  likeCount?: number;
+  isLiked?: boolean;
+  isOwner?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Khớp `ReportReviewResponse.java` — một lượt báo cáo của một người dùng. */
+export interface ReviewReportItem {
+  reviewActionId: number;
+  reviewId: number;
+  createdUserId: number;
+  createdDisplayName: string;
+  comment: string;
+  createdAt: string;
+}
+
+/** Khớp `HandleReportReviewRequest.java`. */
+export interface HandleReviewReportRequest {
+  /** Các báo cáo cần đánh dấu đã xử lý — phải cùng thuộc `reviewId`. */
+  reviewActionIds: number[];
+  /** true = chấp nhận báo cáo (đánh giá chuyển REPORTED), false = bác bỏ (về ACTIVE). */
+  isApproveReport: boolean;
+  /** Bắt buộc, backend validate @NotBlank. */
+  reason: string;
+}
+
 export interface SubscriptionPlan {
   subscriptionPlanId: number;
   subscriptionPlanName: string;
@@ -534,6 +585,42 @@ export const adminApi = {
    */
   handlePostReport: async (postId: number, request: HandlePostReportRequest) => {
     return apiFetch<PostItem>(`/api/posts/${postId}/reports`, {
+      method: "PUT",
+      body: request,
+      sameOrigin: true,
+    });
+  },
+
+  getReviewById: async (reviewId: number) => {
+    return apiFetch<ReviewItem>(`/api/reviews/${reviewId}`, {
+      method: "GET",
+      sameOrigin: true,
+    });
+  },
+
+  /**
+   * GET /api/v1/reviews/report (qua proxy /api/reviews/report) — với tài khoản
+   * ADMIN trả về TẤT CẢ báo cáo đánh giá chưa xử lý (isReportResolved = false),
+   * sắp xếp reviewId giảm dần. Một đánh giá có thể xuất hiện nhiều dòng nếu bị
+   * nhiều người báo cáo.
+   */
+  getReviewReports: async () => {
+    return apiFetch<ReviewReportItem[]>("/api/reviews/report", {
+      method: "GET",
+      sameOrigin: true,
+    });
+  },
+
+  /**
+   * PUT /api/v1/reviews/{id}/report — xử lý (một lượt) các báo cáo của cùng 1
+   * đánh giá. Backend từ chối nếu đánh giá đã ở trạng thái REPORTED hoặc báo
+   * cáo đã xử lý.
+   */
+  handleReviewReport: async (
+    reviewId: number,
+    request: HandleReviewReportRequest,
+  ) => {
+    return apiFetch<ReviewItem>(`/api/reviews/${reviewId}/report`, {
       method: "PUT",
       body: request,
       sameOrigin: true,
