@@ -5,16 +5,14 @@ import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
-  Tag,
   Users,
   LogOut,
-  BookOpen,
   MapPin,
-  Map,
   ShieldCheck,
   Clock,
   Shield,
   CreditCard,
+  Tags,
   UserRoundCheck,
   KeyRound,
 } from "lucide-react";
@@ -60,6 +58,7 @@ const menuGroups: Array<{
       { title: "Người dùng", href: "/admin/users-manager", icon: Users },
       { title: "Phân quyền", href: "/admin/permissions", icon: KeyRound },
       { title: "Gói đăng ký", href: "/admin/subscriptions", icon: CreditCard },
+      { title: "Bán kính địa điểm", href: "/admin/settings", icon: MapPin },
     ],
   },
   {
@@ -70,7 +69,16 @@ const menuGroups: Array<{
         href: "/admin/content-review",
         icon: ShieldCheck,
       },
-      { title: "Duyệt đối tác", href: "/admin/partner-verification", icon: UserRoundCheck },
+      {
+        title: "Kiểm duyệt thẻ và câu chuyện",
+        href: "/admin/review-queue",
+        icon: Tags,
+      },
+      {
+        title: "Duyệt đối tác",
+        href: "/admin/partner-verification",
+        icon: UserRoundCheck,
+      },
     ],
   },
   {
@@ -83,10 +91,6 @@ const menuGroups: Array<{
       // hiển thị ở trang Tổng quan. Mở lại khi trang được nối vào API thật —
       // nhớ import lại icon BarChart3 từ lucide-react.
       // { title: "Phân tích", href: "/admin/analytics", icon: BarChart3 },
-      // Tạm ẩn: /admin/settings mới chỉ là UI, các Toggle/Input chưa nối vào API
-      // nào nên bấm Lưu không thay đổi gì trong hệ thống. Mở lại khi có API cấu
-      // hình — nhớ import lại icon Settings từ lucide-react.
-      // { title: "Cài đặt", href: "/admin/settings", icon: Settings },
     ],
   },
 ];
@@ -108,30 +112,30 @@ export function AdminSidebar() {
   return (
     <Sidebar className="h-screen border-r border-[#E7EBF2] bg-[#FCFCFD]">
       <SidebarHeader className="border-b border-[#E7EBF2] bg-[#FCFCFD] p-4">
-              <div className="flex items-center gap-3">
-                <div className="relative h-[68px] w-[68px] shrink-0">
-                  <Image
-                    src="/logo2.png"
-                    alt="CultureQuest Lite"
-                    fill
-                    sizes="68px"
-                    priority
-                    className="object-contain"
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h1
-                    className="truncate text-[17px] font-semibold leading-none tracking-[-0.03em] text-slate-900"
-                    style={{ fontFamily: "'Playfair Display', serif" }}
-                  >
-                    CultureQuest Lite
-                  </h1>
-                  <span className="mt-2 inline-flex items-center rounded-full bg-[#FFF1F7] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#D94A8D] ring-1 ring-[#F7DCE8]">
-                    Admin
-                  </span>
-                </div>
-              </div>
-            </SidebarHeader>
+        <div className="flex items-center gap-3">
+          <div className="relative h-[68px] w-[68px] shrink-0">
+            <Image
+              src="/logo2.png"
+              alt="CultureQuest Lite"
+              fill
+              sizes="68px"
+              priority
+              className="object-contain"
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1
+              className="truncate text-[17px] font-semibold leading-none tracking-[-0.03em] text-slate-900"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              CultureQuest Lite
+            </h1>
+            <span className="mt-2 inline-flex items-center rounded-full bg-[#FFF1F7] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#D94A8D] ring-1 ring-[#F7DCE8]">
+              Admin
+            </span>
+          </div>
+        </div>
+      </SidebarHeader>
 
       <SidebarContent className="bg-[#FCFCFD] py-4">
         {menuGroups.map((group, index) => (
@@ -161,7 +165,9 @@ export function AdminSidebar() {
                           aria-current={active ? "page" : undefined}
                         >
                           <item.icon className="h-4 w-4 shrink-0" />
-                          <span className="py-2.5 pl-1.5 pr-3">{item.title}</span>
+                          <span className="py-2.5 pl-1.5 pr-3">
+                            {item.title}
+                          </span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { StoryDetailClient } from "./StoryDetailClient";
+import { AdminStoryDetailClient } from "./AdminStoryDetailClient";
 
 function parseStoryDetailId(value: string) {
   const normalizedId = value.trim();
@@ -17,7 +17,7 @@ function parseStoryDetailId(value: string) {
   return storyId;
 }
 
-export default async function StoryDetailPage({
+export default async function AdminTagReviewStoryDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -29,10 +29,5 @@ export default async function StoryDetailPage({
     notFound();
   }
 
-  return (
-    <StoryDetailClient
-      storyId={storyId}
-      editHref={`/curator/stories/${storyId}/edit`}
-    />
-  );
+  return <AdminStoryDetailClient storyId={storyId} />;
 }

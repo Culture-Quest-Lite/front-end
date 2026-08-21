@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { TabTitleMarker } from "@/components/app/TabTitleMarker";
 import {
   curatorRouteThemes,
   getStoredRouteThemesSnapshot,
@@ -150,6 +151,7 @@ export default function ThemeDetailPage() {
   if (!theme) {
     return (
       <div className="space-y-6">
+        <TabTitleMarker title="Không tìm thấy chủ đề" />
         <div className="flex items-center gap-3 text-slate-700">
           <Link
             href="/curator/themes"
@@ -187,6 +189,7 @@ export default function ThemeDetailPage() {
 
   return (
     <div className="space-y-6">
+      <TabTitleMarker title={theme.title} />
       <div className="flex items-center gap-3 text-slate-700">
         <Link
           href="/curator/themes"

@@ -1,6 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState, type ChangeEvent } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -19,10 +26,12 @@ import {
 } from "./CheckInZoneEditor";
 import { isPointInPolygon, parseGeoJsonToVertices } from "@/lib/geo";
 import {
+  configApi,
   goongApi,
   hotspotApi,
   type BackendHotspot,
   type BackendHotspotMedia,
+  type CheckInRadiusConfig,
   type CreateHotspotPayload,
   type GoongPlaceSuggestion,
 } from "@/services/api";
@@ -60,22 +69,15 @@ type HotspotMediaType = "image" | "video";
 
 type HotspotMediaCollection = Record<HotspotMediaType, File[]>;
 
-const defaultHotspotForm: HotspotFormState = {
-  hotspotName: "",
-  address: "",
-  description: "",
-  historyInformation: "",
-  latitude: "",
-  longitude: "",
-  zoneMode: "radius",
-  checkInRadius: String(DEFAULT_CHECK_IN_RADIUS),
-  boundaryGeoJson: "",
-  estimatedDurationMin: "",
-  estimatedDurationMax: "",
-  startTime: "",
-  endTime: "",
-  openingTime: "",
-  closingTime: "",
+type CheckInRadiusSettings = Pick<
+  CheckInRadiusConfig,
+  "minRadius" | "maxRadius" | "defaultRadius"
+>;
+
+const FALLBACK_CHECK_IN_RADIUS_CONFIG: CheckInRadiusSettings = {
+  minRadius: MIN_CHECK_IN_RADIUS,
+  maxRadius: MAX_CHECK_IN_RADIUS,
+  defaultRadius: DEFAULT_CHECK_IN_RADIUS,
 };
 
 const defaultSelectedMedia: HotspotMediaCollection = {
@@ -85,6 +87,26 @@ const defaultSelectedMedia: HotspotMediaCollection = {
 
 const HOTSPOT_BACKEND_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://api.culturequestlite.com";
+
+function createDefaultHotspotForm(defaultRadius: number): HotspotFormState {
+  return {
+    hotspotName: "",
+    address: "",
+    description: "",
+    historyInformation: "",
+    latitude: "",
+    longitude: "",
+    zoneMode: "radius",
+    checkInRadius: String(defaultRadius),
+    boundaryGeoJson: "",
+    estimatedDurationMin: "",
+    estimatedDurationMax: "",
+    startTime: "",
+    endTime: "",
+    openingTime: "",
+    closingTime: "",
+  };
+}
 
 export default function Page() {
   return (
@@ -99,9 +121,14 @@ function HotspotCreatePageContent() {
   const searchParams = useSearchParams();
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
+  const hasTouchedCheckInRadiusRef = useRef(false);
   const editingHotspotId = parseHotspotId(searchParams.get("id"));
   const isEditMode = editingHotspotId !== null;
-  const [formState, setFormState] = useState(defaultHotspotForm);
+  const [checkInRadiusConfig, setCheckInRadiusConfig] =
+    useState<CheckInRadiusSettings>(FALLBACK_CHECK_IN_RADIUS_CONFIG);
+  const [formState, setFormState] = useState<HotspotFormState>(() =>
+    createDefaultHotspotForm(FALLBACK_CHECK_IN_RADIUS_CONFIG.defaultRadius),
+  );
   const [isLoadingHotspot, setIsLoadingHotspot] = useState(false);
   const [loadHotspotError, setLoadHotspotError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -128,6 +155,64 @@ function HotspotCreatePageContent() {
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
   const [shouldSearchAddress, setShouldSearchAddress] = useState(false);
 
+  const fetchCheckInRadiusConfig = useCallback(
+    async () =>
+      normalizeCheckInRadiusConfig(await configApi.getCheckInRadius()),
+    [],
+  );
+
+  useEffect(() => {
+    hasTouchedCheckInRadiusRef.current = false;
+  }, [editingHotspotId, isEditMode]);
+
+  useEffect(() => {
+    if (isEditMode) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    void fetchCheckInRadiusConfig()
+      .then((config) => {
+        if (isCancelled || hasTouchedCheckInRadiusRef.current) {
+          return;
+        }
+
+        setCheckInRadiusConfig(config);
+        setFormState((current) => {
+          if (current.zoneMode !== "radius") {
+            return current;
+          }
+
+          const normalizedRadius = current.checkInRadius.trim();
+          if (
+            normalizedRadius &&
+            normalizedRadius !==
+              String(FALLBACK_CHECK_IN_RADIUS_CONFIG.defaultRadius)
+          ) {
+            return current;
+          }
+
+          return {
+            ...current,
+            checkInRadius: String(config.defaultRadius),
+          };
+        });
+      })
+      .catch((error) => {
+        if (!isCancelled) {
+          console.error(
+            "[HotspotCreatePage] Không tải được cấu hình bán kính check-in.",
+            error,
+          );
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [fetchCheckInRadiusConfig, isEditMode]);
+
   useEffect(() => {
     if (!isEditMode || editingHotspotId === null) {
       return;
@@ -141,13 +226,28 @@ function HotspotCreatePageContent() {
       setLoadHotspotError(null);
 
       try {
-        const response = await hotspotApi.getHotspotById(hotspotId);
+        const [radiusConfig, response] = await Promise.all([
+          fetchCheckInRadiusConfig().catch((error) => {
+            console.error(
+              "[HotspotCreatePage] Không tải được cấu hình bán kính check-in.",
+              error,
+            );
+            return FALLBACK_CHECK_IN_RADIUS_CONFIG;
+          }),
+          hotspotApi.getHotspotById(hotspotId),
+        ]);
 
         if (isCancelled) {
           return;
         }
 
-        setFormState(syncFormStateWithResponse(defaultHotspotForm, response));
+        setCheckInRadiusConfig(radiusConfig);
+        setFormState(
+          syncFormStateWithResponse(
+            createDefaultHotspotForm(radiusConfig.defaultRadius),
+            response,
+          ),
+        );
         setExistingHotspotMedias(resolveOrderedHotspotMedias(response.medias));
         setSelectedMedia(defaultSelectedMedia);
         setCreatedHotspot(null);
@@ -173,7 +273,7 @@ function HotspotCreatePageContent() {
     return () => {
       isCancelled = true;
     };
-  }, [editingHotspotId, isEditMode]);
+  }, [editingHotspotId, fetchCheckInRadiusConfig, isEditMode]);
 
   useEffect(() => {
     if (!shouldSearchAddress) {
@@ -226,12 +326,10 @@ function HotspotCreatePageContent() {
 
   const selectedFiles = [...selectedMedia.image, ...selectedMedia.video];
   const visibleExistingHotspotMedias = isEditMode ? existingHotspotMedias : [];
-  const existingImageMedias = visibleExistingHotspotMedias.filter(
-    isImageHotspotMedia,
-  );
-  const existingVideoMedias = visibleExistingHotspotMedias.filter(
-    isVideoHotspotMedia,
-  );
+  const existingImageMedias =
+    visibleExistingHotspotMedias.filter(isImageHotspotMedia);
+  const existingVideoMedias =
+    visibleExistingHotspotMedias.filter(isVideoHotspotMedia);
   const backendHotspotUrl =
     isEditMode && editingHotspotId !== null
       ? `${HOTSPOT_BACKEND_BASE_URL}/api/v1/hotspots/${editingHotspotId}`
@@ -394,7 +492,7 @@ function HotspotCreatePageContent() {
     setSubmitMessage(null);
 
     try {
-      const payload = buildCreatePayload(formState);
+      const payload = buildCreatePayload(formState, checkInRadiusConfig);
       setLastSubmittedPayload(payload);
       await validateHotspotPayload(payload, editingHotspotId);
 
@@ -497,7 +595,10 @@ function HotspotCreatePageContent() {
       </div>
 
       {isLoadingHotspot ? (
-        <PageLoading className="min-h-[140px] rounded-3xl border border-slate-200 shadow-none" spinnerClassName="h-6 w-6" />
+        <PageLoading
+          className="min-h-[140px] rounded-3xl border border-slate-200 shadow-none"
+          spinnerClassName="h-6 w-6"
+        />
       ) : null}
 
       {loadHotspotError ? (
@@ -676,9 +777,17 @@ function HotspotCreatePageContent() {
                     longitude={formState.longitude}
                     mode={formState.zoneMode}
                     checkInRadius={formState.checkInRadius}
+                    minCheckInRadius={checkInRadiusConfig.minRadius}
+                    maxCheckInRadius={checkInRadiusConfig.maxRadius}
+                    defaultCheckInRadius={checkInRadiusConfig.defaultRadius}
                     boundaryGeoJson={formState.boundaryGeoJson}
-                    onModeChange={(zoneMode) => updateField("zoneMode", zoneMode)}
-                    onRadiusChange={(radius) => updateField("checkInRadius", radius)}
+                    onModeChange={(zoneMode) =>
+                      updateField("zoneMode", zoneMode)
+                    }
+                    onRadiusChange={(radius) => {
+                      hasTouchedCheckInRadiusRef.current = true;
+                      updateField("checkInRadius", radius);
+                    }}
                     onBoundaryChange={(boundary) =>
                       updateField("boundaryGeoJson", boundary)
                     }
@@ -905,10 +1014,17 @@ function HotspotCreatePageContent() {
                               key={media.mediaId}
                               className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300"
                             >
-                              <a href={fileUrl} target="_blank" rel="noreferrer">
+                              <a
+                                href={fileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
                                 <Image
                                   src={fileUrl}
-                                  alt={buildBackendMediaLabel(media, `Ảnh ${index + 1}`)}
+                                  alt={buildBackendMediaLabel(
+                                    media,
+                                    `Ảnh ${index + 1}`,
+                                  )}
                                   width={640}
                                   height={256}
                                   className="h-32 w-full object-cover"
@@ -1307,6 +1423,7 @@ function buildBackendMediaLabel(
 
 function buildCreatePayload(
   formState: HotspotFormState,
+  checkInRadiusConfig: CheckInRadiusSettings,
 ): CreateHotspotPayload {
   const hotspotName = formState.hotspotName.trim();
   const address = formState.address.trim();
@@ -1345,7 +1462,12 @@ function buildCreatePayload(
     endTime: normalizeTimeForApi("thời gian kết thúc", formState.endTime),
   };
 
-  applyCheckInZoneToPayload(payload, formState, { latitude, longitude });
+  applyCheckInZoneToPayload(
+    payload,
+    formState,
+    { latitude, longitude },
+    checkInRadiusConfig,
+  );
 
   if (address) {
     payload.address = address;
@@ -1387,6 +1509,7 @@ function applyCheckInZoneToPayload(
   payload: CreateHotspotPayload,
   formState: HotspotFormState,
   center: { latitude: number; longitude: number },
+  checkInRadiusConfig: CheckInRadiusSettings,
 ) {
   if (formState.zoneMode === "polygon") {
     const vertices = parseGeoJsonToVertices(formState.boundaryGeoJson);
@@ -1411,11 +1534,11 @@ function applyCheckInZoneToPayload(
   );
 
   if (
-    checkInRadius < MIN_CHECK_IN_RADIUS ||
-    checkInRadius > MAX_CHECK_IN_RADIUS
+    checkInRadius < checkInRadiusConfig.minRadius ||
+    checkInRadius > checkInRadiusConfig.maxRadius
   ) {
     throw new Error(
-      `Bán kính check-in phải nằm trong khoảng ${MIN_CHECK_IN_RADIUS}m đến ${MAX_CHECK_IN_RADIUS}m.`,
+      `Bán kính check-in phải nằm trong khoảng ${checkInRadiusConfig.minRadius}m đến ${checkInRadiusConfig.maxRadius}m.`,
     );
   }
 
@@ -1724,6 +1847,49 @@ function parseHotspotId(value: string | null) {
   }
 
   return hotspotId;
+}
+
+function normalizeCheckInRadiusConfig(
+  response?: Partial<CheckInRadiusConfig> | null,
+): CheckInRadiusSettings {
+  const minRadius = normalizePositiveInteger(
+    response?.minRadius,
+    FALLBACK_CHECK_IN_RADIUS_CONFIG.minRadius,
+  );
+  const maxRadius = Math.max(
+    normalizePositiveInteger(
+      response?.maxRadius,
+      FALLBACK_CHECK_IN_RADIUS_CONFIG.maxRadius,
+    ),
+    minRadius,
+  );
+  const defaultRadius = clampNumber(
+    normalizePositiveInteger(
+      response?.defaultRadius,
+      FALLBACK_CHECK_IN_RADIUS_CONFIG.defaultRadius,
+    ),
+    minRadius,
+    maxRadius,
+  );
+
+  return {
+    minRadius,
+    maxRadius,
+    defaultRadius,
+  };
+}
+
+function normalizePositiveInteger(
+  value: number | null | undefined,
+  fallback: number,
+) {
+  return typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : fallback;
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function stripVietnameseAccents(value: string) {

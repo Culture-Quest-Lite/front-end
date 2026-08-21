@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "react-toastify/dist/ReactToastify.css";
 
+import { RouteDocumentTitleSync } from "@/components/app/RouteDocumentTitleSync";
 import { AppToastProvider } from "@/components/providers/AppToastProvider";
 
 export const metadata: Metadata = {
-  title: "Culture Quest Lite | Đăng nhập",
-  description: "Trang đăng nhập cho Culture Quest Lite",
+  title: "Culture Quest Lite",
+  description: "Nền tảng quản trị và biên tập nội dung Culture Quest Lite",
   icons: {
     icon: "/favicon-logo3.png",
     shortcut: "/favicon-logo3.png",
@@ -41,6 +42,7 @@ export default function RootLayout({
         <style dangerouslySetInnerHTML={{ __html: hideNativePasswordRevealCss }} />
       </head>
       <body className="min-h-full flex flex-col">
+        <RouteDocumentTitleSync />
         {children}
         <AppToastProvider />
       </body>
