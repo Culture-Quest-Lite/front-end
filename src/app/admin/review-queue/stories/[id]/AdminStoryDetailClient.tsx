@@ -184,24 +184,25 @@ export function AdminStoryDetailClient({ storyId }: { storyId: number }) {
       return;
     }
 
+    const resolvedHotspotId = hotspotId;
     let cancelled = false;
 
     async function loadHotspotName() {
       try {
-        const response = await hotspotApi.getHotspotById(hotspotId);
+        const response = await hotspotApi.getHotspotById(resolvedHotspotId);
 
         if (cancelled) {
           return;
         }
 
         setResolvedHotspot({
-          hotspotId,
+          hotspotId: resolvedHotspotId,
           hotspotName: response.hotspotName?.trim() || "Địa điểm không có tên",
         });
       } catch {
         if (!cancelled) {
           setResolvedHotspot({
-            hotspotId,
+            hotspotId: resolvedHotspotId,
             hotspotName: "Địa điểm không còn tồn tại",
           });
         }
@@ -222,24 +223,25 @@ export function AdminStoryDetailClient({ storyId }: { storyId: number }) {
       return;
     }
 
+    const resolvedRouteId = routeId;
     let cancelled = false;
 
     async function loadRouteName() {
       try {
-        const response = await routeApi.getRouteById(routeId);
+        const response = await routeApi.getRouteById(resolvedRouteId);
 
         if (cancelled) {
           return;
         }
 
         setResolvedRoute({
-          routeId,
+          routeId: resolvedRouteId,
           routeName: response.routeName?.trim() || "Tuyến đường không có tên",
         });
       } catch {
         if (!cancelled) {
           setResolvedRoute({
-            routeId,
+            routeId: resolvedRouteId,
             routeName: "Tuyến đường không còn tồn tại",
           });
         }
