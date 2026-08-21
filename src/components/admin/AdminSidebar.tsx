@@ -71,10 +71,14 @@ const menuGroups: Array<{
       },
       {
         title: "Kiểm duyệt thẻ và câu chuyện",
-        href: "/admin/tag-review",
+        href: "/admin/review-queue",
         icon: Tags,
       },
-      { title: "Duyệt đối tác", href: "/admin/partner-verification", icon: UserRoundCheck },
+      {
+        title: "Duyệt đối tác",
+        href: "/admin/partner-verification",
+        icon: UserRoundCheck,
+      },
     ],
   },
   {
@@ -108,30 +112,30 @@ export function AdminSidebar() {
   return (
     <Sidebar className="h-screen border-r border-[#E7EBF2] bg-[#FCFCFD]">
       <SidebarHeader className="border-b border-[#E7EBF2] bg-[#FCFCFD] p-4">
-              <div className="flex items-center gap-3">
-                <div className="relative h-[68px] w-[68px] shrink-0">
-                  <Image
-                    src="/logo2.png"
-                    alt="CultureQuest Lite"
-                    fill
-                    sizes="68px"
-                    priority
-                    className="object-contain"
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h1
-                    className="truncate text-[17px] font-semibold leading-none tracking-[-0.03em] text-slate-900"
-                    style={{ fontFamily: "'Playfair Display', serif" }}
-                  >
-                    CultureQuest Lite
-                  </h1>
-                  <span className="mt-2 inline-flex items-center rounded-full bg-[#FFF1F7] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#D94A8D] ring-1 ring-[#F7DCE8]">
-                    Admin
-                  </span>
-                </div>
-              </div>
-            </SidebarHeader>
+        <div className="flex items-center gap-3">
+          <div className="relative h-[68px] w-[68px] shrink-0">
+            <Image
+              src="/logo2.png"
+              alt="CultureQuest Lite"
+              fill
+              sizes="68px"
+              priority
+              className="object-contain"
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1
+              className="truncate text-[17px] font-semibold leading-none tracking-[-0.03em] text-slate-900"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              CultureQuest Lite
+            </h1>
+            <span className="mt-2 inline-flex items-center rounded-full bg-[#FFF1F7] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#D94A8D] ring-1 ring-[#F7DCE8]">
+              Admin
+            </span>
+          </div>
+        </div>
+      </SidebarHeader>
 
       <SidebarContent className="bg-[#FCFCFD] py-4">
         {menuGroups.map((group, index) => (
@@ -161,7 +165,9 @@ export function AdminSidebar() {
                           aria-current={active ? "page" : undefined}
                         >
                           <item.icon className="h-4 w-4 shrink-0" />
-                          <span className="py-2.5 pl-1.5 pr-3">{item.title}</span>
+                          <span className="py-2.5 pl-1.5 pr-3">
+                            {item.title}
+                          </span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

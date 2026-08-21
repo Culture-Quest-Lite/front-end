@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   Check,
@@ -16,7 +17,7 @@ import { Pagination } from "@/components/admin/Pagination";
 import { PageLoading } from "@/components/app/page-loading";
 import { PageHeader } from "@/components/app/ui-bits";
 import { Button } from "@/components/ui/button";
-import { hotspotApi, storyApi, tagApi, type BackendStory } from "@/services/api";
+import { hotspotApi } from "@/services/api";
 import { adminApi } from "@/services/api/admin/adminApi";
 import {
   curatorApi,
@@ -24,11 +25,9 @@ import {
   type CuratorPendingTag,
 } from "@/services/api/curator/curatorApi";
 import {
-  formatTagDateTime,
   formatTagStatus,
   getTagInitials,
   getTagStatusTone,
-  type TagRecord,
 } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 
@@ -42,14 +41,6 @@ type ToastState = {
   tone: "success" | "error";
   message: string;
 } | null;
-type DetailTarget =
-  | { type: "tag"; id: number }
-  | { type: "story"; id: number }
-  | null;
-type DetailData =
-  | { type: "tag"; item: TagRecord }
-  | { type: "story"; item: BackendStory }
-  | null;
 type ReviewTarget =
   | { type: "tag"; item: CuratorPendingTag }
   | { type: "story"; item: CuratorPendingStory }
@@ -65,17 +56,6 @@ function getErrorMessage(error: unknown) {
 
 function formatCount(value: number) {
   return new Intl.NumberFormat("vi-VN").format(value);
-}
-
-function formatCultureScore(value: number | null | undefined) {
-  if (typeof value !== "number") {
-    return "—";
-  }
-
-  return new Intl.NumberFormat("vi-VN", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(value);
 }
 
 function sortPendingTagsByCreatedAt(tags: CuratorPendingTag[]) {
@@ -189,7 +169,10 @@ function getStoryTagName(story: CuratorPendingStory) {
   return story.tag?.tagName?.trim() || "Chưa gắn thẻ";
 }
 
-function getStoryHotspotName(story: CuratorPendingStory, hotspotNames: NameMap) {
+function getStoryHotspotName(
+  story: CuratorPendingStory,
+  hotspotNames: NameMap,
+) {
   if (typeof story.hotspotId !== "number") {
     return "Chưa gắn địa điểm";
   }
@@ -214,10 +197,6 @@ export default function AdminTagReviewPage() {
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [submittingAction, setSubmittingAction] = useState<SubmitAction>(null);
   const [toast, setToast] = useState<ToastState>(null);
-  const [detailTarget, setDetailTarget] = useState<DetailTarget>(null);
-  const [detailData, setDetailData] = useState<DetailData>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
 
   const totalTagPages = Math.max(
     1,
@@ -240,7 +219,8 @@ export default function AdminTagReviewPage() {
     return allStories.slice(start, start + REVIEW_PAGE_SIZE);
   }, [allStories, safeStoryPage]);
 
-  const activeTotalItems = activeView === "tag" ? allTags.length : allStories.length;
+  const activeTotalItems =
+    activeView === "tag" ? allTags.length : allStories.length;
   const activeTotalPages =
     activeView === "tag" ? totalTagPages : totalStoryPages;
   const activeSafePage = activeView === "tag" ? safeTagPage : safeStoryPage;
@@ -251,19 +231,23 @@ export default function AdminTagReviewPage() {
     [activeTotalItems],
   );
   const showErrorState =
-    !loading && Boolean(error) && allTags.length === 0 && allStories.length === 0;
+    !loading &&
+    Boolean(error) &&
+    allTags.length === 0 &&
+    allStories.length === 0;
   const showEmptyState =
     !loading &&
     !showErrorState &&
-    (activeView === "tag" ? visibleTags.length === 0 : visibleStories.length === 0);
+    (activeView === "tag"
+      ? visibleTags.length === 0
+      : visibleStories.length === 0);
   const isApproveDialog = reviewDialogMode === "approve";
   const reviewCultureReason = getReviewTargetCultureReason(reviewTarget);
   const reviewTargetName = getReviewTargetName(reviewTarget);
   const reviewTargetTypeLabel = reviewTarget
     ? getEntityLabel(reviewTarget.type)
     : "nội dung";
-  const ReviewIcon =
-    reviewTarget?.type === "story" ? FileText : TagsIcon;
+  const ReviewIcon = reviewTarget?.type === "story" ? FileText : TagsIcon;
   const ActiveQueueIcon = activeView === "tag" ? TagsIcon : FileText;
 
   useEffect(() => {
@@ -378,57 +362,6 @@ export default function AdminTagReviewPage() {
     };
   }, [toast]);
 
-  useEffect(() => {
-    if (!detailTarget) {
-      return;
-    }
-
-    const currentDetailTarget = detailTarget;
-    let cancelled = false;
-
-    async function loadDetail() {
-      setDetailLoading(true);
-      setDetailError(null);
-      setDetailData(null);
-
-      try {
-        if (currentDetailTarget.type === "tag") {
-          const tag = await tagApi.getTagById(currentDetailTarget.id);
-
-          if (cancelled) {
-            return;
-          }
-
-          setDetailData({ type: "tag", item: tag });
-        } else {
-          const story = await storyApi.getStoryById(currentDetailTarget.id);
-
-          if (cancelled) {
-            return;
-          }
-
-          setDetailData({ type: "story", item: story });
-        }
-      } catch (loadDetailError) {
-        if (cancelled) {
-          return;
-        }
-
-        setDetailError(getErrorMessage(loadDetailError));
-      } finally {
-        if (!cancelled) {
-          setDetailLoading(false);
-        }
-      }
-    }
-
-    void loadDetail();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [detailTarget]);
-
   function resetReviewDialog() {
     setReviewTarget(null);
     setReviewDialogMode("approve");
@@ -448,21 +381,6 @@ export default function AdminTagReviewPage() {
     setReviewDialogMode("reject");
     setRejectReason("");
     setReviewError(null);
-  }
-
-  function closeDetailDialog() {
-    setDetailTarget(null);
-    setDetailData(null);
-    setDetailError(null);
-    setDetailLoading(false);
-  }
-
-  function openTagDetail(tagId: number) {
-    setDetailTarget({ type: "tag", id: tagId });
-  }
-
-  function openStoryDetail(storyId: number) {
-    setDetailTarget({ type: "story", id: storyId });
   }
 
   function removeTagFromQueue(tagId: number) {
@@ -552,7 +470,7 @@ export default function AdminTagReviewPage() {
   }
 
   return (
-    <div className="space-y-5 py-5">
+    <div className="space-y-5 pb-5 pt-2">
       {toast ? (
         <div
           className={cn(
@@ -656,20 +574,18 @@ export default function AdminTagReviewPage() {
           {activeView === "tag" ? (
             <table className="cq-admin-table">
               <colgroup>
-                <col className="w-[20%]" />
                 <col className="w-[12%]" />
-                <col className="w-[10%]" />
-                <col className="w-[24%]" />
+                <col className="w-[18%]" />
                 <col className="w-[14%]" />
-                <col className="w-[20%]" />
+                <col className="w-[34%]" />
+                <col className="w-[22%]" />
               </colgroup>
               <thead>
                 <tr>
+                  <th className="text-center">Ảnh</th>
                   <th>Thẻ</th>
                   <th>Trạng thái</th>
-                  <th>Điểm VH</th>
                   <th>Đánh giá văn hóa</th>
-                  <th>Thời gian</th>
                   <th className="text-center">Thao tác</th>
                 </tr>
               </thead>
@@ -678,7 +594,6 @@ export default function AdminTagReviewPage() {
                   <TagReviewRow
                     key={tag.tagId}
                     tag={tag}
-                    onOpenDetail={() => openTagDetail(tag.tagId)}
                     onOpenApprove={() =>
                       openApproveDialog({ type: "tag", item: tag })
                     }
@@ -713,7 +628,6 @@ export default function AdminTagReviewPage() {
                     key={story.storyId}
                     story={story}
                     hotspotName={getStoryHotspotName(story, hotspotNames)}
-                    onOpenDetail={() => openStoryDetail(story.storyId)}
                     onOpenApprove={() =>
                       openApproveDialog({ type: "story", item: story })
                     }
@@ -744,62 +658,6 @@ export default function AdminTagReviewPage() {
           </div>
         </section>
       )}
-
-      {detailTarget ? (
-        <div className="fixed inset-0 z-[65] flex items-center justify-center bg-slate-950/45 p-2 sm:p-3">
-          <button
-            type="button"
-            className="absolute inset-0 cursor-default"
-            onClick={closeDetailDialog}
-            aria-label="Đóng chi tiết"
-          />
-
-          <div className="relative z-10 flex w-full max-w-2xl flex-col overflow-hidden rounded-[22px] bg-white shadow-[0_24px_60px_-42px_rgba(15,23,42,0.42)]">
-            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-5">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">
-                  {detailTarget.type === "tag"
-                    ? "Chi tiết thẻ"
-                    : "Chi tiết câu chuyện"}
-                </h2>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Dữ liệu được tải trực tiếp từ API chi tiết theo ID.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeDetailDialog}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                aria-label="Đóng"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="max-h-[calc(100vh-6rem)] overflow-y-auto px-4 py-4 sm:px-5">
-              {detailLoading ? (
-                <div className="flex min-h-[220px] items-center justify-center">
-                  <div className="inline-flex items-center gap-2 text-sm text-slate-500">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Đang tải chi tiết...
-                  </div>
-                </div>
-              ) : detailError ? (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {detailError}
-                </div>
-              ) : detailData?.type === "tag" ? (
-                <TagDetailPanel tag={detailData.item} />
-              ) : detailData?.type === "story" ? (
-                <StoryDetailPanel
-                  story={detailData.item}
-                  hotspotName={getStoryHotspotName(detailData.item, hotspotNames)}
-                />
-              ) : null}
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {reviewTarget ? (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 p-2 sm:p-3">
@@ -1038,12 +896,10 @@ export default function AdminTagReviewPage() {
 
 function TagReviewRow({
   tag,
-  onOpenDetail,
   onOpenApprove,
   onOpenReject,
 }: {
   tag: CuratorPendingTag;
-  onOpenDetail: () => void;
   onOpenApprove: () => void;
   onOpenReject: () => void;
 }) {
@@ -1053,6 +909,23 @@ function TagReviewRow({
   return (
     <tr>
       <td className="align-middle">
+        <div className="flex justify-center">
+          {tag.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={tag.imageUrl}
+              alt={tag.tagName}
+              className="h-11 w-11 rounded-xl object-cover"
+            />
+          ) : (
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[linear-gradient(135deg,_#FFF1F7,_#FFF7ED)] text-xs font-semibold text-slate-700 ring-1 ring-[#F7DCE8]">
+              {getTagInitials(tag.tagName)}
+            </div>
+          )}
+        </div>
+      </td>
+
+      <td className="align-middle">
         <div className="min-w-0">
           <p className="line-clamp-2 text-sm font-semibold leading-6 text-slate-800">
             {tag.tagName}
@@ -1060,7 +933,7 @@ function TagReviewRow({
         </div>
       </td>
 
-      <td className="align-middle text-center">
+      <td className="align-middle">
         <span
           className={cn(
             "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium",
@@ -1069,17 +942,6 @@ function TagReviewRow({
         >
           {formatTagStatus(tag.tagStatus)}
         </span>
-      </td>
-
-      <td className="align-middle text-center">
-        {typeof tag.cultureScore === "number" ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-pink-50 px-2.5 py-1 text-xs font-semibold text-pink-700">
-            <Sparkles className="h-3.5 w-3.5" />
-            {formatCultureScore(tag.cultureScore)}
-          </span>
-        ) : (
-          <span className="text-sm text-slate-400">—</span>
-        )}
       </td>
 
       <td className="align-middle">
@@ -1097,25 +959,15 @@ function TagReviewRow({
       </td>
 
       <td className="align-middle">
-        <div className="text-xs text-slate-500">
-          <div>
-            <p className="font-medium text-slate-700">Tạo lúc</p>
-            <p className="mt-0.5">{formatTagDateTime(tag.createdAt)}</p>
-          </div>
-        </div>
-      </td>
-
-      <td className="align-middle">
         <div className="flex flex-nowrap items-center justify-center gap-2 whitespace-nowrap">
-          <button
-            type="button"
-            onClick={onOpenDetail}
+          <Link
+            href={`/admin/review-queue/tags/${tag.tagId}`}
             className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
             aria-label={`Xem chi tiết ${tag.tagName}`}
             title="Xem chi tiết"
           >
             <Eye className="h-4 w-4" />
-          </button>
+          </Link>
           <button
             type="button"
             onClick={onOpenApprove}
@@ -1141,13 +993,11 @@ function TagReviewRow({
 function StoryReviewRow({
   story,
   hotspotName,
-  onOpenDetail,
   onOpenApprove,
   onOpenReject,
 }: {
   story: CuratorPendingStory;
   hotspotName: string;
-  onOpenDetail: () => void;
   onOpenApprove: () => void;
   onOpenReject: () => void;
 }) {
@@ -1195,15 +1045,14 @@ function StoryReviewRow({
 
       <td className="align-middle">
         <div className="flex flex-nowrap items-center justify-center gap-2 whitespace-nowrap">
-          <button
-            type="button"
-            onClick={onOpenDetail}
+          <Link
+            href={`/admin/review-queue/stories/${story.storyId}`}
             className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
             aria-label={`Xem chi tiết ${story.title}`}
             title="Xem chi tiết"
           >
             <Eye className="h-4 w-4" />
-          </button>
+          </Link>
           <button
             type="button"
             onClick={onOpenApprove}
@@ -1223,172 +1072,5 @@ function StoryReviewRow({
         </div>
       </td>
     </tr>
-  );
-}
-
-function DetailField({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-        {label}
-      </p>
-      <p className="mt-1 text-sm leading-6 text-slate-700">{value}</p>
-    </div>
-  );
-}
-
-function TagDetailPanel({ tag }: { tag: TagRecord }) {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-start gap-4">
-        {tag.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={tag.imageUrl}
-            alt={tag.tagName}
-            className="h-20 w-20 shrink-0 rounded-3xl object-cover"
-          />
-        ) : (
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-[linear-gradient(135deg,_#FFF1F7,_#FFF7ED)] text-slate-700 shadow-sm ring-1 ring-[#F7DCE8]">
-            <span className="text-xl font-semibold">
-              {getTagInitials(tag.tagName)}
-            </span>
-          </div>
-        )}
-
-        <div className="min-w-0 flex-1">
-          <h3 className="text-lg font-semibold text-slate-900">{tag.tagName}</h3>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <span
-              className={cn(
-                "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium",
-                getTagStatusTone(tag.tagStatus),
-              )}
-            >
-              {formatTagStatus(tag.tagStatus)}
-            </span>
-            {typeof tag.cultureScore === "number" ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-pink-50 px-2.5 py-1 text-xs font-semibold text-pink-700">
-                <Sparkles className="h-3.5 w-3.5" />
-                {formatCultureScore(tag.cultureScore)}
-              </span>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <DetailField
-          label="Tạo lúc"
-          value={formatTagDateTime(tag.createdAt)}
-        />
-        <DetailField
-          label="Cập nhật lúc"
-          value={formatTagDateTime(tag.updatedAt)}
-        />
-        <DetailField
-          label="Số tuyến"
-          value={String(tag.routeCount ?? 0)}
-        />
-        <DetailField
-          label="Số câu chuyện"
-          value={String(tag.storyCount ?? 0)}
-        />
-      </div>
-
-      <DetailField
-        label="Đánh giá văn hóa"
-        value={
-          tag.cultureReason?.trim() ||
-          "Backend chưa trả về lý do đánh giá văn hóa cho thẻ này."
-        }
-      />
-
-      {tag.rejectReason?.trim() ? (
-        <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-red-500">
-            Lý do từ chối gần nhất
-          </p>
-          <p className="mt-1 text-sm leading-6 text-red-700">
-            {tag.rejectReason.trim()}
-          </p>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function StoryDetailPanel({
-  story,
-  hotspotName,
-}: {
-  story: BackendStory;
-  hotspotName: string;
-}) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900">{story.title}</h3>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <span
-            className={cn(
-              "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium",
-              getStoryStatusTone(story.status),
-            )}
-          >
-            {formatStoryStatus(story.status)}
-          </span>
-          {typeof story.cultureScore === "number" ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
-              <Sparkles className="h-3.5 w-3.5" />
-              {formatCultureScore(story.cultureScore)}
-            </span>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <DetailField label="Địa điểm" value={hotspotName} />
-        <DetailField label="Thẻ" value={getStoryTagName(story)} />
-        <DetailField
-          label="Kịch bản audio"
-          value={story.audioScript?.trim() || "Không có"}
-        />
-        <DetailField
-          label="Số media"
-          value={String(story.medias?.length ?? 0)}
-        />
-      </div>
-
-      <DetailField
-        label="Nội dung câu chuyện"
-        value={story.content?.trim() || "Câu chuyện không có nội dung."}
-      />
-
-      <DetailField
-        label="Đánh giá văn hóa"
-        value={
-          story.cultureReason?.trim() ||
-          "Backend chưa trả về lý do đánh giá văn hóa cho câu chuyện này."
-        }
-      />
-
-      {story.rejectReason?.trim() ? (
-        <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-red-500">
-            Lý do từ chối gần nhất
-          </p>
-          <p className="mt-1 text-sm leading-6 text-red-700">
-            {story.rejectReason.trim()}
-          </p>
-        </div>
-      ) : null}
-    </div>
   );
 }
