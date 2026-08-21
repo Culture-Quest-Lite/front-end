@@ -42,13 +42,13 @@ function DetailItem({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PageHeader() {
+function PageHeader({ backHref }: { backHref: string }) {
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
       <div className="flex items-center gap-2 text-slate-700">
         <div className="flex items-center gap-3">
           <Link
-            href="/curator/tags"
+            href={backHref}
             className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
           >
             <ArrowLeft className="h-2.5 w-2.5" />
@@ -68,7 +68,17 @@ function PageHeader() {
   );
 }
 
-export function TagDetailClient({ tagId }: { tagId: number }) {
+type TagDetailClientProps = {
+  tagId: number;
+  backHref?: string;
+  backLabel?: string;
+};
+
+export function TagDetailClient({
+  tagId,
+  backHref = "/curator/tags",
+  backLabel = "Quay lại danh sách thẻ",
+}: TagDetailClientProps) {
   const [backendTag, setBackendTag] = useState<TagRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -119,7 +129,7 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
     return (
       <div className="space-y-6">
         <TabTitleMarker title="Không tìm thấy thẻ" />
-        <PageHeader />
+        <PageHeader backHref={backHref} />
 
         <section className="rounded-[1.75rem] border border-dashed border-slate-300 bg-white px-5 py-10 text-center shadow-sm sm:px-6">
           <p className="cq-card-title">
@@ -135,10 +145,10 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
           ) : null}
           <div className="mt-5">
             <Link
-              href="/curator/tags"
+              href={backHref}
               className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-5 text-sm font-medium text-slate-700 transition hover:bg-white"
             >
-              Quay lại danh sách thẻ
+              {backLabel}
             </Link>
           </div>
         </section>
@@ -153,7 +163,7 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
   return (
     <div className="space-y-6">
       <TabTitleMarker title={backendTag.tagName} />
-      <PageHeader />
+      <PageHeader backHref={backHref} />
 
       <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
         <div className="max-w-4xl">

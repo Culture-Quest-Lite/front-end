@@ -26,7 +26,7 @@ const ROUTE_TITLE_RULES: TitleRule[] = [
   },
   { pattern: /^\/admin\/content-review(?:\/|$)/, title: "Duyệt nội dung" },
   {
-    pattern: /^\/admin\/tag-review(?:\/|$)/,
+    pattern: /^\/admin\/review-queue(?:\/|$)/,
     title: "Kiểm duyệt thẻ và câu chuyện",
   },
   { pattern: /^\/admin\/moderation(?:\/|$)/, title: "Xử lý báo cáo" },
