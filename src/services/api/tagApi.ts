@@ -10,6 +10,17 @@ type GetTagsParams = {
   sortDir?: string;
 };
 
+type CreateTagPayload = {
+  tagName: string;
+  imageFile?: File | null;
+  confirmCultural?: boolean;
+};
+
+type UpdateTagPayload = {
+  tagName: string;
+  imageFile?: File | null;
+};
+
 export const tagApi = {
   getTags: async (params?: GetTagsParams) => {
     const searchParams = new URLSearchParams();
@@ -54,12 +65,15 @@ export const tagApi = {
     });
   },
 
-  createTag: async (payload: { tagName: string; imageFile?: File | null }) => {
+  createTag: async (payload: CreateTagPayload) => {
     const formData = new FormData();
 
     formData.append("tagName", payload.tagName);
     if (payload.imageFile) {
       formData.append("imageFile", payload.imageFile);
+    }
+    if (typeof payload.confirmCultural === "boolean") {
+      formData.append("confirmCultural", String(payload.confirmCultural));
     }
 
     return apiFetch<TagRecord>("/api/tags", {
@@ -71,7 +85,7 @@ export const tagApi = {
 
   updateTag: async (
     tagId: number,
-    payload: { tagName: string; imageFile?: File | null },
+    payload: UpdateTagPayload,
   ) => {
     const formData = new FormData();
 

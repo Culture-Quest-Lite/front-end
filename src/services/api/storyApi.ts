@@ -1,11 +1,20 @@
 import { apiFetch } from "@/lib/api";
+import type { TagUsageRecord } from "@/lib/tags";
 
 export interface BackendStoryTag {
   tagId: number;
   tagName: string;
+  imageUrl?: string | null;
   tagStatus?: string;
+  routeCount?: number | null;
+  hotspotCount?: number | null;
+  storyCount?: number | null;
+  cultureScore?: number | null;
+  cultureReason?: string | null;
+  rejectReason?: string | null;
   createdAt?: string;
   updatedAt?: string;
+  usages?: TagUsageRecord[] | null;
 }
 
 export interface BackendStoryMedia {
@@ -33,6 +42,11 @@ export interface BackendStory {
   distanceToNext?: number | null;
   audioScript?: string | null;
   medias?: BackendStoryMedia[];
+  cultureScore?: number | null;
+  cultureReason?: string | null;
+  rejectReason?: string | null;
+  averageRating?: number | null;
+  totalReviews?: number | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -49,6 +63,11 @@ export interface BackendStorySummary {
   distanceToNext?: number | null;
   audioScript?: string | null;
   medias?: BackendStoryMedia[];
+  cultureScore?: number | null;
+  cultureReason?: string | null;
+  rejectReason?: string | null;
+  averageRating?: number | null;
+  totalReviews?: number | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -85,6 +104,11 @@ export interface UpdateStoryFields {
   title: string;
   content: string;
   audioScript?: string;
+}
+
+export interface CreateStoryPayload extends UpdateStoryFields {
+  files?: File[];
+  confirmCultural?: boolean;
 }
 
 export type UpdateStoryPayload =
@@ -144,10 +168,14 @@ export const storyApi = {
     return normalizeStoryPageResponse(response, params);
   },
 
-  createStory: async (payload: FormData) => {
+  createStory: async (payload: FormData | CreateStoryPayload) => {
+    const body = isFormDataPayload(payload)
+      ? payload
+      : buildCreateStoryFormData(payload);
+
     return apiFetch<CreateStoryResponse>("/api/stories", {
       method: "POST",
-      body: payload,
+      body,
       sameOrigin: true,
     });
   },
@@ -267,4 +295,30 @@ function safeParseStoryResponse<T = { message?: unknown; error?: unknown }>(
   } catch {
     return null;
   }
+}
+
+function isFormDataPayload(
+  payload: FormData | CreateStoryPayload,
+): payload is FormData {
+  return typeof FormData !== "undefined" && payload instanceof FormData;
+}
+
+function buildCreateStoryFormData(payload: CreateStoryPayload) {
+  const formData = new FormData();
+
+  formData.append("title", payload.title);
+  formData.append("content", payload.content);
+  formData.append("tagId", String(payload.tagId));
+  formData.append("hotspotId", String(payload.hotspotId));
+  formData.append("audioScript", payload.audioScript ?? "");
+
+  payload.files?.forEach((file) => {
+    formData.append("files", file);
+  });
+
+  if (typeof payload.confirmCultural === "boolean") {
+    formData.append("confirmCultural", String(payload.confirmCultural));
+  }
+
+  return formData;
 }

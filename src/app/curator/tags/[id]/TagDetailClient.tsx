@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 
 import { PageLoading } from "@/components/app/page-loading";
+import { TabTitleMarker } from "@/components/app/TabTitleMarker";
 import { TagIdentityChip } from "@/components/curator/TagIdentityChip";
 import {
   formatTagDateTime,
@@ -117,6 +118,7 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
   if (!backendTag) {
     return (
       <div className="space-y-6">
+        <TabTitleMarker title="Không tìm thấy thẻ" />
         <PageHeader />
 
         <section className="rounded-[1.75rem] border border-dashed border-slate-300 bg-white px-5 py-10 text-center shadow-sm sm:px-6">
@@ -150,6 +152,7 @@ export function TagDetailClient({ tagId }: { tagId: number }) {
 
   return (
     <div className="space-y-6">
+      <TabTitleMarker title={backendTag.tagName} />
       <PageHeader />
 
       <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">

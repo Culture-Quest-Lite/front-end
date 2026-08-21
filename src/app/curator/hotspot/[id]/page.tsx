@@ -21,6 +21,7 @@ import {
   type HotspotItem,
   type HotspotProfile,
 } from "@/data/hotspots";
+import { TabTitleMarker } from "@/components/app/TabTitleMarker";
 import { buildTagToken } from "@/lib/tags";
 import type {
   BackendHotspot,
@@ -230,6 +231,7 @@ export async function renderHotspotDetailPage({
 
   return (
     <div className="space-y-5">
+      <TabTitleMarker title={hotspot.title} />
       {effectiveHotspotId ? (
         <HotspotDetailNetworkSync hotspotId={effectiveHotspotId} />
       ) : null}

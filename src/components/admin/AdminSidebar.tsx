@@ -5,16 +5,14 @@ import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
-  Tag,
   Users,
   LogOut,
-  BookOpen,
   MapPin,
-  Map,
   ShieldCheck,
   Clock,
   Shield,
   CreditCard,
+  Tags,
   UserRoundCheck,
   KeyRound,
 } from "lucide-react";
@@ -60,6 +58,7 @@ const menuGroups: Array<{
       { title: "Người dùng", href: "/admin/users-manager", icon: Users },
       { title: "Phân quyền", href: "/admin/permissions", icon: KeyRound },
       { title: "Gói đăng ký", href: "/admin/subscriptions", icon: CreditCard },
+      { title: "Bán kính địa điểm", href: "/admin/settings", icon: MapPin },
     ],
   },
   {
@@ -69,6 +68,11 @@ const menuGroups: Array<{
         title: "Duyệt nội dung",
         href: "/admin/content-review",
         icon: ShieldCheck,
+      },
+      {
+        title: "Kiểm duyệt thẻ và câu chuyện",
+        href: "/admin/tag-review",
+        icon: Tags,
       },
       { title: "Duyệt đối tác", href: "/admin/partner-verification", icon: UserRoundCheck },
     ],
@@ -83,10 +87,6 @@ const menuGroups: Array<{
       // hiển thị ở trang Tổng quan. Mở lại khi trang được nối vào API thật —
       // nhớ import lại icon BarChart3 từ lucide-react.
       // { title: "Phân tích", href: "/admin/analytics", icon: BarChart3 },
-      // Tạm ẩn: /admin/settings mới chỉ là UI, các Toggle/Input chưa nối vào API
-      // nào nên bấm Lưu không thay đổi gì trong hệ thống. Mở lại khi có API cấu
-      // hình — nhớ import lại icon Settings từ lucide-react.
-      // { title: "Cài đặt", href: "/admin/settings", icon: Settings },
     ],
   },
 ];

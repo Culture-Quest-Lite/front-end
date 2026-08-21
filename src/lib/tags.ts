@@ -1,3 +1,8 @@
+export interface TagUsageRecord {
+  refId: number;
+  type: string;
+}
+
 export interface TagRecord {
   tagId: number;
   tagName: string;
@@ -6,8 +11,12 @@ export interface TagRecord {
   routeCount: number;
   hotspotCount: number;
   storyCount: number;
+  cultureScore?: number | null;
+  cultureReason?: string | null;
+  rejectReason?: string | null;
   createdAt: string;
   updatedAt: string;
+  usages?: TagUsageRecord[] | null;
 }
 
 export interface TagPageResponse {
@@ -123,10 +132,18 @@ export function formatTagStatus(value: string | null | undefined) {
   const normalizedValue = value?.trim().toUpperCase();
 
   switch (normalizedValue) {
+    case "PENDING":
+    case "PENDING_REVIEW":
+      return "Chờ duyệt";
+    case "APPROVED":
     case "ACTIVE":
       return "Đang hoạt động";
+    case "REJECTED":
+      return "Bị từ chối";
     case "INACTIVE":
       return "Ngừng hoạt động";
+    case "DELETED":
+      return "Đã xóa";
     default:
       return value?.trim() || "Chưa có dữ liệu";
   }
@@ -136,9 +153,16 @@ export function getTagStatusTone(value: string | null | undefined) {
   const normalizedValue = value?.trim().toUpperCase();
 
   switch (normalizedValue) {
+    case "PENDING":
+    case "PENDING_REVIEW":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    case "APPROVED":
     case "ACTIVE":
       return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "REJECTED":
+      return "border-red-200 bg-red-50 text-red-700";
     case "INACTIVE":
+    case "DELETED":
       return "border-slate-200 bg-slate-100 text-slate-600";
     default:
       return "border-slate-200 bg-slate-50 text-slate-700";
