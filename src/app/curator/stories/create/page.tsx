@@ -11,7 +11,17 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { ArrowLeft, ImagePlus, Save, Video, Volume2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  FileText,
+  ImagePlus,
+  Save,
+  Send,
+  ShieldCheck,
+  Video,
+  Volume2,
+  X,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,13 +56,48 @@ type HotspotOption = {
   label: string;
 };
 
+type CreateStoryFormPayload = {
+  title: string;
+  tagId: number;
+  hotspotId: number;
+  content: string;
+  audioScript: string;
+  files: File[];
+};
+
+type ApiErrorWithResponse = Error & {
+  responseBody?: unknown;
+};
+
 const MAX_MEDIA_TOTAL = 10;
+const STORY_SUCCESS_TOAST_KEY = "curator-story-success-toast";
 
 const mediaTypeOptions: MediaTypeOption[] = [
   { type: "audio", label: "Audio", icon: Volume2, accept: "audio/*" },
   { type: "video", label: "Video", icon: Video, accept: "video/*" },
   { type: "image", label: "Hình ảnh", icon: ImagePlus, accept: "image/*" },
 ];
+
+function getStoryApiErrorCode(error: unknown) {
+  const responseBody = (error as ApiErrorWithResponse | null)?.responseBody;
+
+  if (!responseBody || typeof responseBody !== "object") {
+    return null;
+  }
+
+  const errorCode =
+    "errorCode" in responseBody ? responseBody.errorCode : undefined;
+
+  return typeof errorCode === "string" ? errorCode : null;
+}
+
+function getStorySubmitErrorMessage(error: unknown, fallbackMessage: string) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return fallbackMessage;
+}
 
 function countWords(value: string) {
   const trimmedValue = value.trim();
@@ -157,6 +202,8 @@ export default function CreateStoryPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+  const [pendingCultureReviewPayload, setPendingCultureReviewPayload] =
+    useState<CreateStoryFormPayload | null>(null);
 
   const wordCount = countWords(content);
   const totalMediaCount = countMediaItems(mediaByType);
@@ -269,6 +316,66 @@ export default function CreateStoryPage() {
     loadOptions();
   }, []);
 
+  async function handleCreateStory(
+    payload: CreateStoryFormPayload,
+    options?: { confirmCultural?: boolean; allowCultureReviewPrompt?: boolean },
+  ) {
+    try {
+      await storyApi.createStory({
+        title: payload.title,
+        content: payload.content,
+        tagId: payload.tagId,
+        hotspotId: payload.hotspotId,
+        audioScript: payload.audioScript,
+        files: payload.files,
+        confirmCultural: options?.confirmCultural,
+      });
+
+      setSubmitSuccess("Câu chuyện đã được lưu nháp thành công.");
+      sessionStorage.setItem(
+        STORY_SUCCESS_TOAST_KEY,
+        "Tạo câu chuyện thành công.",
+      );
+      router.push("/curator/stories");
+      return true;
+    } catch (error) {
+      if (
+        options?.allowCultureReviewPrompt &&
+        getStoryApiErrorCode(error) === "CULTURE_REVIEW_REQUIRED"
+      ) {
+        setPendingCultureReviewPayload(payload);
+        return false;
+      }
+
+      throw error;
+    }
+  }
+
+  async function handleConfirmCultureReview() {
+    if (!pendingCultureReviewPayload || isSubmitting) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setSubmitError(null);
+
+      await handleCreateStory(pendingCultureReviewPayload, {
+        confirmCultural: true,
+      });
+    } catch (error) {
+      setPendingCultureReviewPayload(null);
+      setSubmitError(
+        getStorySubmitErrorMessage(
+          error,
+          "Không thể lưu nháp câu chuyện. Vui lòng thử lại.",
+        ),
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitError(null);
@@ -290,28 +397,27 @@ export default function CreateStoryPage() {
     setIsSubmitting(true);
 
     try {
-      const formData = new FormData();
-      formData.append("title", trimmedTitle);
-      formData.append("content", trimmedContent);
-      formData.append("tagId", String(parsedTagId));
-      formData.append("hotspotId", String(parsedHotspotId));
-      formData.append("audioScript", normalizedAudioScript);
-
-      Object.values(mediaByType)
-        .flat()
-        .forEach((item) => {
-          formData.append("files", item.file);
-        });
-
-      const response = await storyApi.createStory(formData);
-      setSubmitSuccess("Câu chuyện đã được lưu nháp thành công.");
-      router.push("/curator/stories");
-      return response;
+      await handleCreateStory(
+        {
+          title: trimmedTitle,
+          content: trimmedContent,
+          tagId: parsedTagId,
+          hotspotId: parsedHotspotId,
+          audioScript: normalizedAudioScript,
+          files: Object.values(mediaByType)
+            .flat()
+            .map((item) => item.file),
+        },
+        {
+          allowCultureReviewPrompt: true,
+        },
+      );
     } catch (error) {
       setSubmitError(
-        error instanceof Error
-          ? error.message
-          : "Không thể lưu nháp câu chuyện. Vui lòng thử lại.",
+        getStorySubmitErrorMessage(
+          error,
+          "Không thể lưu nháp câu chuyện. Vui lòng thử lại.",
+        ),
       );
     } finally {
       setIsSubmitting(false);
@@ -572,6 +678,100 @@ export default function CreateStoryPage() {
           </Button>
         </div>
       </form>
+
+      {pendingCultureReviewPayload ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/30 px-4 py-6 backdrop-blur-sm">
+          <div
+            className="absolute inset-0"
+            onClick={() => setPendingCultureReviewPayload(null)}
+            aria-hidden="true"
+          />
+
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="story-culture-review-title"
+            className="relative z-10 w-full max-w-[26rem] overflow-hidden rounded-[1.6rem] border border-[#F1E4E9] bg-[radial-gradient(circle_at_top,_rgba(255,240,247,0.9),_rgba(255,255,255,1)_38%)] px-5 py-6 shadow-[0_24px_56px_rgba(15,23,42,0.18)] sm:px-6 sm:py-7"
+          >
+            <button
+              type="button"
+              onClick={() => setPendingCultureReviewPayload(null)}
+              disabled={isSubmitting}
+              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label="Đóng xác nhận"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+
+            <div className="flex flex-col items-center text-center">
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[linear-gradient(180deg,_rgba(252,231,243,0.95),_rgba(255,255,255,1))] shadow-[0_16px_32px_rgba(236,72,153,0.16)]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-[1rem] bg-white text-pink-500 shadow-sm">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-[linear-gradient(135deg,#EC4899,#F59E0B)] text-white shadow-[0_8px_18px_rgba(236,72,153,0.24)]">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                </div>
+              </div>
+
+              <h2
+                id="story-culture-review-title"
+                className="mt-5 text-base font-semibold leading-tight tracking-[-0.02em] text-slate-900 sm:text-[1.0625rem]"
+              >
+                Xác nhận gửi để duyệt nội dung văn hóa
+              </h2>
+              <div className="mt-2.5 h-1 w-10 rounded-full bg-[linear-gradient(90deg,#F472B6,#EC4899)]" />
+              <p className="mt-3.5 max-w-[20rem] text-xs leading-5 text-slate-500 sm:text-[0.8125rem]">
+                Hệ thống cần xác nhận thêm trước khi gửi câu chuyện này vào
+                luồng duyệt nội dung văn hóa của quản trị viên.
+              </p>
+            </div>
+
+            <div className="mt-6 rounded-[1.1rem] border border-[#E9E3EA] bg-white/85 p-3.5 shadow-[0_12px_28px_rgba(15,23,42,0.05)]">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pink-50 text-pink-500">
+                  <Send className="h-3.5 w-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-slate-900 sm:text-[0.8125rem]">
+                    Lưu ý quan trọng
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-[0.8125rem]">
+                    Sau khi gửi, câu chuyện sẽ chờ quản trị viên kiểm duyệt
+                    trước khi hiển thị trong hệ thống.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-2.5 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPendingCultureReviewPayload(null)}
+                disabled={isSubmitting}
+                className="rounded-2xl border-slate-200 bg-slate-100 px-4 text-xs font-semibold text-slate-500 shadow-none hover:bg-slate-200 hover:text-slate-700"
+              >
+                Hủy bỏ
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void handleConfirmCultureReview()}
+                disabled={isSubmitting}
+                className="rounded-2xl border-0 bg-[linear-gradient(90deg,#EC4899,#F59E0B)] px-4 text-xs font-semibold text-white shadow-[0_14px_28px_rgba(236,72,153,0.26)] hover:opacity-95"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Send className="h-3.5 w-3.5" />
+                  {isSubmitting
+                    ? "Đang gửi lại..."
+                    : "Xác nhận và gửi để duyệt"}
+                </span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

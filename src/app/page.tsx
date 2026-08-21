@@ -428,16 +428,6 @@ export default function TravelLogin() {
                 ) : null}
               </div>
 
-              <div className="pr-2 text-right">
-                <button
-                  className="text-[10px] font-medium text-slate-400 transition hover:text-[#dd4a8d]"
-                  onClick={() => router.push("/reset-password")}
-                  type="button"
-                >
-                  Bạn quên mật khẩu?
-                </button>
-              </div>
-
               <button
                 className="h-[3rem] w-full rounded-full bg-[linear-gradient(90deg,_#eb489b_0%,_#f58752_58%,_#ffc93c_100%)] text-[13px] font-semibold text-white shadow-[0_16px_28px_rgba(235,72,155,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_34px_rgba(235,72,155,0.28)] focus:outline-none focus:shadow-[0_0_0_4px_rgba(255,103,154,0.12)] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70"
                 disabled={loading}

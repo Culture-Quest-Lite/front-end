@@ -1,7 +1,7 @@
-import SettingsPageClient from './SettingsPageClient';
+import SettingsPageClient from "./SettingsPageClient";
 
 export const metadata = {
-  title: 'Cài đặt hệ thống',
+  title: "Bán kính địa điểm",
 };
 
 export default function SettingsPage() {

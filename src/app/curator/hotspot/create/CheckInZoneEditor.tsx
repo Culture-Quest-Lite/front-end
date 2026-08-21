@@ -41,6 +41,9 @@ type CheckInZoneEditorProps = {
   longitude: string;
   mode: CheckInZoneMode;
   checkInRadius: string;
+  minCheckInRadius: number;
+  maxCheckInRadius: number;
+  defaultCheckInRadius: number;
   boundaryGeoJson: string;
   onModeChange: (mode: CheckInZoneMode) => void;
   onRadiusChange: (radius: string) => void;
@@ -61,6 +64,9 @@ export function CheckInZoneEditor({
   longitude,
   mode,
   checkInRadius,
+  minCheckInRadius,
+  maxCheckInRadius,
+  defaultCheckInRadius,
   boundaryGeoJson,
   onModeChange,
   onRadiusChange,
@@ -73,14 +79,18 @@ export function CheckInZoneEditor({
 
   const parsedRadius = useMemo(() => {
     const value = Number.parseInt(checkInRadius, 10);
-    return Number.isFinite(value) ? value : DEFAULT_CHECK_IN_RADIUS;
-  }, [checkInRadius]);
+    return Number.isFinite(value) ? value : defaultCheckInRadius;
+  }, [checkInRadius, defaultCheckInRadius]);
+  const parsedBoundaryVertices = useMemo(
+    () => parseGeoJsonToVertices(boundaryGeoJson),
+    [boundaryGeoJson],
+  );
 
   // Đỉnh polygon giữ ở state của component nhưng nguồn sự thật là chuỗi GeoJSON
   // trong form state — nhờ vậy vùng đã vẽ không mất khi map bị unmount lúc toạ độ
   // tạm thời không hợp lệ (ô địa chỉ xoá lat/lng khi người dùng gõ lại).
-  const [vertices, setVertices] = useState<GeoPosition[]>(() =>
-    parseGeoJsonToVertices(boundaryGeoJson),
+  const [vertices, setVertices] = useState<GeoPosition[]>(
+    parsedBoundaryVertices,
   );
   const [isLoadingMap, setIsLoadingMap] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -98,19 +108,25 @@ export function CheckInZoneEditor({
   const modeRef = useRef(mode);
   const verticesRef = useRef(vertices);
   const commitVerticesRef = useRef<(next: GeoPosition[]) => void>(() => {});
-  modeRef.current = mode;
-  verticesRef.current = vertices;
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+  useEffect(() => {
+    verticesRef.current = vertices;
+  }, [vertices]);
 
   // Chuỗi GeoJSON bên ngoài đổi (mở form sửa, reset form) -> đồng bộ lại đỉnh.
   useEffect(() => {
-    const nextVertices = parseGeoJsonToVertices(boundaryGeoJson);
+    // Đồng bộ state cục bộ khi form cha thay đổi boundary từ bên ngoài
+    // (ví dụ mở form sửa hoặc reset dữ liệu).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setVertices((current) => {
-      if (JSON.stringify(current) === JSON.stringify(nextVertices)) {
+      if (areVerticesEqual(current, parsedBoundaryVertices)) {
         return current;
       }
-      return nextVertices;
+      return parsedBoundaryVertices;
     });
-  }, [boundaryGeoJson]);
+  }, [parsedBoundaryVertices]);
 
   const commitVertices = useCallback(
     (nextVertices: GeoPosition[]) => {
@@ -120,7 +136,9 @@ export function CheckInZoneEditor({
     },
     [onBoundaryChange],
   );
-  commitVerticesRef.current = commitVertices;
+  useEffect(() => {
+    commitVerticesRef.current = commitVertices;
+  }, [commitVertices]);
 
   // Toạ độ tâm dạng chuỗi: dùng làm dependency thay cho object `coordinates`
   // (object tạo mới mỗi render nên effect sẽ chạy lại vô ích và reset zoom).
@@ -172,11 +190,17 @@ export function CheckInZoneEditor({
           });
 
           map.addControl(
-            new goongjs.NavigationControl({ showCompass: false, showZoom: true }),
+            new goongjs.NavigationControl({
+              showCompass: false,
+              showZoom: true,
+            }),
             "top-right",
           );
 
-          const centerMarker = new goongjs.Marker({ color: "#CF3F34", scale: 1 })
+          const centerMarker = new goongjs.Marker({
+            color: "#CF3F34",
+            scale: 1,
+          })
             .setLngLat([center.longitude, center.latitude])
             .addTo(map);
 
@@ -223,7 +247,8 @@ export function CheckInZoneEditor({
             if (modeRef.current !== "polygon") {
               return;
             }
-            const lngLat = (event as { lngLat?: { lng: number; lat: number } })?.lngLat;
+            const lngLat = (event as { lngLat?: { lng: number; lat: number } })
+              ?.lngLat;
             if (!lngLat) {
               return;
             }
@@ -259,7 +284,9 @@ export function CheckInZoneEditor({
         }
         setIsLoadingMap(false);
         setMapError(
-          error instanceof Error ? error.message : "Không thể tải Map View từ Goong.",
+          error instanceof Error
+            ? error.message
+            : "Không thể tải Map View từ Goong.",
         );
       }
     }
@@ -268,7 +295,6 @@ export function CheckInZoneEditor({
     return () => {
       isDisposed = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [centerKey]);
 
   // Dọn map khi component unmount
@@ -372,8 +398,8 @@ export function CheckInZoneEditor({
     const ring =
       mode === "polygon"
         ? vertices
-        : (zoneData as { geometry?: { coordinates?: GeoPosition[][] } }).geometry
-            ?.coordinates?.[0];
+        : (zoneData as { geometry?: { coordinates?: GeoPosition[][] } })
+            .geometry?.coordinates?.[0];
 
     if (!ring || ring.length < 3) {
       return;
@@ -424,8 +450,9 @@ export function CheckInZoneEditor({
         <div className="min-w-0 space-y-1">
           <p className="text-sm font-semibold text-slate-900">Vùng check-in</p>
           <p className="text-xs leading-5 text-slate-500">
-            Người dùng phải ở trong vùng này mới check-in được. Khu du lịch rộng nên
-            tăng bán kính, hoặc vẽ hẳn ranh giới nếu khu có hình thù bất thường.
+            Người dùng phải ở trong vùng này mới check-in được. Khu du lịch rộng
+            nên tăng bán kính, hoặc vẽ hẳn ranh giới nếu khu có hình thù bất
+            thường.
           </p>
         </div>
 
@@ -482,8 +509,8 @@ export function CheckInZoneEditor({
           <input
             id="checkInRadius"
             type="range"
-            min={MIN_CHECK_IN_RADIUS}
-            max={MAX_CHECK_IN_RADIUS}
+            min={minCheckInRadius}
+            max={maxCheckInRadius}
             step={10}
             value={parsedRadius}
             onChange={(event) => handleRadiusInput(event.target.value)}
@@ -491,15 +518,15 @@ export function CheckInZoneEditor({
           />
 
           <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
-            <span>{MIN_CHECK_IN_RADIUS}m</span>
-            <span>{MAX_CHECK_IN_RADIUS}m</span>
+            <span>{minCheckInRadius}m</span>
+            <span>{maxCheckInRadius}m</span>
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <input
               type="number"
-              min={MIN_CHECK_IN_RADIUS}
-              max={MAX_CHECK_IN_RADIUS}
+              min={minCheckInRadius}
+              max={maxCheckInRadius}
               value={checkInRadius}
               onChange={(event) => handleRadiusInput(event.target.value)}
               className="w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#CF3F34]"
@@ -519,8 +546,8 @@ export function CheckInZoneEditor({
       ) : (
         <div className="mt-4 rounded-[1.5rem] border border-slate-200 bg-white p-4">
           <p className="text-xs leading-5 text-slate-600">
-            Bấm lên bản đồ để thêm đỉnh, kéo đỉnh để chỉnh. Cần ít nhất 3 đỉnh và
-            toạ độ hotspot phải nằm trong ranh giới.
+            Bấm lên bản đồ để thêm đỉnh, kéo đỉnh để chỉnh. Cần ít nhất 3 đỉnh
+            và toạ độ hotspot phải nằm trong ranh giới.
           </p>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -558,14 +585,15 @@ export function CheckInZoneEditor({
 
           {vertices.length > 0 && vertices.length < 3 ? (
             <p className="mt-3 text-xs font-medium text-amber-700">
-              Cần thêm {3 - vertices.length} đỉnh nữa để tạo thành một vùng khép kín.
+              Cần thêm {3 - vertices.length} đỉnh nữa để tạo thành một vùng khép
+              kín.
             </p>
           ) : null}
 
           {centerOutsidePolygon ? (
             <p className="mt-3 text-xs font-medium text-rose-700">
-              Toạ độ hotspot đang nằm ngoài ranh giới đã vẽ. Hãy chỉnh lại ranh giới
-              hoặc di chuyển toạ độ vào bên trong.
+              Toạ độ hotspot đang nằm ngoài ranh giới đã vẽ. Hãy chỉnh lại ranh
+              giới hoặc di chuyển toạ độ vào bên trong.
             </p>
           ) : null}
         </div>
@@ -595,7 +623,8 @@ export function CheckInZoneEditor({
             Chưa có tọa độ để cấu hình vùng check-in
           </p>
           <p className="mt-2 text-xs leading-5 text-slate-500">
-            Chọn địa chỉ hoặc nhập vĩ độ / kinh độ trước. Vùng đã vẽ vẫn được giữ lại.
+            Chọn địa chỉ hoặc nhập vĩ độ / kinh độ trước. Vùng đã vẽ vẫn được
+            giữ lại.
           </p>
         </div>
       )}
@@ -604,5 +633,15 @@ export function CheckInZoneEditor({
         <p className="mt-3 text-xs font-medium text-rose-700">{mapError}</p>
       ) : null}
     </div>
+  );
+}
+
+function areVerticesEqual(left: GeoPosition[], right: GeoPosition[]) {
+  return (
+    left.length === right.length &&
+    left.every(
+      ([leftLng, leftLat], index) =>
+        right[index]?.[0] === leftLng && right[index]?.[1] === leftLat,
+    )
   );
 }

@@ -1,4 +1,6 @@
 import { apiFetch } from "@/lib/api";
+import type { TagUsageRecord } from "@/lib/tags";
+import type { BackendStorySummary } from "@/services/api/storyApi";
 
 /**
  * Dashboard của Curator — `GET /api/curator/dashboard`.
@@ -71,6 +73,31 @@ export interface CuratorDashboard {
   topContent: CuratorTopContent;
 }
 
+export interface CuratorPendingTag {
+  tagId: number;
+  tagName: string;
+  imageUrl?: string | null;
+  tagStatus: string;
+  routeCount: number | null;
+  hotspotCount: number | null;
+  storyCount: number | null;
+  cultureScore?: number | null;
+  cultureReason?: string | null;
+  rejectReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  usages?: TagUsageRecord[] | null;
+}
+
+export interface CuratorPendingStory extends BackendStorySummary {
+  storyId: number;
+}
+
+export interface CuratorPendingContent {
+  tags: CuratorPendingTag[];
+  stories: CuratorPendingStory[];
+}
+
 function curatorPath(path: string) {
   return `/api/curator${path}`;
 }
@@ -78,6 +105,13 @@ function curatorPath(path: string) {
 export const curatorApi = {
   getDashboard: async () => {
     return apiFetch<CuratorDashboard>(curatorPath("/dashboard"), {
+      method: "GET",
+      sameOrigin: true,
+    });
+  },
+
+  getPendingContent: async () => {
+    return apiFetch<CuratorPendingContent>(curatorPath("/content/pending"), {
       method: "GET",
       sameOrigin: true,
     });

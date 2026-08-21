@@ -22,6 +22,7 @@ export type {
   BackendStorySummary,
   BackendStoryTag,
   BackendStoryMedia,
+  CreateStoryPayload,
   CreateStoryResponse,
   StoryPageResponse,
   UpdateStoryFields,
@@ -37,6 +38,7 @@ export type {
 export { userApi } from "./userApi";
 export type { BackendUser } from "./userApi";
 export { adminApi } from "./admin/adminApi";
+export { configApi } from "./configApi";
 export type {
   UserProfile,
   PostItem,
@@ -49,6 +51,10 @@ export type {
   SubscriptionPlanType,
   PartnerSubscriptionStatus,
 } from "./admin/adminApi";
+export type {
+  CheckInRadiusConfig,
+  UpdateCheckInRadiusPayload,
+} from "./configApi";
 export { routeApi } from "./routeApi";
 export type {
   RouteDifficulty,

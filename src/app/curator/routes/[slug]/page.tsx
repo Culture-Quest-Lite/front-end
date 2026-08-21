@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { ArrowLeft, Clock3, Route, Sparkles, Tag } from "lucide-react";
 
 import { PageLoading } from "@/components/app/page-loading";
+import { TabTitleMarker } from "@/components/app/TabTitleMarker";
 import { routeApi, type RouteResponse } from "@/services/api/routeApi";
 
 const difficultyLabels: Record<string, string> = {
@@ -113,6 +114,7 @@ export default function CuratorRouteDetailPage() {
   if (error || !route) {
     return (
       <div className="space-y-4">
+        <TabTitleMarker title="Không tìm thấy tuyến" />
         <Link
           href="/curator/routes"
           className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900"
@@ -140,6 +142,7 @@ export default function CuratorRouteDetailPage() {
 
   return (
     <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+      <TabTitleMarker title={route.routeName} />
       <div className="space-y-6">
         <div className="flex items-center gap-2 text-slate-700">
           <Link

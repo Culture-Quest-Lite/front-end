@@ -559,6 +559,36 @@ export const adminApi = {
     });
   },
 
+  approveTag: async (tagId: number) => {
+    return apiFetch<unknown>(adminPath(`/content/tags/${tagId}/approve`), {
+      method: "PUT",
+      sameOrigin: true,
+    });
+  },
+
+  rejectTag: async (tagId: number, rejectReason: string) => {
+    return apiFetch<unknown>(adminPath(`/content/tags/${tagId}/reject`), {
+      method: "PUT",
+      body: { rejectReason },
+      sameOrigin: true,
+    });
+  },
+
+  approveStory: async (storyId: number) => {
+    return apiFetch<unknown>(adminPath(`/content/stories/${storyId}/approve`), {
+      method: "PUT",
+      sameOrigin: true,
+    });
+  },
+
+  rejectStory: async (storyId: number, rejectReason: string) => {
+    return apiFetch<unknown>(adminPath(`/content/stories/${storyId}/reject`), {
+      method: "PUT",
+      body: { rejectReason },
+      sameOrigin: true,
+    });
+  },
+
   banPost: async (postId: number, reason: string) => {
     return apiFetch<PostItem>(adminPath(`/${postId}/ban`), {
       method: "PUT",

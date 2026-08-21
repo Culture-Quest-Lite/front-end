@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { PageLoading } from "@/components/app/page-loading";
+import { TabTitleMarker } from "@/components/app/TabTitleMarker";
 import { cn } from "@/lib/utils";
 import {
   hotspotApi,
@@ -256,6 +257,9 @@ export default function StoryDetailPage() {
 
   return (
     <div className="space-y-5">
+      <TabTitleMarker
+        title={error ? "Không tìm thấy câu chuyện" : story?.title}
+      />
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-2 text-slate-700">
           <div className="flex items-center gap-3">
