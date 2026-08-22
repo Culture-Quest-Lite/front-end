@@ -47,6 +47,9 @@ export interface BackendStory {
   rejectReason?: string | null;
   averageRating?: number | null;
   totalReviews?: number | null;
+  contentType?: string | null;
+  validFrom?: string | null;
+  validTo?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -68,6 +71,9 @@ export interface BackendStorySummary {
   rejectReason?: string | null;
   averageRating?: number | null;
   totalReviews?: number | null;
+  contentType?: string | null;
+  validFrom?: string | null;
+  validTo?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
