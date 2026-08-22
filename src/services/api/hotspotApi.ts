@@ -1,12 +1,23 @@
 import { apiFetch } from "@/lib/api";
+import type { TagUsageRecord } from "@/lib/tags";
 import type { BackendStory } from "./storyApi";
+
+export type HotspotContentType = "TEMP" | "PERMANENT" | (string & {});
 
 export interface BackendHotspotTag {
   tagId: number;
   tagName: string;
+  imageUrl?: string | null;
   tagStatus?: string;
+  routeCount?: number | null;
+  hotspotCount?: number | null;
+  storyCount?: number | null;
+  cultureScore?: number | null;
+  cultureReason?: string | null;
+  rejectReason?: string | null;
   createdAt?: string;
   updatedAt?: string;
+  usages?: TagUsageRecord[] | null;
 }
 
 export interface BackendHotspotMedia {
@@ -49,6 +60,11 @@ export interface BackendHotspot {
   closingTime?: string | null;
   status?: string;
   isCheckIn?: boolean | null;
+  averageRating?: number | null;
+  totalReviews?: number | null;
+  contentType?: HotspotContentType | null;
+  validFrom?: string | null;
+  validTo?: string | null;
 }
 
 export interface CreateHotspotPayload {
@@ -68,6 +84,9 @@ export interface CreateHotspotPayload {
   endTime: string;
   openingTime?: string;
   closingTime?: string;
+  contentType?: HotspotContentType;
+  validFrom?: string;
+  validTo?: string;
 }
 
 export type HotspotSearchOperator =

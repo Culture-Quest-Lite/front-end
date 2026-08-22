@@ -11,6 +11,7 @@ export type {
   BackendHotspotMedia,
   BackendHotspotTag,
   CreateHotspotPayload,
+  HotspotContentType,
   HotspotSearchFilter,
   HotspotSearchOperator,
   HotspotSearchRequest,
