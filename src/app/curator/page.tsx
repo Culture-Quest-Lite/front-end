@@ -98,19 +98,50 @@ export default function CuratorDashboardPage() {
   const topRoutes = dashboard?.topContent.topRoutes ?? [];
   const topHotspots = dashboard?.topContent.topHotspots ?? [];
   const routeCounts = content?.routeCounts;
-  const pendingRoutes = routeCounts ? routeCounts.pending + routeCounts.trial : 0;
+  const pendingRoutes = routeCounts
+    ? normalizeDashboardCount(routeCounts.pending) +
+      normalizeDashboardCount(routeCounts.trial)
+    : 0;
 
   // Backend trả đủ 6 trạng thái route; gom lại thành 1 bảng thay cho biểu đồ
   // "Tăng trưởng người dùng" cũ — số liệu đó thuộc dashboard Admin, endpoint
   // curator không trả về và cũng không phải phạm vi của curator.
-  const routeStatusRows: { label: string; value: number }[] = routeCounts
+  const routeStatusRows: {
+    label: string;
+    value: number;
+    barClassName: string;
+  }[] = routeCounts
     ? [
-        { label: "Đã xuất bản", value: routeCounts.published },
-        { label: "Chờ duyệt", value: routeCounts.pending },
-        { label: "Thử nghiệm", value: routeCounts.trial },
-        { label: "Bản nháp", value: routeCounts.draft },
-        { label: "Đang ghi", value: routeCounts.recording },
-        { label: "Tạm giữ", value: routeCounts.onHold },
+        {
+          label: "Đã xuất bản",
+          value: normalizeDashboardCount(routeCounts.published),
+          barClassName: "bg-emerald-500",
+        },
+        {
+          label: "Chờ duyệt",
+          value: normalizeDashboardCount(routeCounts.pending),
+          barClassName: "bg-amber-500",
+        },
+        {
+          label: "Thử nghiệm",
+          value: normalizeDashboardCount(routeCounts.trial),
+          barClassName: "bg-sky-500",
+        },
+        {
+          label: "Bản nháp",
+          value: normalizeDashboardCount(routeCounts.draft),
+          barClassName: "bg-slate-500",
+        },
+        {
+          label: "Đang ghi",
+          value: normalizeDashboardCount(routeCounts.recording),
+          barClassName: "bg-violet-500",
+        },
+        {
+          label: "Tạm giữ",
+          value: normalizeDashboardCount(routeCounts.onHold),
+          barClassName: "bg-rose-500",
+        },
       ]
     : [];
   const totalRoutes = routeStatusRows.reduce((sum, row) => sum + row.value, 0);
@@ -261,14 +292,15 @@ export default function CuratorDashboardPage() {
                       {formatCount(row.value)}
                     </span>
                   </div>
-                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                  <div className="relative mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
                     <div
-                      className="h-full rounded-full bg-primary"
+                      className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ease-out ${row.barClassName}`}
                       style={{
                         width:
                           totalRoutes > 0
                             ? `${(row.value / totalRoutes) * 100}%`
                             : "0%",
+                        minWidth: row.value > 0 ? "0.375rem" : "0",
                       }}
                     />
                   </div>
@@ -405,4 +437,12 @@ export default function CuratorDashboardPage() {
       </div>
     </div>
   );
+}
+
+function normalizeDashboardCount(value: number | null | undefined) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  return 0;
 }
