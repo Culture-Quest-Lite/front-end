@@ -23,6 +23,7 @@ import {
 } from "@/data/hotspots";
 import { TabTitleMarker } from "@/components/app/TabTitleMarker";
 import { buildTagToken } from "@/lib/tags";
+import { formatTimeRangeDisplayValue } from "@/lib/time";
 import type {
   BackendHotspot,
   BackendStory,
@@ -42,14 +43,15 @@ const NORMALIZED_BACKEND_API_BASE_URL = BACKEND_API_BASE_URL.endsWith("/")
   : BACKEND_API_BASE_URL;
 
 const ACCESS_TOKEN_COOKIE_KEY = "culture-quest-access-token";
+const HOTSPOT_DISPLAY_TIME_ZONE = "Asia/Ho_Chi_Minh";
 
 const HOTSPOT_STATUS_META: Record<string, { label: string; style: string }> = {
   ACTIVE: {
-    label: "Đã xuất bản",
+    label: "Đã công khai",
     style: "bg-emerald-600/95 text-white",
   },
   APPROVED: {
-    label: "Đã xuất bản",
+    label: "Đã công khai",
     style: "bg-emerald-600/95 text-white",
   },
   ARCHIVED: {
@@ -73,7 +75,7 @@ const HOTSPOT_STATUS_META: Record<string, { label: string; style: string }> = {
     style: "bg-amber-500/95 text-slate-900",
   },
   PUBLISHED: {
-    label: "Đã xuất bản",
+    label: "Đã công khai",
     style: "bg-emerald-600/95 text-white",
   },
   REJECTED: {
@@ -90,6 +92,10 @@ const STORY_STATUS_META: Record<string, { label: string; style: string }> = {
   DRAFT: {
     label: "Bản nháp",
     style: "border border-slate-200 bg-slate-100 text-slate-700",
+  },
+  PENDING_REVIEW: {
+    label: "Chờ duyệt",
+    style: "border border-amber-200 bg-amber-50 text-amber-700",
   },
   PUBLISHED: {
     label: "Đã xuất bản",
@@ -181,6 +187,13 @@ export async function renderHotspotDetailPage({
   const isBackendDetail = Boolean(backendHotspot);
   const historyInformation = backendHotspot?.historyInformation?.trim() || "";
   const hotspotStories = resolveHotspotStories(backendHotspot?.stories);
+  const hotspotContentTypeLabel = buildDisplayContentTypeLabel(
+    backendHotspot?.contentType,
+  );
+  const hotspotValidityLabel = buildDisplayValidityLabel(
+    backendHotspot?.validFrom,
+    backendHotspot?.validTo,
+  );
   const summaryMetrics = isBackendDetail
     ? buildBackendMetrics(backendHotspot)
     : [
@@ -254,7 +267,7 @@ export async function renderHotspotDetailPage({
       </div>
 
       <section className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-4xl">
             <p className="cq-kicker">Tổng quan địa điểm</p>
             <h1
@@ -275,9 +288,15 @@ export async function renderHotspotDetailPage({
             ) : null}
           </div>
 
-          <div className="flex w-full flex-col gap-2 xl:w-auto xl:items-end">
-            {hotspot.badge || googleMapsUrl ? (
-              <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start xl:justify-end">
+          <div className="flex w-full flex-col gap-2 lg:ml-auto lg:w-auto lg:items-end">
+            {hotspot.badge || hotspotContentTypeLabel || googleMapsUrl ? (
+              <div className="flex w-full flex-nowrap items-center justify-end gap-2 overflow-x-auto lg:w-auto">
+                {hotspotContentTypeLabel ? (
+                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 shadow-sm">
+                    <CalendarDays className="h-3 w-3" />
+                    {hotspotContentTypeLabel}
+                  </span>
+                ) : null}
                 {hotspot.badge ? (
                   <span
                     className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-sm ${hotspot.statusStyle}`}
@@ -300,7 +319,7 @@ export async function renderHotspotDetailPage({
               </div>
             ) : null}
             {hotspot.tags.length > 0 ? (
-              <div className="flex flex-wrap gap-2 xl:justify-end">
+              <div className="flex flex-wrap justify-end gap-2">
                 {hotspot.tags.map((tag) => (
                   <span
                     key={tag}
@@ -380,7 +399,7 @@ export async function renderHotspotDetailPage({
                   <div className="flex items-center gap-2.5">
                     <Compass className="h-3.5 w-3.5 text-emerald-600" />
                     <div>
-                      <p className="cq-label">Khung giờ đẹp</p>
+                      <p className="cq-label">Khung giờ lý tưởng</p>
                       <p className="cq-card-title mt-0.5 font-normal">
                         {profile.bestTime}
                       </p>
@@ -390,8 +409,25 @@ export async function renderHotspotDetailPage({
               ) : null}
             </div>
           ) : null}
-        </div>
 
+          {hotspotContentTypeLabel || hotspotValidityLabel ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {hotspotValidityLabel ? (
+                <div className="rounded-[1.15rem] border border-slate-200 bg-slate-50 px-3.5 py-3 sm:px-4">
+                  <div className="flex items-center gap-2.5">
+                    <CalendarDays className="h-3.5 w-3.5 text-sky-600" />
+                    <div>
+                      <p className="cq-label">Hiệu lực</p>
+                      <p className="cq-card-title mt-0.5 font-normal">
+                        {hotspotValidityLabel}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
         <div className="mt-6 space-y-6 border-t border-slate-200 pt-6">
           <div className="space-y-3.5">
             <div className="flex flex-col gap-0.5">
@@ -459,7 +495,7 @@ export async function renderHotspotDetailPage({
                 <div>
                   <h2 className="cq-section-title">Câu chuyện liên kết</h2>
                   <p className="cq-page-subtitle">
-                    Khám phá thêm những câu chuyện nổi bật gắn với địa điểm này.
+                    Chỉ hiển thị những câu chuyện đã xuất bản của địa điểm này.
                   </p>
                 </div>
                 <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
@@ -475,6 +511,13 @@ export async function renderHotspotDetailPage({
                     story.updatedAt ?? story.createdAt,
                   );
                   const storyMediaSummary = buildStoryMediaSummary(story);
+                  const storyContentTypeLabel = buildDisplayContentTypeLabel(
+                    story.contentType,
+                  );
+                  const storyValidityLabel = buildDisplayValidityLabel(
+                    story.validFrom,
+                    story.validTo,
+                  );
 
                   return (
                     <article
@@ -512,7 +555,8 @@ export async function renderHotspotDetailPage({
                         <div className="flex flex-col justify-between p-3.5 sm:p-4">
                           <div>
                             <div className="flex flex-wrap items-center gap-1.5">
-                              {story.tag?.tagName?.trim() ? (
+                              {story.tag?.tagName?.trim() &&
+                              !isPersonalJourneyTagLabel(story.tag.tagName) ? (
                                 <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
                                   {story.tag.tagName.trim()}
                                 </span>
@@ -545,6 +589,18 @@ export async function renderHotspotDetailPage({
                               <span className="rounded-full bg-slate-100 px-2.5 py-1">
                                 {storyMediaSummary}
                               </span>
+
+                              {storyContentTypeLabel ? (
+                                <span className="rounded-full bg-slate-100 px-2.5 py-1">
+                                  Thời hạn: {storyContentTypeLabel}
+                                </span>
+                              ) : null}
+
+                              {storyValidityLabel ? (
+                                <span className="rounded-full bg-slate-100 px-2.5 py-1">
+                                  Hiệu lực: {storyValidityLabel}
+                                </span>
+                              ) : null}
 
                               {updatedAtLabel ? (
                                 <span className="rounded-full bg-slate-100 px-2.5 py-1">
@@ -805,17 +861,7 @@ function buildHotspotMediaKey(media: NonNullable<BackendHotspot["medias"]>[numbe
 function resolveHotspotStories(stories?: BackendHotspot["stories"]) {
   return [...(stories ?? [])]
     .filter((story) => story.status?.trim().toUpperCase() === "PUBLISHED")
-    .sort((storyA, storyB) => {
-      const orderDiff =
-        (storyA.orderIndex ?? Number.MAX_SAFE_INTEGER) -
-        (storyB.orderIndex ?? Number.MAX_SAFE_INTEGER);
-
-      if (orderDiff !== 0) {
-        return orderDiff;
-      }
-
-      return storyA.storyId - storyB.storyId;
-    });
+    .filter((story) => !isPersonalJourneyTagLabel(story.tag?.tagName));
 }
 
 function isImageStoryMedia(media?: BackendStoryMedia) {
@@ -916,7 +962,12 @@ function buildDetailHotspot(
     (!hasBackendSource ? fallbackHotspot?.title : undefined) ||
     (backendHotspot ? `Hotspot ${backendHotspot.hotspotId}` : "Hotspot");
   const category =
-    backendHotspot?.tags?.find((tag) => tag.tagName?.trim())?.tagName.trim() ||
+    backendHotspot?.tags
+      ?.map((tag) => tag.tagName?.trim())
+      .find(
+        (tagName): tagName is string =>
+          Boolean(tagName) && !isPersonalJourneyTagLabel(tagName),
+      ) ||
     (!hasBackendSource ? fallbackHotspot?.category : undefined) ||
     "";
   const statusMeta = buildStatusMeta(
@@ -1068,14 +1119,30 @@ function buildTagLabels(
   const mappedTags =
     tags
       ?.map((tag) => tag.tagName?.trim())
-      .filter((tagName): tagName is string => Boolean(tagName))
+      .filter(
+        (tagName): tagName is string =>
+          Boolean(tagName) && !isPersonalJourneyTagLabel(tagName),
+      )
       .map((tagName) => `#${buildTagToken(tagName)}`) ?? [];
 
   if (mappedTags.length > 0) {
     return mappedTags;
   }
 
-  return fallbackHotspot?.tags ?? [];
+  return (
+    fallbackHotspot?.tags.filter(
+      (tagName) => !isPersonalJourneyTagLabel(tagName),
+    ) ?? []
+  );
+}
+
+function isPersonalJourneyTagLabel(value?: string | null) {
+  if (!value?.trim()) {
+    return false;
+  }
+
+  const normalizedValue = normalizeText(value.replace(/^#/, ""));
+  return normalizedValue === "hanh trinh ca nhan";
 }
 
 function extractLocationLabel(address?: string) {
@@ -1140,7 +1207,9 @@ function formatDateLabel(value?: string | null) {
     return "";
   }
 
-  return new Intl.DateTimeFormat("vi-VN").format(date);
+  return new Intl.DateTimeFormat("vi-VN", {
+    timeZone: HOTSPOT_DISPLAY_TIME_ZONE,
+  }).format(date);
 }
 
 function formatDateTimeLabel(value?: string | null) {
@@ -1159,7 +1228,70 @@ function formatDateTimeLabel(value?: string | null) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: HOTSPOT_DISPLAY_TIME_ZONE,
   });
+}
+
+function formatPreciseDateTimeLabel(value?: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    timeZone: HOTSPOT_DISPLAY_TIME_ZONE,
+  });
+}
+
+function buildDisplayContentTypeLabel(value?: string | null) {
+  const normalizedValue = value?.trim().toUpperCase();
+
+  if (!normalizedValue) {
+    return "";
+  }
+
+  if (normalizedValue === "TEMP") {
+    return "Có thời hạn";
+  }
+
+  if (normalizedValue === "PERMANENT" || normalizedValue === "PERM") {
+    return "Vĩnh viễn";
+  }
+
+  return normalizedValue;
+}
+
+function buildDisplayValidityLabel(
+  validFrom?: string | null,
+  validTo?: string | null,
+) {
+  if (validFrom && validTo) {
+    return `${formatPreciseDateTimeLabel(validFrom)} - ${formatPreciseDateTimeLabel(validTo)}`;
+  }
+
+  if (validFrom) {
+    return `Từ ${formatPreciseDateTimeLabel(validFrom)}`;
+  }
+
+  if (validTo) {
+    return `Đến ${formatPreciseDateTimeLabel(validTo)}`;
+  }
+
+  if (validFrom === null && validTo === null) {
+    return "Không giới hạn";
+  }
+
+  return "";
 }
 
 function buildCoordinatesLabel(
@@ -1182,8 +1314,13 @@ function buildOpeningHoursLabel(
   hotspot: BackendHotspot | null,
   fallbackValue?: string,
 ) {
-  if (hotspot?.openingTime && hotspot?.closingTime) {
-    return `${hotspot.openingTime} - ${hotspot.closingTime}`;
+  const timeRangeLabel = formatTimeRangeDisplayValue(
+    hotspot?.openingTime,
+    hotspot?.closingTime,
+  );
+
+  if (timeRangeLabel) {
+    return timeRangeLabel;
   }
 
   return fallbackValue || "";
@@ -1193,8 +1330,13 @@ function buildBestTimeLabel(
   hotspot: BackendHotspot | null,
   fallbackValue?: string,
 ) {
-  if (hotspot?.startTime && hotspot?.endTime) {
-    return `${hotspot.startTime} - ${hotspot.endTime}`;
+  const timeRangeLabel = formatTimeRangeDisplayValue(
+    hotspot?.startTime,
+    hotspot?.endTime,
+  );
+
+  if (timeRangeLabel) {
+    return timeRangeLabel;
   }
 
   return fallbackValue || "";
@@ -1205,17 +1347,22 @@ function buildFactSheet(
   fallbackHotspot: HotspotItem | null,
 ) {
   if (hotspot) {
+    const bestTimeLabel = formatTimeRangeDisplayValue(
+      hotspot.startTime,
+      hotspot.endTime,
+    );
+    const openingHoursLabel = formatTimeRangeDisplayValue(
+      hotspot.openingTime,
+      hotspot.closingTime,
+    );
+
     return [
       typeof hotspot.point === "number" ? `Point thưởng: ${hotspot.point}` : "",
       typeof hotspot.checkInRadius === "number"
         ? `Bán kính check-in: ${hotspot.checkInRadius} m`
         : "",
-      hotspot.startTime && hotspot.endTime
-        ? `Khung giờ hoạt động: ${hotspot.startTime} - ${hotspot.endTime}`
-        : "",
-      hotspot.openingTime && hotspot.closingTime
-        ? `Giờ mở cửa: ${hotspot.openingTime} - ${hotspot.closingTime}`
-        : "",
+      bestTimeLabel ? `Khung giờ lý tưởng: ${bestTimeLabel}` : "",
+      openingHoursLabel ? `Giờ mở cửa: ${openingHoursLabel}` : "",
     ].filter(Boolean);
   }
 
@@ -1246,6 +1393,12 @@ function buildBackendMetrics(hotspot: BackendHotspot | null) {
       : null,
     typeof hotspot.point === "number"
       ? { value: `${hotspot.point} điểm`, label: "Điểm thưởng" }
+      : null,
+    typeof hotspot.averageRating === "number"
+      ? { value: String(hotspot.averageRating), label: "Đánh giá TB" }
+      : null,
+    typeof hotspot.totalReviews === "number"
+      ? { value: String(hotspot.totalReviews), label: "Lượt đánh giá" }
       : null,
     durationLabel
       ? { value: durationLabel, label: "Thời lượng khám phá" }

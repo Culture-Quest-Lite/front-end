@@ -16,6 +16,10 @@ import { PageLoading } from "@/components/app/page-loading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { buildTagToken } from "@/lib/tags";
+import {
+  formatTimeDisplayValue,
+  formatTimeRangeDisplayValue,
+} from "@/lib/time";
 import { GoongMapPreview } from "./GoongMapPreview";
 import {
   CheckInZoneEditor,
@@ -34,6 +38,7 @@ import {
   type CheckInRadiusConfig,
   type CreateHotspotPayload,
   type GoongPlaceSuggestion,
+  type HotspotContentType,
 } from "@/services/api";
 import {
   ArrowLeft,
@@ -63,6 +68,9 @@ type HotspotFormState = {
   endTime: string;
   openingTime: string;
   closingTime: string;
+  contentType: string;
+  validFrom: string;
+  validTo: string;
 };
 
 type HotspotMediaType = "image" | "video";
@@ -85,6 +93,15 @@ const defaultSelectedMedia: HotspotMediaCollection = {
   video: [],
 };
 
+const DEFAULT_HOTSPOT_CONTENT_TYPE: HotspotContentType = "TEMP";
+const HOTSPOT_CONTENT_TYPE_OPTIONS: ReadonlyArray<{
+  value: HotspotContentType;
+  label: string;
+}> = [
+  { value: "TEMP", label: "Có thời hạn" },
+  { value: "PERMANENT", label: "Vĩnh viễn" },
+];
+
 const HOTSPOT_BACKEND_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://api.culturequestlite.com";
 
@@ -105,6 +122,9 @@ function createDefaultHotspotForm(defaultRadius: number): HotspotFormState {
     endTime: "",
     openingTime: "",
     closingTime: "",
+    contentType: DEFAULT_HOTSPOT_CONTENT_TYPE,
+    validFrom: "",
+    validTo: "",
   };
 }
 
@@ -134,6 +154,7 @@ function HotspotCreatePageContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+  const [submitWarning, setSubmitWarning] = useState<string | null>(null);
   const [createdHotspot, setCreatedHotspot] = useState<BackendHotspot | null>(
     null,
   );
@@ -490,6 +511,7 @@ function HotspotCreatePageContent() {
   async function handleSubmitHotspot() {
     setSubmitError(null);
     setSubmitMessage(null);
+    setSubmitWarning(null);
 
     try {
       const payload = buildCreatePayload(formState, checkInRadiusConfig);
@@ -530,7 +552,20 @@ function HotspotCreatePageContent() {
       setCreatedHotspot(response);
       setExistingHotspotMedias(resolveOrderedHotspotMedias(response.medias));
       setSelectedMedia(defaultSelectedMedia);
-      setFormState((current) => syncFormStateWithResponse(current, response));
+      setFormState(
+        syncFormStateWithResponse(
+          createDefaultHotspotForm(checkInRadiusConfig.defaultRadius),
+          response,
+        ),
+      );
+
+      const timeMismatchWarning = buildTimeMismatchWarning(payload, response);
+
+      if (timeMismatchWarning) {
+        setSubmitWarning(timeMismatchWarning);
+        toast.warn(timeMismatchWarning);
+        return;
+      }
 
       const successMessage = isEditMode
         ? "Địa điểm đã được cập nhật thành công."
@@ -631,6 +666,12 @@ function HotspotCreatePageContent() {
       {submitMessage ? (
         <div className="rounded-3xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-800">
           {submitMessage}
+        </div>
+      ) : null}
+
+      {submitWarning ? (
+        <div className="rounded-3xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+          {submitWarning}
         </div>
       ) : null}
 
@@ -901,7 +942,7 @@ function HotspotCreatePageContent() {
                 <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
                   <div>
                     <label className="cq-label mb-2 block">
-                      Thời gian bắt đầu
+                      Khung giờ lý tưởng từ
                       <span className="ml-1 text-rose-500">*</span>
                     </label>
                     <Input
@@ -911,13 +952,13 @@ function HotspotCreatePageContent() {
                       onChange={(event) =>
                         updateField("startTime", event.target.value)
                       }
-                      placeholder="Hãy nhập thời gian bắt đầu"
+                      placeholder="Hãy nhập khung giờ lý tưởng bắt đầu"
                       className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                   <div>
                     <label className="cq-label mb-2 block">
-                      Thời gian kết thúc
+                      Khung giờ lý tưởng đến
                       <span className="ml-1 text-rose-500">*</span>
                     </label>
                     <Input
@@ -927,7 +968,7 @@ function HotspotCreatePageContent() {
                       onChange={(event) =>
                         updateField("endTime", event.target.value)
                       }
-                      placeholder="Hãy nhập thời gian kết thúc"
+                      placeholder="Hãy nhập khung giờ lý tưởng kết thúc"
                       className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -954,6 +995,56 @@ function HotspotCreatePageContent() {
                         updateField("closingTime", event.target.value)
                       }
                       placeholder="Hãy nhập giờ đóng cửa"
+                      className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid min-w-0 gap-4 md:grid-cols-3 [&>*]:min-w-0">
+                  <div>
+                    <label className="cq-label mb-2 block">
+                      Thời hạn
+                      <span className="ml-1 text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={formState.contentType}
+                      onChange={(event) =>
+                        updateField("contentType", event.target.value)
+                      }
+                      className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    >
+                      {HOTSPOT_CONTENT_TYPE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="cq-label mb-2 block">
+                      Thời gian bắt đầu
+                    </label>
+                    <Input
+                      type="datetime-local"
+                      step="1"
+                      value={formState.validFrom}
+                      onChange={(event) =>
+                        updateField("validFrom", event.target.value)
+                      }
+                      className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="cq-label mb-2 block">
+                      Thời gian kết thúc
+                    </label>
+                    <Input
+                      type="datetime-local"
+                      step="1"
+                      value={formState.validTo}
+                      onChange={(event) =>
+                        updateField("validTo", event.target.value)
+                      }
                       className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -1276,12 +1367,22 @@ function HotspotCreatePageContent() {
                     value={buildDurationLabel(createdHotspot)}
                   />
                   <ResultRow
-                    label="Khung giờ"
+                    label="Khung giờ lý tưởng"
                     value={buildTimeWindowLabel(createdHotspot)}
                   />
                   <ResultRow
                     label="Giờ mở cửa"
                     value={buildOpeningHoursLabel(createdHotspot)}
+                  />
+                  <ResultRow
+                    label="Thời hạn"
+                    value={formatHotspotContentTypeLabel(
+                      createdHotspot.contentType,
+                    )}
+                  />
+                  <ResultRow
+                    label="Hiệu lực"
+                    value={buildContentValidityLabel(createdHotspot)}
                   />
                   <div className="rounded-2xl bg-slate-50 px-4 py-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -1429,9 +1530,14 @@ function buildCreatePayload(
   const address = formState.address.trim();
   const description = formState.description.trim();
   const historyInformation = formState.historyInformation.trim();
+  const contentType = formState.contentType.trim().toUpperCase();
 
   if (!hotspotName) {
     throw new Error("Vui lòng nhập tên địa điểm.");
+  }
+
+  if (!contentType) {
+    throw new Error("Vui lòng nhập loại nội dung.");
   }
 
   const estimatedDurationMin = parseIntegerField(
@@ -1460,6 +1566,7 @@ function buildCreatePayload(
     estimatedDurationMax,
     startTime: normalizeTimeForApi("thời gian bắt đầu", formState.startTime),
     endTime: normalizeTimeForApi("thời gian kết thúc", formState.endTime),
+    contentType,
   };
 
   applyCheckInZoneToPayload(
@@ -1496,6 +1603,23 @@ function buildCreatePayload(
 
   if (closingTime) {
     payload.closingTime = closingTime;
+  }
+
+  const validFrom = normalizeOptionalDateTimeForApi(
+    "thời gian hiệu lực bắt đầu",
+    formState.validFrom,
+  );
+  const validTo = normalizeOptionalDateTimeForApi(
+    "thời gian hiệu lực kết thúc",
+    formState.validTo,
+  );
+
+  if (validFrom) {
+    payload.validFrom = validFrom;
+  }
+
+  if (validTo) {
+    payload.validTo = validTo;
   }
 
   return payload;
@@ -1611,6 +1735,11 @@ async function validateHotspotPayload(
   editingHotspotId: number | null,
 ) {
   validateCoordinateRange(payload.latitude, payload.longitude);
+  validateOptionalDateTimeWindow(
+    "thời gian hiệu lực",
+    payload.validFrom,
+    payload.validTo,
+  );
   validateTimeWindow(
     "khung giờ trải nghiệm",
     payload.startTime,
@@ -1671,6 +1800,16 @@ function normalizeOptionalTimeForApi(label: string, value: string) {
   return normalizeTimeValue(label, normalizedValue);
 }
 
+function normalizeOptionalDateTimeForApi(label: string, value: string) {
+  const normalizedValue = value.trim();
+
+  if (!normalizedValue) {
+    return undefined;
+  }
+
+  return normalizeDateTimeValue(label, normalizedValue);
+}
+
 function normalizeTimeValue(label: string, normalizedValue: string) {
   if (/^\d{2}:\d{2}$/.test(normalizedValue)) {
     return `${normalizedValue}:00`;
@@ -1681,6 +1820,16 @@ function normalizeTimeValue(label: string, normalizedValue: string) {
   }
 
   throw new Error(`${label} không đúng định dạng HH:mm hoặc HH:mm:ss.`);
+}
+
+function normalizeDateTimeValue(label: string, normalizedValue: string) {
+  const parsedDate = new Date(normalizedValue);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    throw new Error(`${label} không đúng định dạng ngày giờ.`);
+  }
+
+  return formatDateTimeOffsetValue(parsedDate);
 }
 
 function validateOptionalTimeWindow(
@@ -1699,6 +1848,35 @@ function validateOptionalTimeWindow(
   }
 
   validateTimeWindow(label, startTime, endTime);
+}
+
+function validateOptionalDateTimeWindow(
+  label: string,
+  startTime?: string,
+  endTime?: string,
+) {
+  if (!startTime && !endTime) {
+    return;
+  }
+
+  if (!startTime || !endTime) {
+    throw new Error(
+      `${label} không hợp lệ: vui lòng nhập đủ thời gian bắt đầu và kết thúc.`,
+    );
+  }
+
+  const startDate = new Date(startTime);
+  const endDate = new Date(endTime);
+
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    throw new Error(`${label} không đúng định dạng ngày giờ.`);
+  }
+
+  if (startDate.getTime() >= endDate.getTime()) {
+    throw new Error(
+      `${label} không hợp lệ: thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.`,
+    );
+  }
 }
 
 function syncFormStateWithResponse(
@@ -1743,6 +1921,12 @@ function syncFormStateWithResponse(
       response.closingTime,
       current.closingTime,
     ),
+    contentType: normalizeHotspotContentTypeValue(
+      response.contentType,
+      current.contentType,
+    ),
+    validFrom: formatDateTimeInputValue(response.validFrom, current.validFrom),
+    validTo: formatDateTimeInputValue(response.validTo, current.validTo),
   };
 }
 
@@ -1759,21 +1943,26 @@ function formatTimeInputValue(
   value: string | null | undefined,
   fallback: string,
 ) {
+  const normalizedValue = formatTimeDisplayValue(value);
+  return /^\d{2}:\d{2}$/.test(normalizedValue) ? normalizedValue : fallback;
+}
+
+function formatDateTimeInputValue(
+  value: string | null | undefined,
+  fallback: string,
+) {
   const normalizedValue = value?.trim();
 
   if (!normalizedValue) {
     return fallback;
   }
 
-  if (/^\d{2}:\d{2}:\d{2}$/.test(normalizedValue)) {
-    return normalizedValue.slice(0, 5);
+  const parsedDate = new Date(normalizedValue);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return fallback;
   }
 
-  if (/^\d{2}:\d{2}$/.test(normalizedValue)) {
-    return normalizedValue;
-  }
-
-  return fallback;
+  return formatDateTimeLocalInputValue(parsedDate);
 }
 
 function formatDateTime(value: string | undefined) {
@@ -1821,19 +2010,84 @@ function buildDurationLabel(hotspot: BackendHotspot) {
 }
 
 function buildTimeWindowLabel(hotspot: BackendHotspot) {
-  if (!hotspot.startTime || !hotspot.endTime) {
-    return "Chưa có dữ liệu";
-  }
-
-  return `${hotspot.startTime} - ${hotspot.endTime}`;
+  return (
+    formatTimeRangeDisplayValue(hotspot.startTime, hotspot.endTime) ||
+    "Chưa có dữ liệu"
+  );
 }
 
 function buildOpeningHoursLabel(hotspot: BackendHotspot) {
-  if (!hotspot.openingTime || !hotspot.closingTime) {
+  return (
+    formatTimeRangeDisplayValue(hotspot.openingTime, hotspot.closingTime) ||
+    "Chưa có dữ liệu"
+  );
+}
+
+function buildTimeMismatchWarning(
+  payload: CreateHotspotPayload,
+  response: BackendHotspot,
+) {
+  const mismatchMessages: string[] = [];
+  const submittedBestTime = formatTimeRangeDisplayValue(
+    payload.startTime,
+    payload.endTime,
+  );
+  const savedBestTime = formatTimeRangeDisplayValue(
+    response.startTime,
+    response.endTime,
+  );
+
+  if (submittedBestTime !== savedBestTime) {
+    mismatchMessages.push(
+      `Khung giờ lý tưởng đã gửi là ${submittedBestTime || "trống"} nhưng backend trả về ${savedBestTime || "trống"}.`,
+    );
+  }
+
+  const submittedOpeningHours = formatTimeRangeDisplayValue(
+    payload.openingTime,
+    payload.closingTime,
+  );
+
+  if (submittedOpeningHours) {
+    const savedOpeningHours = formatTimeRangeDisplayValue(
+      response.openingTime,
+      response.closingTime,
+    );
+
+    if (submittedOpeningHours !== savedOpeningHours) {
+      mismatchMessages.push(
+        `Giờ mở/đóng cửa đã gửi là ${submittedOpeningHours} nhưng backend trả về ${savedOpeningHours || "trống"}.`,
+      );
+    }
+  }
+
+  return mismatchMessages.join(" ");
+}
+
+function buildContentValidityLabel(hotspot: BackendHotspot) {
+  if (!hotspot.validFrom || !hotspot.validTo) {
     return "Chưa có dữ liệu";
   }
 
-  return `${hotspot.openingTime} - ${hotspot.closingTime}`;
+  return `${formatDateTime(hotspot.validFrom)} - ${formatDateTime(hotspot.validTo)}`;
+}
+
+function formatHotspotContentTypeLabel(value: string | null | undefined) {
+  const normalizedValue = value?.trim().toUpperCase();
+
+  if (!normalizedValue) {
+    return "Chưa có dữ liệu";
+  }
+
+  if (normalizedValue === "TEMP") {
+    return "Có thời hạn";
+  }
+
+  if (normalizedValue === "PERMANENT" || normalizedValue === "PERM") {
+    return "Vĩnh viễn";
+  }
+
+  return normalizedValue;
 }
 
 function parseHotspotId(value: string | null) {
@@ -1890,6 +2144,56 @@ function normalizePositiveInteger(
 
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function formatDateTimeLocalInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+}
+
+function formatDateTimeOffsetValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  const milliseconds = String(date.getMilliseconds()).padStart(3, "0");
+  const offsetMinutes = -date.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? "+" : "-";
+  const absoluteOffsetMinutes = Math.abs(offsetMinutes);
+  const offsetHours = String(Math.floor(absoluteOffsetMinutes / 60)).padStart(
+    2,
+    "0",
+  );
+  const offsetRemainderMinutes = String(
+    absoluteOffsetMinutes % 60,
+  ).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}${sign}${offsetHours}:${offsetRemainderMinutes}`;
+}
+
+function normalizeHotspotContentTypeValue(
+  value: string | null | undefined,
+  fallback: string,
+) {
+  const normalizedValue = value?.trim().toUpperCase();
+
+  if (!normalizedValue) {
+    return fallback;
+  }
+
+  if (normalizedValue === "PERM") {
+    return "PERMANENT";
+  }
+
+  return normalizedValue;
 }
 
 function stripVietnameseAccents(value: string) {
