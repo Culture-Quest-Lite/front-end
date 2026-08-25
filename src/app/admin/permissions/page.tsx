@@ -68,7 +68,7 @@ export default function PermissionsPage() {
       />
 
       {/* Tab switcher */}
-      <div className="flex w-fit gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+      <div className="flex max-w-full flex-wrap gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
         <button
           type="button"
           onClick={() => setTab("roles")}
@@ -181,9 +181,9 @@ function RolePermissionsTab({ showToast }: { showToast: (msg: string) => void })
   const allPerms = data.allPermissions.flatMap((g) => g.permissions);
 
   return (
-    <div className="grid grid-cols-[180px_1fr] gap-4">
+    <div className="grid gap-4 lg:grid-cols-[180px_1fr]">
       {/* Role sidebar */}
-      <div className="space-y-1">
+      <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-1">
         {ROLES.map((role) => {
           const orig = new Set(data.matrix[role] ?? []);
           const cur = edits[role] ?? new Set<string>();
@@ -210,8 +210,8 @@ function RolePermissionsTab({ showToast }: { showToast: (msg: string) => void })
 
       {/* Matrix panel */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${roleColors[selectedRole]}`}>
               {roleLabels[selectedRole]}
             </span>
@@ -219,7 +219,7 @@ function RolePermissionsTab({ showToast }: { showToast: (msg: string) => void })
               {currentCodes.size} / {allPerms.length} quyền
             </span>
           </div>
-          <Button size="sm" className="gap-1.5" disabled={saving || !hasChanges} onClick={() => void handleSave()}>
+          <Button size="sm" className="w-full gap-1.5 sm:w-auto" disabled={saving || !hasChanges} onClick={() => void handleSave()}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Lưu thay đổi
           </Button>
@@ -411,7 +411,7 @@ function UserPermissionsTab({ showToast }: { showToast: (msg: string) => void })
     <div className="grid gap-4 lg:grid-cols-[460px_1fr] xl:grid-cols-[560px_1fr]">
       {/* Cột trái: danh sách người dùng để chọn */}
       <div className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             <input
@@ -422,7 +422,7 @@ function UserPermissionsTab({ showToast }: { showToast: (msg: string) => void })
               className="w-full rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-sm outline-none focus:border-[#D94A8D] focus:ring-2 focus:ring-[#F7DCE8]"
             />
           </div>
-          <Button size="sm" onClick={applySearch} disabled={listLoading}>
+          <Button size="sm" className="sm:self-auto" onClick={applySearch} disabled={listLoading}>
             {listLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Tìm"}
           </Button>
         </div>
@@ -466,7 +466,7 @@ function UserPermissionsTab({ showToast }: { showToast: (msg: string) => void })
         </div>
 
         {totalPages > 1 ? (
-          <div className="flex items-center justify-between px-1 text-xs text-slate-500">
+          <div className="flex flex-col gap-3 px-1 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
             <Button
               size="sm"
               variant="outline"
@@ -527,7 +527,8 @@ function UserPermissionsTab({ showToast }: { showToast: (msg: string) => void })
               </div>
             ) : (
               <div className="cq-admin-panel">
-                <table className="cq-admin-table">
+                <div className="cq-table-scroll">
+                <table className="cq-admin-table min-w-[780px]">
                   <colgroup>
                     <col className="w-[26%]" />
                     <col className="w-[14%]" />
@@ -587,6 +588,7 @@ function UserPermissionsTab({ showToast }: { showToast: (msg: string) => void })
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             )}
           </>
@@ -675,7 +677,7 @@ function AddPermissionModal({
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-slate-600">Loại ngoại lệ</label>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 type="button"
                 onClick={() => setGranted(true)}
@@ -727,7 +729,7 @@ function AddPermissionModal({
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 border-t border-slate-100 p-6">
+        <div className="flex flex-col-reverse gap-3 border-t border-slate-100 p-6 sm:flex-row sm:justify-end">
           <Button variant="outline" onClick={onCancel} disabled={submitting}>Huỷ</Button>
           <Button onClick={() => void handleSubmit()} disabled={submitting}>
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Lưu ngoại lệ"}

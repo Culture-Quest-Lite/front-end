@@ -244,7 +244,8 @@ export default function ReviewHistoryPage() {
       <section className="cq-admin-panel">
         {/* table-layout: fixed (class cq-admin-table) để nội dung xuống dòng
             trong khung, không cần scroll ngang. */}
-        <table className="cq-admin-table">
+        <div className="cq-table-scroll">
+        <table className="cq-admin-table min-w-[720px]">
           <colgroup>
             <col className="w-[18%]" />
             <col className="w-[22%]" />
@@ -293,6 +294,7 @@ export default function ReviewHistoryPage() {
             })}
           </tbody>
         </table>
+        </div>
         <div className="border-t border-slate-100 p-4"><Pagination page={page} totalPages={totalPages} totalItems={totalElements} pageSize={PAGE_SIZE} onPageChange={setPage} /></div>
       </section>
 
@@ -426,7 +428,7 @@ function ValueView({ value, level = 0 }: { value: unknown; level?: number }) {
           return (
             <div
               key={key}
-              className="grid grid-cols-[minmax(140px,0.9fr)_minmax(0,1.1fr)] items-start gap-4 py-3 first:pt-0 last:pb-0"
+              className="grid grid-cols-1 items-start gap-1 py-3 first:pt-0 last:pb-0 sm:grid-cols-[minmax(140px,0.9fr)_minmax(0,1.1fr)] sm:gap-4"
             >
               <p className="text-sm leading-5 text-slate-500">{humanizeKey(key)}</p>
               <p

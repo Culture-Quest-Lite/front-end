@@ -354,7 +354,8 @@ export default function SettingsPageClient() {
               </div>
             ) : null}
 
-            <table className="cq-admin-table">
+            <div className="cq-table-scroll">
+            <table className="cq-admin-table min-w-[840px]">
               <colgroup>
                 <col className="w-[20%]" />
                 <col className="w-[12%]" />
@@ -425,6 +426,7 @@ export default function SettingsPageClient() {
                 </tr>
               </tbody>
             </table>
+            </div>
           </section>
         ) : null}
       </div>
@@ -495,7 +497,7 @@ export default function SettingsPageClient() {
                 ) : null}
               </div>
 
-              <div className="shrink-0 flex justify-end gap-3 border-t border-slate-100 p-6">
+              <div className="shrink-0 flex flex-col-reverse gap-3 border-t border-slate-100 p-6 sm:flex-row sm:justify-end">
                 <Button
                   type="button"
                   variant="outline"

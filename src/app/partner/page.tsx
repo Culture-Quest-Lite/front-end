@@ -274,8 +274,8 @@ export default function PartnerDashboardPage() {
             subtitle="Bảng tổng hợp số lượng theo từng trạng thái."
           />
 
-          <div className="mt-5 overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+          <div className="cq-table-scroll">
+            <table className="min-w-[640px] divide-y divide-slate-200 text-left text-sm">
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Trạng thái</th>
@@ -365,8 +365,8 @@ export default function PartnerDashboardPage() {
         ) : visibleVouchers.length === 0 ? (
           <EmptyBox text="Không có dữ liệu voucher để hiển thị." />
         ) : (
-          <div className="mt-5 overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+          <div className="cq-table-scroll">
+            <table className="min-w-[920px] divide-y divide-slate-200 text-left text-sm">
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Mã voucher</th>

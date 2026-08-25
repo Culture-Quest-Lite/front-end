@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageLoading } from "@/components/app/page-loading";
 import { useAuth } from "@/hooks/use-auth";
+import { useTimeGreeting } from "@/hooks/use-time-greeting";
 import { getRedirectPathForRole } from "@/lib/access-control";
 import { PageHeader, StatCard, StatusPill } from "@/components/app/ui-bits";
 import { UserAvatar, roleClasses, roleLabels } from "@/components/admin/UserAvatar";
@@ -60,6 +61,7 @@ import { ResponsiveContainer } from "@/components/ui/chart-responsive-container"
 
 export default function AdminDashboardPage() {
   const { session, loading } = useAuth();
+  const greeting = useTimeGreeting();
   const router = useRouter();
   const [recentUsers, setRecentUsers] = useState<UserProfile[]>([]);
   const [pendingPosts, setPendingPosts] = useState<PostItem[]>([]);
@@ -177,7 +179,7 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Chào buổi sáng, ${session.name} 👋`}
+        title={`${greeting}, ${session.name} 👋`}
         subtitle="Tổng quan quyền quản trị Culture Quest Lite hôm nay."
         actions={
           <div className="flex flex-wrap items-center gap-2">
