@@ -1,11 +1,24 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, type FormEvent } from "react";
-import { ArrowLeft, Eye, EyeOff, LockKeyhole } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  Mail,
+  Smartphone,
+} from "lucide-react";
 
 import { PageLoading } from "@/components/app/page-loading";
+import { authApi } from "@/services/api";
+
+/** Khớp `@Size(min = 6)` ở `ResetPasswordRequest.java` bên backend. */
+const minPasswordLength = 6;
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type TravelCardDefinition = {
   id: number;
@@ -50,6 +63,43 @@ const featuredCard = {
     "https://i.pinimg.com/1200x/65/58/cb/6558cbb31d2a7120730b678f406fdb9a.jpg",
 };
 
+type ResetFieldErrors = {
+  newPassword?: string;
+  confirmPassword?: string;
+};
+
+function validateResetForm(
+  newPassword: string,
+  confirmPassword: string,
+): ResetFieldErrors {
+  const errors: ResetFieldErrors = {};
+
+  if (!newPassword) {
+    errors.newPassword = "Vui lòng nhập mật khẩu mới.";
+  } else if (newPassword.length < minPasswordLength) {
+    errors.newPassword = `Mật khẩu mới tối thiểu ${minPasswordLength} ký tự.`;
+  }
+
+  if (!confirmPassword) {
+    errors.confirmPassword = "Vui lòng nhập lại mật khẩu mới.";
+  } else if (newPassword !== confirmPassword) {
+    errors.confirmPassword = "Mật khẩu nhập lại không khớp.";
+  }
+
+  return errors;
+}
+
+function maskEmail(email: string) {
+  const [name, domain] = email.split("@");
+
+  if (!name || !domain) {
+    return email;
+  }
+
+  const visible = name.slice(0, Math.min(2, name.length));
+  return `${visible}${"*".repeat(Math.max(name.length - visible.length, 1))}@${domain}`;
+}
+
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={<ResetPasswordFallback />}>
@@ -58,79 +108,348 @@ export default function ResetPasswordPage() {
   );
 }
 
+/**
+ * Trang này có hai chế độ:
+ *
+ * - Có `?token=` (người dùng bấm link trong email) → form đặt mật khẩu mới.
+ * - Không có token (bấm "Bạn quên mật khẩu?" ở trang đăng nhập) → form nhập
+ *   email để backend gửi link.
+ *
+ * Gộp vào một route để link dự phòng trong email của app mobile và lối vào từ
+ * web dùng chung một địa chỉ.
+ */
 function ResetPasswordContent() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token")?.trim() ?? "";
+
+  return (
+    <AuthShell>
+      {token ? <ResetPasswordForm token={token} /> : <RequestResetLinkForm />}
+    </AuthShell>
+  );
+}
+
+function ResetPasswordForm({ token }: { token: string }) {
   const router = useRouter();
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] =
+    useState(false);
+  const [fieldErrors, setFieldErrors] = useState<ResetFieldErrors>({});
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [isDone, setIsDone] = useState(false);
 
-  const handleResetPassword = (event: FormEvent<HTMLFormElement>) => {
+  const handleResetPassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    console.log({
-      password,
-      confirmPassword,
-    });
+    if (loading) {
+      return;
+    }
 
-    // TODO: Call reset password API later
+    const nextFieldErrors = validateResetForm(password, confirmPassword);
+    setFieldErrors(nextFieldErrors);
+
+    if (nextFieldErrors.newPassword || nextFieldErrors.confirmPassword) {
+      setError("");
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+
+    try {
+      await authApi.resetPassword({
+        token,
+        newPassword: password,
+        confirmPassword,
+      });
+
+      setIsDone(true);
+    } catch (err) {
+      console.error("Reset password error:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Đặt lại mật khẩu thất bại. Vui lòng thử lại.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
-  return (
-    <AuthShell>
-      <div className="mx-auto w-full max-w-[430px] lg:mx-0">
-        <button
-          type="button"
-          onClick={() => router.push("/")}
-          className="inline-flex items-center gap-2 text-[11px] font-medium text-slate-500 transition hover:text-[#dd4a8d]"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Quay lại đăng nhập
-        </button>
+  if (isDone) {
+    return (
+      <PanelShell>
+        <SuccessBadge />
 
-        <BrandHeader />
-
-        <h1 className="mt-7 text-[2rem] font-bold leading-[1.05] tracking-[-0.06em] text-slate-950 sm:text-[2.35rem]">
-          Đặt lại mật khẩu
+        <h1 className="mt-6 text-[1.75rem] font-bold leading-[1.08] tracking-[-0.05em] text-slate-950 sm:text-[2.1rem]">
+          Đổi mật khẩu thành công
         </h1>
 
-        <p className="mt-3 text-[12px] leading-5 text-slate-500">
-          Nhập mật khẩu mới và xác nhận mật khẩu mới để hoàn tất quá trình đặt lại mật khẩu.
+        <p className="mt-3 text-[13px] leading-6 text-slate-500 sm:text-[12px] sm:leading-5">
+          Bạn có thể đăng nhập lại bằng mật khẩu mới ngay bây giờ.
         </p>
 
-        <form className="mt-7 space-y-3.5" onSubmit={handleResetPassword}>
-          <PasswordField
-            id="new-password"
-            label="Mật khẩu mới"
-            placeholder="Nhập mật khẩu mới"
-            value={password}
-            visible={isPasswordVisible}
-            onChange={setPassword}
-            onToggleVisible={() => setIsPasswordVisible((visible) => !visible)}
-          />
+        <div className="mt-4 flex items-start gap-3 rounded-2xl bg-[#f1f6fb] px-4 py-3.5">
+          <Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-[#dd4a8d]" />
+          <p className="text-[12px] leading-5 text-slate-500">
+            Đang dùng điện thoại? Hãy mở lại ứng dụng Culture Quest Lite và đăng
+            nhập bằng mật khẩu vừa đặt.
+          </p>
+        </div>
 
-          <PasswordField
-            id="confirm-password"
-            label="Xác nhận mật khẩu mới"
-            placeholder="Xác nhận mật khẩu mới"
-            value={confirmPassword}
-            visible={isConfirmPasswordVisible}
-            onChange={setConfirmPassword}
-            onToggleVisible={() =>
-              setIsConfirmPasswordVisible((visible) => !visible)
-            }
-          />
+        <button
+          className="mt-6 h-12 w-full rounded-full bg-[linear-gradient(90deg,_#eb489b_0%,_#f58752_58%,_#ffc93c_100%)] text-[14px] font-semibold text-white shadow-[0_16px_28px_rgba(235,72,155,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_34px_rgba(235,72,155,0.28)] focus:shadow-[0_0_0_4px_rgba(255,103,154,0.12)] focus:outline-none sm:h-[3.15rem] sm:text-[13px]"
+          onClick={() => router.push("/")}
+          type="button"
+        >
+          Về trang đăng nhập
+        </button>
+      </PanelShell>
+    );
+  }
 
-          <button
-            className="h-[3.15rem] w-full rounded-full bg-[linear-gradient(90deg,_#eb489b_0%,_#f58752_58%,_#ffc93c_100%)] text-[13px] font-semibold text-white shadow-[0_16px_28px_rgba(235,72,155,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_34px_rgba(235,72,155,0.28)] focus:outline-none focus:shadow-[0_0_0_4px_rgba(255,103,154,0.12)]"
-            type="submit"
-          >
-            Đặt lại mật khẩu
-          </button>
-        </form>
-      </div>
-    </AuthShell>
+  return (
+    <PanelShell>
+      <BackToLoginButton />
+      <BrandHeader />
+
+      <h1 className="mt-6 text-[1.75rem] font-bold leading-[1.08] tracking-[-0.05em] text-slate-950 sm:mt-7 sm:text-[2.1rem] lg:text-[2.35rem]">
+        Đặt lại mật khẩu
+      </h1>
+
+      <p className="mt-3 text-[13px] leading-6 text-slate-500 sm:text-[12px] sm:leading-5">
+        Nhập mật khẩu mới và xác nhận mật khẩu mới để hoàn tất quá trình đặt lại
+        mật khẩu.
+      </p>
+
+      <form className="mt-6 space-y-3.5 sm:mt-7" noValidate onSubmit={handleResetPassword}>
+        {error ? (
+          <div className="rounded-2xl bg-red-50 p-3.5 text-center">
+            <p className="text-[12px] font-medium leading-5 text-red-800">
+              {error}
+            </p>
+          </div>
+        ) : null}
+
+        <PasswordField
+          id="new-password"
+          label="Mật khẩu mới"
+          placeholder="Nhập mật khẩu mới"
+          value={password}
+          visible={isPasswordVisible}
+          errorMessage={fieldErrors.newPassword}
+          onChange={(value) => {
+            setPassword(value);
+            setError("");
+          }}
+          onToggleVisible={() => setIsPasswordVisible((visible) => !visible)}
+        />
+
+        <PasswordField
+          id="confirm-password"
+          label="Xác nhận mật khẩu mới"
+          placeholder="Xác nhận mật khẩu mới"
+          value={confirmPassword}
+          visible={isConfirmPasswordVisible}
+          errorMessage={fieldErrors.confirmPassword}
+          onChange={(value) => {
+            setConfirmPassword(value);
+            setError("");
+          }}
+          onToggleVisible={() =>
+            setIsConfirmPasswordVisible((visible) => !visible)
+          }
+        />
+
+        <button
+          className="h-12 w-full rounded-full bg-[linear-gradient(90deg,_#eb489b_0%,_#f58752_58%,_#ffc93c_100%)] text-[14px] font-semibold text-white shadow-[0_16px_28px_rgba(235,72,155,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_34px_rgba(235,72,155,0.28)] focus:shadow-[0_0_0_4px_rgba(255,103,154,0.12)] focus:outline-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70 sm:h-[3.15rem] sm:text-[13px]"
+          disabled={loading}
+          type="submit"
+        >
+          {loading ? "Đang đặt lại..." : "Đặt lại mật khẩu"}
+        </button>
+      </form>
+
+      <p className="mt-5 text-center text-[12px] leading-5 text-slate-400 sm:text-[11px]">
+        Liên kết đã hết hạn?{" "}
+        <button
+          className="font-semibold text-[#dd4a8d] transition hover:underline"
+          onClick={() => router.replace("/reset-password")}
+          type="button"
+        >
+          Gửi lại liên kết mới
+        </button>
+      </p>
+    </PanelShell>
+  );
+}
+
+function RequestResetLinkForm() {
+  const [email, setEmail] = useState("");
+  const [fieldError, setFieldError] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sentTo, setSentTo] = useState("");
+
+  const submitRequest = async (targetEmail: string) => {
+    setError("");
+    setLoading(true);
+
+    try {
+      // Không gửi `platform` nên backend trả link web — đúng cho luồng trình duyệt.
+      await authApi.forgotPassword({ email: targetEmail });
+      setSentTo(targetEmail);
+    } catch (err) {
+      console.error("Forgot password error:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Không gửi được email khôi phục. Vui lòng thử lại.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRequestLink = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (loading) {
+      return;
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      setFieldError("Vui lòng nhập email.");
+      setError("");
+      return;
+    }
+
+    if (!emailPattern.test(normalizedEmail)) {
+      setFieldError("Định dạng email không hợp lệ.");
+      setError("");
+      return;
+    }
+
+    setFieldError("");
+    setEmail(normalizedEmail);
+    await submitRequest(normalizedEmail);
+  };
+
+  if (sentTo) {
+    return (
+      <PanelShell>
+        <SuccessBadge />
+
+        <h1 className="mt-6 text-[1.75rem] font-bold leading-[1.08] tracking-[-0.05em] text-slate-950 sm:text-[2.1rem]">
+          Đã gửi email khôi phục
+        </h1>
+
+        <p className="mt-3 text-[13px] leading-6 text-slate-500 sm:text-[12px] sm:leading-5">
+          Chúng tôi đã gửi liên kết đặt lại mật khẩu tới{" "}
+          <span className="font-semibold text-slate-800">
+            {maskEmail(sentTo)}
+          </span>
+          . Liên kết có hiệu lực trong 15 phút và chỉ dùng được một lần.
+        </p>
+
+        {error ? (
+          <div className="mt-4 rounded-2xl bg-red-50 p-3.5 text-center">
+            <p className="text-[12px] font-medium leading-5 text-red-800">
+              {error}
+            </p>
+          </div>
+        ) : null}
+
+        <button
+          className="mt-6 h-12 w-full rounded-full border border-slate-200 bg-white text-[14px] font-semibold text-slate-600 transition hover:border-[#dd4a8d] hover:text-[#dd4a8d] disabled:cursor-not-allowed disabled:opacity-70 sm:h-[3.15rem] sm:text-[13px]"
+          disabled={loading}
+          onClick={() => void submitRequest(sentTo)}
+          type="button"
+        >
+          {loading ? "Đang gửi lại..." : "Gửi lại email"}
+        </button>
+
+        <p className="mt-5 text-center text-[12px] leading-5 text-slate-400 sm:text-[11px]">
+          Không thấy email? Kiểm tra thêm mục Spam hoặc Quảng cáo.
+        </p>
+      </PanelShell>
+    );
+  }
+
+  return (
+    <PanelShell>
+      <BackToLoginButton />
+      <BrandHeader />
+
+      <h1 className="mt-6 text-[1.75rem] font-bold leading-[1.08] tracking-[-0.05em] text-slate-950 sm:mt-7 sm:text-[2.1rem] lg:text-[2.35rem]">
+        Quên mật khẩu?
+      </h1>
+
+      <p className="mt-3 text-[13px] leading-6 text-slate-500 sm:text-[12px] sm:leading-5">
+        Nhập email của tài khoản, chúng tôi sẽ gửi cho bạn liên kết để đặt lại
+        mật khẩu.
+      </p>
+
+      <form className="mt-6 space-y-3.5 sm:mt-7" noValidate onSubmit={handleRequestLink}>
+        {error ? (
+          <div className="rounded-2xl bg-red-50 p-3.5 text-center">
+            <p className="text-[12px] font-medium leading-5 text-red-800">
+              {error}
+            </p>
+          </div>
+        ) : null}
+
+        <div>
+          <label className="sr-only" htmlFor="reset-email">
+            Email
+          </label>
+
+          <div className="relative">
+            <Mail className="absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+            <input
+              aria-describedby={fieldError ? "reset-email-error" : undefined}
+              aria-invalid={fieldError ? "true" : "false"}
+              autoComplete="email"
+              className="h-12 w-full rounded-full bg-[#f1f6fb] px-12 text-[16px] text-slate-700 outline-none transition placeholder:text-slate-400 focus:bg-white focus:shadow-[0_0_0_4px_rgba(255,103,154,0.08)] sm:h-[3.15rem] sm:text-[12px]"
+              id="reset-email"
+              inputMode="email"
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setFieldError("");
+                setError("");
+              }}
+              placeholder="Nhập email của bạn"
+              type="email"
+              value={email}
+            />
+          </div>
+
+          {fieldError ? (
+            <p
+              className="mt-2 pl-5 text-[12px] font-medium text-red-600 sm:text-[11px]"
+              id="reset-email-error"
+            >
+              {fieldError}
+            </p>
+          ) : null}
+        </div>
+
+        <button
+          className="h-12 w-full rounded-full bg-[linear-gradient(90deg,_#eb489b_0%,_#f58752_58%,_#ffc93c_100%)] text-[14px] font-semibold text-white shadow-[0_16px_28px_rgba(235,72,155,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_34px_rgba(235,72,155,0.28)] focus:shadow-[0_0_0_4px_rgba(255,103,154,0.12)] focus:outline-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70 sm:h-[3.15rem] sm:text-[13px]"
+          disabled={loading}
+          type="submit"
+        >
+          {loading ? "Đang gửi..." : "Gửi liên kết đặt lại"}
+        </button>
+      </form>
+    </PanelShell>
   );
 }
 
@@ -140,6 +459,7 @@ function PasswordField({
   placeholder,
   value,
   visible,
+  errorMessage,
   onChange,
   onToggleVisible,
 }: {
@@ -148,50 +468,98 @@ function PasswordField({
   placeholder: string;
   value: string;
   visible: boolean;
+  errorMessage?: string;
   onChange: (value: string) => void;
   onToggleVisible: () => void;
 }) {
   return (
-    <div className="relative">
+    <div>
       <label className="sr-only" htmlFor={id}>
         {label}
       </label>
 
-      <LockKeyhole className="absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      <div className="relative">
+        <LockKeyhole className="absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
-      <input
-        id={id}
-        className="h-[3.15rem] w-full rounded-full bg-[#f1f6fb] px-12 text-[12px] text-slate-700 outline-none transition placeholder:text-slate-400 focus:bg-white focus:shadow-[0_0_0_4px_rgba(255,103,154,0.08)]"
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        required
-        type={visible ? "text" : "password"}
-        value={value}
-      />
+        <input
+          aria-describedby={errorMessage ? `${id}-error` : undefined}
+          aria-invalid={errorMessage ? "true" : "false"}
+          autoComplete="new-password"
+          className="h-12 w-full rounded-full bg-[#f1f6fb] px-12 text-[16px] text-slate-700 outline-none transition placeholder:text-slate-400 focus:bg-white focus:shadow-[0_0_0_4px_rgba(255,103,154,0.08)] sm:h-[3.15rem] sm:text-[12px]"
+          id={id}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          type={visible ? "text" : "password"}
+          value={value}
+        />
 
-      <button
-        type="button"
-        onClick={onToggleVisible}
-        aria-label={visible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-        className="absolute right-4 top-1/2 inline-flex -translate-y-1/2 items-center justify-center text-slate-400 transition hover:text-[#dd4a8d]"
-      >
-        {visible ? (
-          <EyeOff className="h-4 w-4" />
-        ) : (
-          <Eye className="h-4 w-4" />
-        )}
-      </button>
+        <button
+          aria-label={visible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+          className="absolute right-4 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center text-slate-400 transition hover:text-[#dd4a8d]"
+          onClick={onToggleVisible}
+          type="button"
+        >
+          {visible ? (
+            <EyeOff className="h-4 w-4" />
+          ) : (
+            <Eye className="h-4 w-4" />
+          )}
+        </button>
+      </div>
+
+      {errorMessage ? (
+        <p
+          className="mt-2 pl-5 text-[12px] font-medium text-red-600 sm:text-[11px]"
+          id={`${id}-error`}
+        >
+          {errorMessage}
+        </p>
+      ) : null}
     </div>
   );
 }
 
+function SuccessBadge() {
+  return (
+    <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#eafaf1]">
+      <CheckCircle2 className="h-7 w-7 text-[#2fa36b]" />
+    </div>
+  );
+}
+
+function BackToLoginButton() {
+  const router = useRouter();
+
+  return (
+    <button
+      className="inline-flex items-center gap-2 text-[12px] font-medium text-slate-500 transition hover:text-[#dd4a8d] sm:text-[11px]"
+      onClick={() => router.push("/")}
+      type="button"
+    >
+      <ArrowLeft className="h-4 w-4" />
+      Quay lại đăng nhập
+    </button>
+  );
+}
+
+/** Cột nội dung: full width trên điện thoại, giới hạn bề ngang từ tablet trở lên. */
+function PanelShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mx-auto w-full max-w-[430px] lg:mx-0">{children}</div>
+  );
+}
+
+/**
+ * Điện thoại: một cột tràn viền, không bo góc, chừa safe-area dưới.
+ * Từ `sm` trở lên mới dựng lại khung thẻ bo tròn, và từ `lg` mới hiện postcard.
+ */
 function AuthShell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-dvh bg-[linear-gradient(180deg,_#fbfbfc_0%,_#f6f8fb_100%)] px-4 py-4 sm:px-6 lg:px-8">
-      <section className="relative mx-auto grid min-h-[calc(100dvh-2rem)] max-w-[1320px] overflow-hidden rounded-[28px] bg-[#fcfcfd] shadow-[0_30px_80px_rgba(15,23,42,0.08)] ring-1 ring-black/5 lg:grid-cols-[minmax(380px,0.92fr)_minmax(420px,1fr)] lg:rounded-[34px]">
+    <main className="min-h-dvh bg-[linear-gradient(180deg,_#fbfbfc_0%,_#f6f8fb_100%)] sm:px-6 sm:py-4 lg:px-8">
+      <section className="relative mx-auto grid min-h-dvh w-full max-w-[1320px] grid-cols-1 overflow-hidden bg-[#fcfcfd] sm:min-h-[calc(100dvh-2rem)] sm:rounded-[28px] sm:shadow-[0_30px_80px_rgba(15,23,42,0.08)] sm:ring-1 sm:ring-black/5 lg:grid-cols-[minmax(380px,0.92fr)_minmax(420px,1fr)] lg:rounded-[34px]">
         <DecorativePaths />
 
-        <div className="relative z-10 flex items-center px-6 py-8 sm:px-10 lg:px-12">
+        <div className="relative z-10 flex items-center px-5 pb-[max(2rem,env(safe-area-inset-bottom))] pt-8 sm:px-10 sm:py-8 lg:px-12">
           {children}
         </div>
 
@@ -244,7 +612,7 @@ function DecorativePaths() {
   return (
     <svg
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 h-full w-full opacity-80"
+      className="pointer-events-none absolute inset-0 hidden h-full w-full opacity-80 sm:block"
       fill="none"
       viewBox="0 0 1440 920"
     >
