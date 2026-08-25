@@ -181,9 +181,9 @@ function RolePermissionsTab({ showToast }: { showToast: (msg: string) => void })
   const allPerms = data.allPermissions.flatMap((g) => g.permissions);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[180px_1fr]">
+    <div className="grid items-start gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
       {/* Role sidebar */}
-      <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-1">
+      <div className="grid content-start gap-2 self-start sm:grid-cols-2 lg:grid-cols-1">
         {ROLES.map((role) => {
           const orig = new Set(data.matrix[role] ?? []);
           const cur = edits[role] ?? new Set<string>();
@@ -193,15 +193,15 @@ function RolePermissionsTab({ showToast }: { showToast: (msg: string) => void })
               key={role}
               type="button"
               onClick={() => setSelectedRole(role)}
-              className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${
+              className={`flex min-h-12 w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${
                 selectedRole === role
-                  ? "bg-[#FFF3F8] text-[#D94A8D] ring-1 ring-[#F7DCE8]"
-                  : "text-slate-600 hover:bg-slate-50"
+                  ? "border-[#F7DCE8] bg-[#FFF3F8] text-[#D94A8D] shadow-[0_10px_24px_rgba(217,74,141,0.08)]"
+                  : "border-slate-200 bg-white text-slate-800 hover:border-slate-300 hover:bg-slate-50"
               }`}
             >
-              <span>{roleLabels[role]}</span>
+              <span className="truncate">{roleLabels[role]}</span>
               {dirty && (
-                <span className="h-2 w-2 rounded-full bg-amber-400" title="Có thay đổi chưa lưu" />
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-400" title="Có thay đổi chưa lưu" />
               )}
             </button>
           );
