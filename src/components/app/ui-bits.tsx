@@ -16,7 +16,9 @@ export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
         <h1 className="cq-page-title">{title}</h1>
         <p className="cq-page-subtitle mt-1">{subtitle}</p>
       </div>
-      <div className="flex items-center gap-2">{actions}</div>
+      <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+        {actions}
+      </div>
     </div>
   );
 }

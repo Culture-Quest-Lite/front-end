@@ -572,7 +572,8 @@ export default function AdminTagReviewPage() {
       ) : (
         <section className="cq-admin-panel relative overflow-visible">
           {activeView === "tag" ? (
-            <table className="cq-admin-table">
+            <div className="cq-table-scroll">
+            <table className="cq-admin-table min-w-[780px]">
               <colgroup>
                 <col className="w-[12%]" />
                 <col className="w-[18%]" />
@@ -604,8 +605,10 @@ export default function AdminTagReviewPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           ) : (
-            <table className="cq-admin-table">
+            <div className="cq-table-scroll">
+            <table className="cq-admin-table min-w-[780px]">
               <colgroup>
                 <col className="w-[18%]" />
                 <col className="w-[10%]" />
@@ -638,6 +641,7 @@ export default function AdminTagReviewPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
 
           <div className="rounded-b-[inherit] border-t border-slate-100 px-5 py-4">

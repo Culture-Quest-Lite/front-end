@@ -7,6 +7,7 @@ import { PageLoading } from "@/components/app/page-loading";
 import { getRedirectPathForRole } from "@/lib/access-control";
 import { PageHeader, StatCard } from "@/components/app/ui-bits";
 import { useAuth } from "@/hooks/use-auth";
+import { useTimeGreeting } from "@/hooks/use-time-greeting";
 import { curatorApi, type CuratorDashboard } from "@/services/api/curator/curatorApi";
 import {
   formatChangeLabel,
@@ -37,6 +38,7 @@ import { ResponsiveContainer } from "@/components/ui/chart-responsive-container"
 
 export default function CuratorDashboardPage() {
   const { session, loading } = useAuth();
+  const greeting = useTimeGreeting();
   const router = useRouter();
   const [dashboard, setDashboard] = useState<CuratorDashboard | null>(null);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
@@ -149,7 +151,7 @@ export default function CuratorDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Chào buổi sáng, ${session.name} 👋`}
+        title={`${greeting}, ${session.name} 👋`}
         subtitle="Tổng quan nội dung Culture Quest Lite hôm nay."
         actions={
           <Link href="/curator/routes">
@@ -347,6 +349,7 @@ export default function CuratorDashboardPage() {
                       fontSize={11}
                       tickLine={false}
                       axisLine={false}
+                      tickFormatter={truncateRouteLabel}
                     />
                     <YAxis
                       stroke="rgb(var(--muted-foreground))"
@@ -445,4 +448,14 @@ function normalizeDashboardCount(value: number | null | undefined) {
   }
 
   return 0;
+}
+
+function truncateRouteLabel(value: string) {
+  const compact = value.trim();
+
+  if (compact.length <= 16) {
+    return compact;
+  }
+
+  return `${compact.slice(0, 16)}...`;
 }

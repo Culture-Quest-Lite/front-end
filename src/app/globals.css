@@ -339,6 +339,12 @@
 }
 
 @layer utilities {
+  .cq-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .cq-curator-compact [data-slot="button"][data-variant="secondary"] {
     background: linear-gradient(90deg, #eb489b 0%, #f58752 58%, #ffc93c 100%);
     color: white;
