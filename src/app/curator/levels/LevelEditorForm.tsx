@@ -285,7 +285,7 @@ export function LevelEditorForm({ mode, levelId }: LevelEditorFormProps) {
                 id="level-name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="Ví dụ: 1, 2, 3"
+                placeholder="Ví dụ: Nhà khám phá thành phố"
                 className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                 disabled={isSubmitting || isLoadingLevel || !!loadError}
                 autoFocus
@@ -306,7 +306,7 @@ export function LevelEditorForm({ mode, levelId }: LevelEditorFormProps) {
                 step="1"
                 value={requiredXp}
                 onChange={(event) => setRequiredXp(event.target.value)}
-                placeholder="Ví dụ: 100"
+                placeholder="Ví dụ: 1200"
                 className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                 disabled={isSubmitting || isLoadingLevel || !!loadError}
               />
@@ -323,7 +323,7 @@ export function LevelEditorForm({ mode, levelId }: LevelEditorFormProps) {
                 id="level-description"
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                placeholder="Mô tả ngắn về ý nghĩa và điều kiện đạt cấp bậc này"
+                placeholder="Tóm tắt ý nghĩa của cấp bậc, mốc XP cần đạt và giá trị hiển thị cho người dùng."
                 rows={5}
                 disabled={isSubmitting || isLoadingLevel || !!loadError}
                 className="w-full resize-none rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"

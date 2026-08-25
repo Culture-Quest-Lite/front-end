@@ -72,9 +72,12 @@ export function NotificationBell() {
 
   // Poll mỗi 60s
   useEffect(() => {
-    void load();
+    const initialLoad = window.setTimeout(() => void load(), 0);
     const timer = window.setInterval(() => void load(), 60000);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearTimeout(initialLoad);
+      window.clearInterval(timer);
+    };
   }, [load]);
 
   useEffect(() => {
@@ -127,7 +130,7 @@ export function NotificationBell() {
   }
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative pt-1">
       <button
         type="button"
         onClick={() => {

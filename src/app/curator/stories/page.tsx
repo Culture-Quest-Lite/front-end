@@ -1050,7 +1050,7 @@ export default function CuratorStoriesPage() {
                 </p>
               </div>
 
-              <div className="mt-7 grid grid-cols-2 gap-3">
+              <div className="mt-7 grid gap-3 sm:grid-cols-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -1103,7 +1103,7 @@ export default function CuratorStoriesPage() {
                 </p>
               </div>
 
-              <div className="mt-7 grid grid-cols-2 gap-3">
+              <div className="mt-7 grid gap-3 sm:grid-cols-2">
                 <Button
                   type="button"
                   variant="outline"

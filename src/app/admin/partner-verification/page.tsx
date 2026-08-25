@@ -248,7 +248,8 @@ export default function PartnerVerificationPage() {
 
           {/* Cùng class bảng với các trang admin khác; table-layout fixed nên
               nội dung tự xuống dòng, không phải scroll ngang. */}
-          <table className="cq-admin-table">
+          <div className="cq-table-scroll">
+          <table className="cq-admin-table min-w-[760px]">
             <colgroup>
               <col className="w-[32%]" />
               <col className="w-[20%]" />
@@ -323,8 +324,9 @@ export default function PartnerVerificationPage() {
               })}
             </tbody>
           </table>
+          </div>
 
-          <div className="flex items-center justify-between border-t border-slate-100 px-5 py-4">
+          <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-slate-500">
               Hiển thị {visibleItems.length} / {filtered.length} hồ sơ
             </p>

@@ -11,6 +11,7 @@ import {
   BookOpen,
   MapPin,
   Map,
+  Sparkles,
 } from "lucide-react";
 
 import {
@@ -50,7 +51,7 @@ const menuGroups: Array<{
         icon: Award,
       },
       {
-        title: "Thẻ",
+        title: "Thẻ nội dung",
         href: "/curator/tags",
         icon: Tag,
       },
@@ -78,27 +79,38 @@ export function CuratorSidebar() {
   return (
     <Sidebar className="h-screen border-r border-[#E7EBF2] bg-[#FCFCFD]">
       <SidebarHeader className="border-b border-[#E7EBF2] bg-[#FCFCFD] p-4">
-        <div className="flex items-center gap-3">
-          <div className="relative h-[68px] w-[68px] shrink-0">
-            <Image
-              src="/logo2.png"
-              alt="CultureQuest Lite"
-              fill
-              sizes="68px"
-              priority
-              className="object-contain"
-            />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1
-              className="truncate text-[17px] font-semibold leading-none tracking-[-0.03em] text-slate-900"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            >
-              CultureQuest Lite
-            </h1>
-            <span className="mt-2 inline-flex items-center rounded-full bg-[#FFF1F7] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#D94A8D] ring-1 ring-[#F7DCE8]">
-              Curator
-            </span>
+        <div className="relative px-2 py-2.5">
+          <div className="pointer-events-none absolute left-0 top-[6px] h-[96px] w-[228px] rounded-full bg-[radial-gradient(circle,_rgba(255,84,154,0.16)_0%,_rgba(255,150,101,0.14)_45%,_rgba(255,214,163,0.08)_72%,_rgba(255,255,255,0)_100%)] blur-2xl" />
+
+          <div className="relative flex items-center gap-3">
+            <div className="relative h-[66px] w-[66px] shrink-0">
+              <Image
+                src="/logo2.png"
+                alt="CultureQuest Lite"
+                fill
+                sizes="66px"
+                priority
+                className="object-contain drop-shadow-[0_8px_18px_rgba(255,107,141,0.14)]"
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1
+                className="leading-none tracking-[-0.04em]"
+                style={{ fontFamily: "'Playfair Display', serif" }}
+              >
+                <span className="block truncate whitespace-nowrap text-[16.5px] font-semibold bg-[linear-gradient(90deg,_#FF2E95_0%,_#FF5A76_42%,_#FF884B_76%,_#FFB63F_100%)] bg-clip-text text-transparent">
+                  CultureQuest Lite
+                </span>
+              </h1>
+
+              <div className="mt-2.5">
+                <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[#F7DCE8] bg-white/90 px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#D94A8D] shadow-[0_6px_16px_rgba(235,72,155,0.09)]">
+                  <Sparkles className="h-3 w-3 shrink-0 text-[#F1B4CE]" />
+                  <span className="truncate">Curator</span>
+                  <Sparkles className="h-3 w-3 shrink-0 text-[#F1B4CE]" />
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </SidebarHeader>

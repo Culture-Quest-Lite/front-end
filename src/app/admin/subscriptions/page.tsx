@@ -816,7 +816,7 @@ function SubscriptionFormDialog({
               />
             </Field>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Giá tháng (VND)">
                 <input
                   type="text"

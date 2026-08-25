@@ -183,7 +183,7 @@ export function TagDetailClient({
         </div>
 
         <div className="mt-6 border-t border-dashed border-slate-200 pt-6">
-          <div className="grid max-w-5xl gap-x-5 gap-y-4 px-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-6">
+          <div className="grid max-w-5xl gap-x-5 gap-y-4 px-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-[repeat(5,minmax(0,1fr))_max-content]">
             <DetailItem
               label="Số tuyến"
               value={String(backendTag.routeCount)}
@@ -201,7 +201,7 @@ export function TagDetailClient({
             <div className="space-y-1">
               <p className="cq-label">Trạng thái</p>
               <span
-                className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${getTagStatusTone(backendTag.tagStatus)}`}
+                className={`inline-flex items-center whitespace-nowrap rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${getTagStatusTone(backendTag.tagStatus)}`}
               >
                 {formatTagStatus(backendTag.tagStatus)}
               </span>

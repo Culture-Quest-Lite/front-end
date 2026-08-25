@@ -1321,7 +1321,7 @@ export default function CuratorRoutesPage() {
               </p>
             </div>
 
-            <div className="mt-7 grid grid-cols-2 gap-3">
+            <div className="mt-7 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={() => setPendingPublishRoute(null)}
@@ -1370,7 +1370,7 @@ export default function CuratorRoutesPage() {
               </p>
             </div>
 
-            <div className="mt-7 grid grid-cols-2 gap-3">
+            <div className="mt-7 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={() => setPendingDeleteRoute(null)}

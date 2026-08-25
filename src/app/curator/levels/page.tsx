@@ -526,8 +526,8 @@ export default function CuratorLevelsPage() {
             </div>
           ) : filteredLevels.length > 0 ? (
             <div className="rounded-[1.5rem] border border-slate-200 bg-white">
-              <div>
-                <table className="w-full table-fixed border-collapse">
+              <div className="cq-table-scroll">
+                <table className="w-full min-w-[720px] table-fixed border-collapse">
                   <colgroup>
                     <col className="w-[27%]" />
                     <col className="w-[31%]" />
@@ -660,7 +660,7 @@ export default function CuratorLevelsPage() {
               </p>
             </div>
 
-            <div className="mt-7 grid grid-cols-2 gap-3">
+            <div className="mt-7 grid gap-3 sm:grid-cols-2">
               <Button
                 type="button"
                 variant="outline"

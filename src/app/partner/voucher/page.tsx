@@ -484,8 +484,8 @@ export default function PartnerVouchersPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+            <div className="cq-table-scroll">
+              <table className="min-w-[920px] divide-y divide-slate-200 text-left text-sm">
                 <thead className="bg-slate-50 text-slate-500">
                   <tr>
                     <th className="px-4 py-3 font-semibold">Mã</th>
@@ -746,7 +746,7 @@ function VoucherFormDialog({
           </Field>
 
           <Field label="Hình thức giảm giá">
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 type="button"
                 onClick={() => setForm({ ...form, discountType: "PERCENTAGE" })}
@@ -770,7 +770,7 @@ function VoucherFormDialog({
             </div>
           </Field>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <Field label={form.discountType === "PERCENTAGE" ? "Giá trị giảm (%)" : "Giá trị giảm (VNĐ)"}>
               <input
                 type="number"
@@ -807,7 +807,7 @@ function VoucherFormDialog({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Điểm yêu cầu để đổi">
               <input
                 type="number"
@@ -903,7 +903,7 @@ function VoucherFormDialog({
             ) : null}
           </Field>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Ngày bắt đầu">
               <input
                 type="date"
@@ -926,7 +926,7 @@ function VoucherFormDialog({
           </div>
         </div>
 
-        <div className="shrink-0 flex justify-end gap-3 border-t border-slate-100 p-6">
+        <div className="shrink-0 flex flex-col-reverse gap-3 border-t border-slate-100 p-6 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={onCancel}
