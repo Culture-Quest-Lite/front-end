@@ -42,6 +42,7 @@ import {
 } from "@/services/api";
 import {
   ArrowLeft,
+  CalendarDays,
   CheckCircle2,
   ImagePlus,
   LoaderCircle,
@@ -559,11 +560,11 @@ function HotspotCreatePageContent() {
         ),
       );
 
-      const timeMismatchWarning = buildTimeMismatchWarning(payload, response);
+      const submitWarningMessage = buildSubmitMismatchWarning(payload, response);
 
-      if (timeMismatchWarning) {
-        setSubmitWarning(timeMismatchWarning);
-        toast.warn(timeMismatchWarning);
+      if (submitWarningMessage) {
+        setSubmitWarning(submitWarningMessage);
+        toast.warn(submitWarningMessage);
         return;
       }
 
@@ -1020,34 +1021,16 @@ function HotspotCreatePageContent() {
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="cq-label mb-2 block">
-                      Thời gian bắt đầu
-                    </label>
-                    <Input
-                      type="datetime-local"
-                      step="1"
-                      value={formState.validFrom}
-                      onChange={(event) =>
-                        updateField("validFrom", event.target.value)
-                      }
-                      className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                  <div>
-                    <label className="cq-label mb-2 block">
-                      Thời gian kết thúc
-                    </label>
-                    <Input
-                      type="datetime-local"
-                      step="1"
-                      value={formState.validTo}
-                      onChange={(event) =>
-                        updateField("validTo", event.target.value)
-                      }
-                      className="h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
+                  <DatePickerField
+                    label="Ngày bắt đầu"
+                    value={formState.validFrom}
+                    onChange={(value) => updateField("validFrom", value)}
+                  />
+                  <DatePickerField
+                    label="Ngày kết thúc"
+                    value={formState.validTo}
+                    onChange={(value) => updateField("validTo", value)}
+                  />
                 </div>
               </div>
             </section>
@@ -1530,7 +1513,7 @@ function buildCreatePayload(
   const address = formState.address.trim();
   const description = formState.description.trim();
   const historyInformation = formState.historyInformation.trim();
-  const contentType = formState.contentType.trim().toUpperCase();
+  const contentType = normalizeHotspotContentTypeToken(formState.contentType);
 
   if (!hotspotName) {
     throw new Error("Vui lòng nhập tên địa điểm.");
@@ -1605,14 +1588,32 @@ function buildCreatePayload(
     payload.closingTime = closingTime;
   }
 
-  const validFrom = normalizeOptionalDateTimeForApi(
-    "thời gian hiệu lực bắt đầu",
+  const validFrom = normalizeOptionalDateForApi(
+    "ngày hiệu lực bắt đầu",
     formState.validFrom,
   );
-  const validTo = normalizeOptionalDateTimeForApi(
-    "thời gian hiệu lực kết thúc",
+  const validTo = normalizeOptionalDateForApi(
+    "ngày hiệu lực kết thúc",
     formState.validTo,
   );
+
+  if (contentType === "PERMANENT") {
+    payload.validFrom = "";
+    payload.validTo = "";
+    return payload;
+  }
+
+  if (contentType === "TEMP") {
+    if (!validFrom || !validTo) {
+      throw new Error(
+        "Nội dung có thời hạn phải có đủ ngày bắt đầu và ngày kết thúc.",
+      );
+    }
+
+    payload.validFrom = validFrom;
+    payload.validTo = validTo;
+    return payload;
+  }
 
   if (validFrom) {
     payload.validFrom = validFrom;
@@ -1735,8 +1736,8 @@ async function validateHotspotPayload(
   editingHotspotId: number | null,
 ) {
   validateCoordinateRange(payload.latitude, payload.longitude);
-  validateOptionalDateTimeWindow(
-    "thời gian hiệu lực",
+  validateOptionalDateWindow(
+    "thời hạn hiệu lực",
     payload.validFrom,
     payload.validTo,
   );
@@ -1800,14 +1801,14 @@ function normalizeOptionalTimeForApi(label: string, value: string) {
   return normalizeTimeValue(label, normalizedValue);
 }
 
-function normalizeOptionalDateTimeForApi(label: string, value: string) {
+function normalizeOptionalDateForApi(label: string, value: string) {
   const normalizedValue = value.trim();
 
   if (!normalizedValue) {
     return undefined;
   }
 
-  return normalizeDateTimeValue(label, normalizedValue);
+  return normalizeDateValue(label, normalizedValue);
 }
 
 function normalizeTimeValue(label: string, normalizedValue: string) {
@@ -1822,14 +1823,16 @@ function normalizeTimeValue(label: string, normalizedValue: string) {
   throw new Error(`${label} không đúng định dạng HH:mm hoặc HH:mm:ss.`);
 }
 
-function normalizeDateTimeValue(label: string, normalizedValue: string) {
-  const parsedDate = new Date(normalizedValue);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    throw new Error(`${label} không đúng định dạng ngày giờ.`);
+function normalizeDateValue(label: string, normalizedValue: string) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
+    return formatDateForApi(normalizedValue);
   }
 
-  return formatDateTimeOffsetValue(parsedDate);
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  throw new Error(`${label} không đúng định dạng ngày.`);
 }
 
 function validateOptionalTimeWindow(
@@ -1850,7 +1853,7 @@ function validateOptionalTimeWindow(
   validateTimeWindow(label, startTime, endTime);
 }
 
-function validateOptionalDateTimeWindow(
+function validateOptionalDateWindow(
   label: string,
   startTime?: string,
   endTime?: string,
@@ -1861,20 +1864,20 @@ function validateOptionalDateTimeWindow(
 
   if (!startTime || !endTime) {
     throw new Error(
-      `${label} không hợp lệ: vui lòng nhập đủ thời gian bắt đầu và kết thúc.`,
+      `${label} không hợp lệ: vui lòng nhập đủ ngày bắt đầu và kết thúc.`,
     );
   }
 
-  const startDate = new Date(startTime);
-  const endDate = new Date(endTime);
+  const startDate = parseApiDateValue(startTime);
+  const endDate = parseApiDateValue(endTime);
 
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-    throw new Error(`${label} không đúng định dạng ngày giờ.`);
+  if (startDate === null || endDate === null) {
+    throw new Error(`${label} không đúng định dạng ngày.`);
   }
 
-  if (startDate.getTime() >= endDate.getTime()) {
+  if (startDate.getTime() > endDate.getTime()) {
     throw new Error(
-      `${label} không hợp lệ: thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.`,
+      `${label} không hợp lệ: ngày bắt đầu không được sau ngày kết thúc.`,
     );
   }
 }
@@ -1925,8 +1928,8 @@ function syncFormStateWithResponse(
       response.contentType,
       current.contentType,
     ),
-    validFrom: formatDateTimeInputValue(response.validFrom, current.validFrom),
-    validTo: formatDateTimeInputValue(response.validTo, current.validTo),
+    validFrom: formatDateInputValue(response.validFrom, current.validFrom),
+    validTo: formatDateInputValue(response.validTo, current.validTo),
   };
 }
 
@@ -1947,7 +1950,7 @@ function formatTimeInputValue(
   return /^\d{2}:\d{2}$/.test(normalizedValue) ? normalizedValue : fallback;
 }
 
-function formatDateTimeInputValue(
+function formatDateInputValue(
   value: string | null | undefined,
   fallback: string,
 ) {
@@ -1957,12 +1960,92 @@ function formatDateTimeInputValue(
     return fallback;
   }
 
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  const isoMatch = normalizedValue.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/,
+  );
+
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return `${day}/${month}/${year}`;
+  }
+
   const parsedDate = new Date(normalizedValue);
   if (Number.isNaN(parsedDate.getTime())) {
     return fallback;
   }
 
-  return formatDateTimeLocalInputValue(parsedDate);
+  return formatDateDayFirstValue(parsedDate);
+}
+
+function DatePickerField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const displayValue = value.trim();
+  const pickerValue = formatDatePickerValue(value);
+
+  function openPicker() {
+    const input = inputRef.current;
+
+    if (!input) {
+      return;
+    }
+
+    const pickerInput = input as HTMLInputElement & {
+      showPicker?: () => void;
+    };
+
+    if (typeof pickerInput.showPicker === "function") {
+      pickerInput.showPicker();
+      return;
+    }
+
+    input.focus();
+    input.click();
+  }
+
+  return (
+    <div>
+      <label className="cq-label mb-2 block">{label}</label>
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="date"
+          value={pickerValue}
+          onChange={(event) =>
+            onChange(
+              event.target.value ? formatDateForApi(event.target.value) : "",
+            )
+          }
+          aria-label={label}
+          tabIndex={-1}
+          className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
+        />
+        <button
+          type="button"
+          onClick={openPicker}
+          className="flex h-10 w-full items-center justify-between rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] outline-none transition focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+          aria-label={label}
+          aria-haspopup="dialog"
+        >
+          <span className={displayValue ? "text-slate-900" : "text-slate-400"}>
+            {displayValue || "dd/MM/yyyy"}
+          </span>
+          <CalendarDays className="h-4 w-4 shrink-0 text-slate-500" />
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function formatDateTime(value: string | undefined) {
@@ -2023,7 +2106,7 @@ function buildOpeningHoursLabel(hotspot: BackendHotspot) {
   );
 }
 
-function buildTimeMismatchWarning(
+function buildSubmitMismatchWarning(
   payload: CreateHotspotPayload,
   response: BackendHotspot,
 ) {
@@ -2061,15 +2144,48 @@ function buildTimeMismatchWarning(
     }
   }
 
+  const submittedContentType = normalizeHotspotContentTypeToken(
+    payload.contentType,
+  );
+  const savedContentType = normalizeHotspotContentTypeToken(response.contentType);
+
+  if (submittedContentType !== savedContentType) {
+    mismatchMessages.push(
+      `Loại thời hạn đã gửi là ${formatHotspotContentTypeLabel(submittedContentType)} nhưng backend trả về ${formatHotspotContentTypeLabel(savedContentType) || "trống"}.`,
+    );
+  }
+
+  const submittedValidFrom = normalizeDateComparisonValue(payload.validFrom);
+  const submittedValidTo = normalizeDateComparisonValue(payload.validTo);
+  const savedValidFrom = normalizeDateComparisonValue(response.validFrom);
+  const savedValidTo = normalizeDateComparisonValue(response.validTo);
+
+  if (
+    submittedValidFrom !== savedValidFrom ||
+    submittedValidTo !== savedValidTo
+  ) {
+    mismatchMessages.push(
+      `Thời hạn đã gửi là ${buildValidityRangeLabel(payload.validFrom, payload.validTo, submittedContentType)} nhưng backend trả về ${buildValidityRangeLabel(response.validFrom, response.validTo, savedContentType)}.`,
+    );
+  }
+
   return mismatchMessages.join(" ");
 }
 
 function buildContentValidityLabel(hotspot: BackendHotspot) {
+  const normalizedContentType = normalizeHotspotContentTypeToken(
+    hotspot.contentType,
+  );
+
   if (!hotspot.validFrom || !hotspot.validTo) {
-    return "Chưa có dữ liệu";
+    return normalizedContentType === "PERMANENT"
+      ? "Không giới hạn"
+      : normalizedContentType === "TEMP"
+        ? "Chưa cấu hình thời hạn"
+        : "Chưa có dữ liệu";
   }
 
-  return `${formatDateTime(hotspot.validFrom)} - ${formatDateTime(hotspot.validTo)}`;
+  return `${formatDateDisplayValue(hotspot.validFrom)} - ${formatDateDisplayValue(hotspot.validTo)}`;
 }
 
 function formatHotspotContentTypeLabel(value: string | null | undefined) {
@@ -2146,48 +2262,147 @@ function clampNumber(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function formatDateTimeLocalInputValue(date: Date) {
+function formatDateInputFromDate(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
 
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+  return `${year}-${month}-${day}`;
 }
 
-function formatDateTimeOffsetValue(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
+function formatDateDayFirstValue(date: Date) {
   const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
-  const milliseconds = String(date.getMilliseconds()).padStart(3, "0");
-  const offsetMinutes = -date.getTimezoneOffset();
-  const sign = offsetMinutes >= 0 ? "+" : "-";
-  const absoluteOffsetMinutes = Math.abs(offsetMinutes);
-  const offsetHours = String(Math.floor(absoluteOffsetMinutes / 60)).padStart(
-    2,
-    "0",
-  );
-  const offsetRemainderMinutes = String(
-    absoluteOffsetMinutes % 60,
-  ).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
 
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}${sign}${offsetHours}:${offsetRemainderMinutes}`;
+  return `${day}/${month}/${year}`;
+}
+
+function formatDatePickerValue(value: string) {
+  const normalizedValue = value.trim();
+
+  if (!normalizedValue) {
+    return "";
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  const parsedDate = parseApiDateValue(normalizedValue);
+  if (parsedDate === null) {
+    return "";
+  }
+
+  return formatDateInputFromDate(parsedDate);
+}
+
+function formatDateForApi(value: string) {
+  const [year, month, day] = value.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+function parseApiDateValue(value: string) {
+  const normalizedValue = value.trim();
+  const dayFirstMatch = normalizedValue.match(
+    /^(\d{2})\/(\d{2})\/(\d{4})$/,
+  );
+
+  if (dayFirstMatch) {
+    const [, day, month, year] = dayFirstMatch;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
+
+  const isoMatch = normalizedValue.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/,
+  );
+
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
+
+  const parsedDate = new Date(normalizedValue);
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+}
+
+function formatDateDisplayValue(value: string | undefined) {
+  if (!value) {
+    return "Chưa có dữ liệu";
+  }
+
+  const parsedDate = parseApiDateValue(value);
+  if (parsedDate === null) {
+    return value;
+  }
+
+  return parsedDate.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function normalizeDateComparisonValue(value: string | null | undefined) {
+  const normalizedValue = value?.trim();
+
+  if (!normalizedValue) {
+    return "";
+  }
+
+  const parsedDate = parseApiDateValue(normalizedValue);
+  if (parsedDate === null) {
+    return normalizedValue;
+  }
+
+  return formatDateInputFromDate(parsedDate);
+}
+
+function buildValidityRangeLabel(
+  validFrom: string | null | undefined,
+  validTo: string | null | undefined,
+  contentType?: string | null,
+) {
+  const normalizedContentType = normalizeHotspotContentTypeToken(contentType);
+
+  if (validFrom && validTo) {
+    return `${formatDateDisplayValue(validFrom)} - ${formatDateDisplayValue(validTo)}`;
+  }
+
+  if (validFrom) {
+    return `Từ ${formatDateDisplayValue(validFrom)}`;
+  }
+
+  if (validTo) {
+    return `Đến ${formatDateDisplayValue(validTo)}`;
+  }
+
+  if (normalizedContentType === "PERMANENT") {
+    return "Không giới hạn";
+  }
+
+  if (normalizedContentType === "TEMP") {
+    return "trống";
+  }
+
+  return "trống";
 }
 
 function normalizeHotspotContentTypeValue(
   value: string | null | undefined,
   fallback: string,
 ) {
-  const normalizedValue = value?.trim().toUpperCase();
+  const normalizedValue = normalizeHotspotContentTypeToken(value);
 
   if (!normalizedValue) {
     return fallback;
   }
+
+  return normalizedValue;
+}
+
+function normalizeHotspotContentTypeToken(value: string | null | undefined) {
+  const normalizedValue = value?.trim().toUpperCase() || "";
 
   if (normalizedValue === "PERM") {
     return "PERMANENT";

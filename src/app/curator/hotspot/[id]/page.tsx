@@ -191,6 +191,7 @@ export async function renderHotspotDetailPage({
     backendHotspot?.contentType,
   );
   const hotspotValidityLabel = buildDisplayValidityLabel(
+    backendHotspot?.contentType,
     backendHotspot?.validFrom,
     backendHotspot?.validTo,
   );
@@ -515,6 +516,7 @@ export async function renderHotspotDetailPage({
                     story.contentType,
                   );
                   const storyValidityLabel = buildDisplayValidityLabel(
+                    story.contentType,
                     story.validFrom,
                     story.validTo,
                   );
@@ -1272,19 +1274,30 @@ function buildDisplayContentTypeLabel(value?: string | null) {
 }
 
 function buildDisplayValidityLabel(
+  contentType?: string | null,
   validFrom?: string | null,
   validTo?: string | null,
 ) {
   if (validFrom && validTo) {
-    return `${formatPreciseDateTimeLabel(validFrom)} - ${formatPreciseDateTimeLabel(validTo)}`;
+    return `${formatValidityLabel(validFrom)} - ${formatValidityLabel(validTo)}`;
   }
 
   if (validFrom) {
-    return `Từ ${formatPreciseDateTimeLabel(validFrom)}`;
+    return `Từ ${formatValidityLabel(validFrom)}`;
   }
 
   if (validTo) {
-    return `Đến ${formatPreciseDateTimeLabel(validTo)}`;
+    return `Đến ${formatValidityLabel(validTo)}`;
+  }
+
+  const normalizedContentType = normalizeHotspotContentTypeToken(contentType);
+
+  if (normalizedContentType === "PERMANENT") {
+    return "Không giới hạn";
+  }
+
+  if (normalizedContentType === "TEMP") {
+    return "Chưa cấu hình thời hạn";
   }
 
   if (validFrom === null && validTo === null) {
@@ -1292,6 +1305,35 @@ function buildDisplayValidityLabel(
   }
 
   return "";
+}
+
+function formatValidityLabel(value?: string | null) {
+  const normalizedValue = value?.trim();
+
+  if (!normalizedValue) {
+    return "";
+  }
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
+    const [year, month, day] = normalizedValue.split("-");
+    return `${day}/${month}/${year}`;
+  }
+
+  return formatPreciseDateTimeLabel(normalizedValue);
+}
+
+function normalizeHotspotContentTypeToken(value?: string | null) {
+  const normalizedValue = value?.trim().toUpperCase() || "";
+
+  if (normalizedValue === "PERM") {
+    return "PERMANENT";
+  }
+
+  return normalizedValue;
 }
 
 function buildCoordinatesLabel(
