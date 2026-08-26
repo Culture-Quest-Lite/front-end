@@ -992,16 +992,27 @@ function UseVoucherDialog({ onClose }: { onClose: () => void }) {
           Nhập mã voucher mà khách hàng cung cấp tại điểm bán để xác nhận đã sử dụng.
         </p>
 
+        {/*
+          KHÔNG ép in hoa mã ở đây. Mã khách đưa là `voucherUsageCode` — token
+          base62 (`0-9A-Za-z`) sinh từ `VoucherUsageUtils.generateToken`, PHÂN
+          BIỆT hoa thường: 'A' là 10 còn 'a' là 36. Viết hoa lên không báo lỗi
+          mà giải mã ra voucherId/userId khác hẳn, tức sai âm thầm.
+          autoCapitalize/autoCorrect tắt để bàn phím điện thoại không tự viết
+          hoa chữ đầu khi đối tác nhập tay tại quầy.
+        */}
         <div className="mt-4">
           <input
             value={code}
             onChange={(e) => {
-              setCode(e.target.value.toUpperCase());
+              setCode(e.target.value);
               setResult(null);
               setError(null);
             }}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
             placeholder="Nhập mã voucher của khách"
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-sm uppercase outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
           />
         </div>
 
