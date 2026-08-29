@@ -14,9 +14,14 @@ import type { LucideIcon } from "lucide-react";
 import { ArrowLeft, ImagePlus, Save, Video, Volume2, X } from "lucide-react";
 
 import { PageLoading } from "@/components/app/page-loading";
+import {
+  FormDropdown,
+  type FormDropdownOption,
+} from "@/components/ui/form-dropdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  filterPublishedHotspots,
   hotspotApi,
   storyApi,
   tagApi,
@@ -69,6 +74,9 @@ const mediaTypeOptions: MediaTypeOption[] = [
 
 const fieldClassName =
   "h-10 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20";
+
+const selectFieldClassName =
+  "h-9 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 text-[13px] text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20";
 
 const textareaClassName =
   "w-full resize-y rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20";
@@ -274,6 +282,22 @@ export default function EditStoryPage() {
 
   const wordCount = countWords(content);
   const totalMediaCount = countMediaItems(mediaByType);
+  const hasSelectedPublishedHotspot = hotspotOptions.some(
+    (option) => String(option.id) === hotspotId,
+  );
+  const selectedPublishedHotspotId = hasSelectedPublishedHotspot
+    ? hotspotId
+    : "";
+  const tagDropdownOptions: FormDropdownOption[] = tagOptions.map((option) => ({
+    value: String(option.id),
+    label: option.label,
+  }));
+  const hotspotDropdownOptions: FormDropdownOption[] = hotspotOptions.map(
+    (option) => ({
+      value: String(option.id),
+      label: option.label,
+    }),
+  );
 
   function getInputRef(type: MediaType) {
     if (type === "audio") {
@@ -358,7 +382,7 @@ export default function EditStoryPage() {
 
         if (hotspotsResult.status === "fulfilled") {
           setHotspotOptions(
-            [...hotspotsResult.value]
+            filterPublishedHotspots([...hotspotsResult.value])
               .map((hotspot) => ({
                 id: hotspot.hotspotId,
                 label:
@@ -451,11 +475,19 @@ export default function EditStoryPage() {
     const normalizedAudioScript = audioScript.trim();
     const parsedTagId = Number(tagId);
     const parsedHotspotId = Number(hotspotId);
+    const hasPublishedHotspotOption =
+      hasSelectedPublishedHotspot &&
+      hotspotOptions.some((option) => option.id === parsedHotspotId);
 
     if (!trimmedTitle || !trimmedContent || !parsedTagId || !parsedHotspotId) {
       setSubmitError(
         "Vui lòng điền đầy đủ tiêu đề, thẻ, địa điểm và nội dung.",
       );
+      return;
+    }
+
+    if (!hasPublishedHotspotOption) {
+      setSubmitError("Vui lòng chọn một địa điểm đã xuất bản.");
       return;
     }
 
@@ -532,7 +564,7 @@ export default function EditStoryPage() {
             </div>
           )}
 
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
             <div className="divide-y divide-slate-200">
               <SectionCard title="Thông tin chung">
                 <div>
@@ -558,40 +590,36 @@ export default function EditStoryPage() {
                           <FieldLabel htmlFor="tagId" required>
                             Thẻ
                           </FieldLabel>
-                          <select
+                          <FormDropdown
                             id="tagId"
-                            className={fieldClassName}
                             value={tagId}
-                            onChange={(e) => setTagId(e.target.value)}
+                            onValueChange={setTagId}
+                            options={tagDropdownOptions}
+                            placeholder="Chọn tag..."
                             disabled={isSubmitting}
-                          >
-                            <option value="">Chọn tag...</option>
-                            {tagOptions.map((option) => (
-                              <option key={option.id} value={String(option.id)}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
+                            triggerClassName={selectFieldClassName}
+                          />
                         </div>
 
                         <div>
                           <FieldLabel htmlFor="hotspotId" required>
                             Địa điểm
                           </FieldLabel>
-                          <select
+                          <FormDropdown
                             id="hotspotId"
-                            className={fieldClassName}
-                            value={hotspotId}
-                            onChange={(e) => setHotspotId(e.target.value)}
+                            value={selectedPublishedHotspotId}
+                            onValueChange={setHotspotId}
+                            options={hotspotDropdownOptions}
+                            placeholder="Chọn địa điểm đã xuất bản..."
                             disabled={isSubmitting}
-                          >
-                            <option value="">Chọn địa điểm...</option>
-                            {hotspotOptions.map((option) => (
-                              <option key={option.id} value={String(option.id)}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
+                            triggerClassName={selectFieldClassName}
+                          />
+                          {hotspotId && !hasSelectedPublishedHotspot ? (
+                            <p className="mt-2 text-xs text-amber-700">
+                              Địa điểm hiện tại của câu chuyện không còn ở trạng
+                              thái đã xuất bản. Vui lòng chọn lại.
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                     </div>

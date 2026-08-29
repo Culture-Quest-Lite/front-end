@@ -23,10 +23,18 @@ import {
   X,
 } from "lucide-react";
 
+import {
+  FormDropdown,
+  type FormDropdownOption,
+} from "@/components/ui/form-dropdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import { hotspotApi, storyApi, tagApi } from "@/services/api";
+import {
+  filterPublishedHotspots,
+  hotspotApi,
+  storyApi,
+  tagApi,
+} from "@/services/api";
 
 type MediaType = "image" | "audio" | "video";
 type MediaCollection = Record<MediaType, MediaItem[]>;
@@ -208,6 +216,16 @@ export default function CreateStoryPage() {
   const wordCount = countWords(content);
   const totalMediaCount = countMediaItems(mediaByType);
   const wordStatus = getWordStatus(wordCount);
+  const tagDropdownOptions: FormDropdownOption[] = tagOptions.map((option) => ({
+    value: String(option.id),
+    label: option.label,
+  }));
+  const hotspotDropdownOptions: FormDropdownOption[] = hotspotOptions.map(
+    (option) => ({
+      value: String(option.id),
+      label: option.label,
+    }),
+  );
 
   function getInputRef(type: MediaType) {
     if (type === "audio") {
@@ -290,7 +308,7 @@ export default function CreateStoryPage() {
 
         if (hotspotsResult.status === "fulfilled") {
           setHotspotOptions(
-            [...hotspotsResult.value]
+            filterPublishedHotspots([...hotspotsResult.value])
               .map((hotspot) => ({
                 id: hotspot.hotspotId,
                 label:
@@ -386,11 +404,19 @@ export default function CreateStoryPage() {
     const normalizedAudioScript = audioScript.trim();
     const parsedTagId = Number(tagId);
     const parsedHotspotId = Number(hotspotId);
+    const hasPublishedHotspotOption = hotspotOptions.some(
+      (option) => option.id === parsedHotspotId,
+    );
 
     if (!trimmedTitle || !trimmedContent || !parsedTagId || !parsedHotspotId) {
       setSubmitError(
         "Vui lòng điền đầy đủ tiêu đề, thẻ, địa điểm và nội dung.",
       );
+      return;
+    }
+
+    if (!hasPublishedHotspotOption) {
+      setSubmitError("Vui lòng chọn một địa điểm đã xuất bản.");
       return;
     }
 
@@ -474,56 +500,34 @@ export default function CreateStoryPage() {
                 <FieldLabel htmlFor="story-tag-id" required>
                   Thẻ
                 </FieldLabel>
-                <select
+                <FormDropdown
                   id="story-tag-id"
                   value={tagId}
-                  onChange={(event) => setTagId(event.target.value)}
+                  onValueChange={setTagId}
+                  options={tagDropdownOptions}
+                  placeholder={isLoadingOptions ? "Đang tải thẻ..." : "Chọn thẻ..."}
                   disabled={isLoadingOptions}
-                  className={cn(
-                    "h-10 w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 pr-10 text-[13px] text-slate-700 shadow-sm outline-none transition",
-                    "focus:border-primary focus:ring-2 focus:ring-primary/20",
-                    !tagId && "text-slate-400",
-                    isLoadingOptions && "cursor-wait",
-                  )}
-                >
-                  <option value="" disabled>
-                    {isLoadingOptions ? "Đang tải thẻ..." : "Chọn thẻ..."}
-                  </option>
-                  {tagOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  triggerClassName="h-9 rounded-2xl border border-slate-200 bg-white px-4 text-[13px] text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-wait"
+                />
               </div>
 
               <div>
                 <FieldLabel htmlFor="story-hotspot-id" required>
                   Địa điểm
                 </FieldLabel>
-                <select
+                <FormDropdown
                   id="story-hotspot-id"
                   value={hotspotId}
-                  onChange={(event) => setHotspotId(event.target.value)}
+                  onValueChange={setHotspotId}
+                  options={hotspotDropdownOptions}
+                  placeholder={
+                    isLoadingOptions
+                      ? "Đang tải địa điểm đã xuất bản..."
+                      : "Chọn địa điểm đã xuất bản..."
+                  }
                   disabled={isLoadingOptions}
-                  className={cn(
-                    "h-10 w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 pr-10 text-[13px] text-slate-700 shadow-sm outline-none transition",
-                    "focus:border-primary focus:ring-2 focus:ring-primary/20",
-                    !hotspotId && "text-slate-400",
-                    isLoadingOptions && "cursor-wait",
-                  )}
-                >
-                  <option value="" disabled>
-                    {isLoadingOptions
-                      ? "Đang tải địa điểm..."
-                      : "Chọn địa điểm..."}
-                  </option>
-                  {hotspotOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  triggerClassName="h-9 rounded-2xl border border-slate-200 bg-white px-4 text-[13px] text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-wait"
+                />
               </div>
             </div>
           </div>
