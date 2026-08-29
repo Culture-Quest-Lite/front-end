@@ -5,7 +5,11 @@ export {
   type LoginResponse,
 } from "./authApi";
 export { tagApi } from "./tagApi";
-export { hotspotApi } from "./hotspotApi";
+export {
+  filterPublishedHotspots,
+  hotspotApi,
+  isPublishedHotspotStatus,
+} from "./hotspotApi";
 export type {
   BackendHotspot,
   BackendHotspotMedia,

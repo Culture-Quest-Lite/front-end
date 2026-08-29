@@ -138,6 +138,18 @@ type HotspotStatus =
   | "REJECTED"
   | "SUBMITTED";
 
+const PUBLISHED_HOTSPOT_STATUS = "PUBLISHED";
+
+export function isPublishedHotspotStatus(status?: string | null) {
+  return status?.trim().toUpperCase() === PUBLISHED_HOTSPOT_STATUS;
+}
+
+export function filterPublishedHotspots<T extends { status?: string | null }>(
+  hotspots: T[],
+) {
+  return hotspots.filter((hotspot) => isPublishedHotspotStatus(hotspot.status));
+}
+
 export const hotspotApi = {
   getHotspots: async () => {
     return apiFetch<BackendHotspot[]>("/api/hotspots", {
