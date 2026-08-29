@@ -194,7 +194,7 @@ export function AdminSidebar() {
       <SidebarFooter className="border-t border-[#E7EBF2] bg-[#FCFCFD] p-4">
         <button
           type="button"
-          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] text-slate-600 transition-colors hover:bg-[#FFF3F8] hover:text-[#D94A8D]"
+          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
           onClick={logout}
         >
           <LogOut className="h-4 w-4" />
