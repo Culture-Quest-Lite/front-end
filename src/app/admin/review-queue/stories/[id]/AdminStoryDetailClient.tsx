@@ -16,7 +16,6 @@ import { TabTitleMarker } from "@/components/app/TabTitleMarker";
 import { cn } from "@/lib/utils";
 import {
   hotspotApi,
-  routeApi,
   storyApi,
   type BackendStory,
   type BackendStoryMedia,
@@ -74,6 +73,37 @@ function isAudioMedia(media?: BackendStoryMedia) {
   );
 }
 
+function TagChip({ tagName }: { tagName?: string }) {
+  if (!tagName) {
+    return (
+      <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">
+        Chưa chọn
+      </span>
+    );
+  }
+
+  return (
+    <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+      {tagName}
+    </span>
+  );
+}
+
+function MetaItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="space-y-1">
+      <p className="cq-label">{label}</p>
+      <p className="text-[13px] font-normal text-slate-900">{value}</p>
+    </div>
+  );
+}
+
 function getValidHotspotId(hotspotId?: number | null) {
   if (
     typeof hotspotId !== "number" ||
@@ -86,55 +116,12 @@ function getValidHotspotId(hotspotId?: number | null) {
   return hotspotId;
 }
 
-function getValidRouteId(routeId?: number | null) {
-  if (
-    typeof routeId !== "number" ||
-    !Number.isInteger(routeId) ||
-    routeId <= 0
-  ) {
-    return null;
-  }
-
-  return routeId;
-}
-
-function getNumberLabel(value?: number | null) {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "Chưa có";
-  }
-
-  return new Intl.NumberFormat("vi-VN", {
-    maximumFractionDigits: 2,
-  }).format(value);
-}
-
-function DetailCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-3">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-        {label}
-      </p>
-      <p className="mt-1 text-xs leading-5 text-slate-700">{value}</p>
-    </div>
-  );
-}
-
 export function AdminStoryDetailClient({ storyId }: { storyId: number }) {
   const [story, setStory] = useState<BackendStory | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [resolvedHotspot, setResolvedHotspot] = useState<{
     hotspotId: number;
     hotspotName: string;
-  } | null>(null);
-  const [resolvedRoute, setResolvedRoute] = useState<{
-    routeId: number;
-    routeName: string;
   } | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
@@ -216,45 +203,6 @@ export function AdminStoryDetailClient({ storyId }: { storyId: number }) {
     };
   }, [story?.hotspotId]);
 
-  useEffect(() => {
-    const routeId = getValidRouteId(story?.routeId);
-
-    if (routeId === null) {
-      return;
-    }
-
-    const resolvedRouteId = routeId;
-    let cancelled = false;
-
-    async function loadRouteName() {
-      try {
-        const response = await routeApi.getRouteById(resolvedRouteId);
-
-        if (cancelled) {
-          return;
-        }
-
-        setResolvedRoute({
-          routeId: resolvedRouteId,
-          routeName: response.routeName?.trim() || "Tuyến đường không có tên",
-        });
-      } catch {
-        if (!cancelled) {
-          setResolvedRoute({
-            routeId: resolvedRouteId,
-            routeName: "Tuyến đường không còn tồn tại",
-          });
-        }
-      }
-    }
-
-    void loadRouteName();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [story?.routeId]);
-
   const medias = useMemo(
     () =>
       [...(story?.medias ?? [])].sort((mediaA, mediaB) => {
@@ -284,20 +232,14 @@ export function AdminStoryDetailClient({ storyId }: { storyId: number }) {
   const safeActiveImageIndex =
     activeImageIndex < imageUrls.length ? activeImageIndex : 0;
   const currentImageUrl = imageUrls[safeActiveImageIndex] ?? imageUrls[0] ?? "";
+  const normalizedAudioScript = story?.audioScript?.trim() ?? "";
   const currentHotspotId = getValidHotspotId(story?.hotspotId);
-  const currentRouteId = getValidRouteId(story?.routeId);
   const hotspotLabel =
     currentHotspotId === null
-      ? "Chưa gắn địa điểm"
+      ? "Chưa liên kết hotspot"
       : resolvedHotspot?.hotspotId === currentHotspotId
         ? resolvedHotspot.hotspotName
         : "Đang tải tên địa điểm...";
-  const routeLabel =
-    currentRouteId === null
-      ? "Chưa gắn tuyến"
-      : resolvedRoute?.routeId === currentRouteId
-        ? resolvedRoute.routeName
-        : "Đang tải tên tuyến...";
 
   const nextImage = () =>
     setActiveImageIndex((index) =>
@@ -314,9 +256,14 @@ export function AdminStoryDetailClient({ storyId }: { storyId: number }) {
         : 0,
     );
 
+  const mediaViewportClassName =
+    "relative h-[220px] w-full overflow-hidden rounded-[1.15rem] bg-slate-100 sm:h-[260px] lg:h-[320px]";
+
   return (
-    <div className="space-y-5 pb-5 pt-2">
-      <TabTitleMarker title={story?.title || "Chi tiết câu chuyện"} />
+    <div className="space-y-5">
+      <TabTitleMarker
+        title={error ? "Không tìm thấy câu chuyện" : story?.title}
+      />
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-2 text-slate-700">
@@ -328,11 +275,12 @@ export function AdminStoryDetailClient({ storyId }: { storyId: number }) {
               <ArrowLeft className="h-2.5 w-2.5" />
             </Link>
             <div>
-              <h1 className="text-xl font-semibold tracking-[-0.03em] text-slate-900 sm:text-[1.45rem]">
+              <h1 className="text-lg font-semibold tracking-[-0.03em] text-foreground sm:text-xl">
                 Chi tiết câu chuyện
               </h1>
-              <p className="mt-0.5 text-[13px] leading-5 text-slate-500 sm:text-sm">
-                Thông tin chi tiết của câu chuyện trong khu vực kiểm duyệt quản trị.
+              <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground sm:text-xs">
+                Xem chi tiết câu chuyện đang nằm trong hàng chờ kiểm duyệt quản
+                trị.
               </p>
             </div>
           </div>
@@ -340,187 +288,209 @@ export function AdminStoryDetailClient({ storyId }: { storyId: number }) {
       </div>
 
       {isLoading ? (
-        <PageLoading className="min-h-[320px]" />
-      ) : error || !story ? (
-        <section className="cq-admin-panel px-5 py-10 text-center">
-          <p className="text-sm font-semibold text-slate-800">
-            Không tải được chi tiết câu chuyện
-          </p>
-          <p className="mt-2 text-xs leading-5 text-slate-500">
-            {error || "Dữ liệu câu chuyện hiện không khả dụng."}
-          </p>
-        </section>
+        <PageLoading
+          className="min-h-[320px] rounded-[1.25rem] border border-slate-200 shadow-none"
+          spinnerClassName="h-6 w-6"
+        />
+      ) : error ? (
+        <div className="rounded-[1.25rem] border border-rose-200 bg-rose-50 px-5 py-7 text-center text-[13px] text-rose-700">
+          <p>{error}</p>
+          <div className="mt-4">
+            <Link
+              href="/admin/review-queue"
+              className="inline-flex h-10 items-center justify-center rounded-full border border-rose-200 bg-white px-5 text-sm font-medium text-rose-700 transition hover:bg-rose-50"
+            >
+              Quay lại hàng chờ duyệt
+            </Link>
+          </div>
+        </div>
+      ) : !story ? (
+        <div className="rounded-[1.25rem] border border-slate-200 bg-white px-5 py-7 text-center text-[13px] text-slate-600">
+          <p>Câu chuyện không có dữ liệu.</p>
+          <div className="mt-4">
+            <Link
+              href="/admin/review-queue"
+              className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-5 text-sm font-medium text-slate-700 transition hover:bg-white"
+            >
+              Quay lại hàng chờ duyệt
+            </Link>
+          </div>
+        </div>
       ) : (
-        <section className="cq-admin-panel overflow-hidden">
-          <div className="border-b border-slate-100 px-5 py-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">
-                  Câu chuyện kiểm duyệt
-                </p>
-                <h1 className="mt-1 text-base font-semibold text-slate-900">
-                  {story.title || "Câu chuyện chưa có tiêu đề"}
-                </h1>
-              </div>
-
-              <div className="flex shrink-0 justify-start sm:justify-end">
-                <span
-                  className={cn(
-                    "inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]",
-                    statusBadgeClasses[story.status] ??
-                      "border border-slate-200 bg-slate-100 text-slate-700",
-                  )}
-                >
-                  {statusLabelMap[story.status] ?? story.status}
+        <section className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="max-w-4xl">
+              <p className="cq-kicker text-yellow-900">Câu chuyện kiểm duyệt</p>
+              <h2 className="cq-page-title mt-2 text-slate-900">
+                {story.title || "Câu chuyện chưa có tiêu đề"}
+              </h2>
+              <p className="mt-1.5 text-[13px] text-slate-600">
+                Địa điểm:{" "}
+                <span className="font-medium text-slate-900">
+                  {hotspotLabel}
                 </span>
+              </p>
+            </div>
+
+            <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:justify-end">
+              <span
+                className={cn(
+                  "inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]",
+                  statusBadgeClasses[story.status] ??
+                    "border border-slate-200 bg-slate-100 text-slate-700",
+                )}
+              >
+                {statusLabelMap[story.status] ?? story.status}
+              </span>
+              <TagChip tagName={story.tag?.tagName} />
+            </div>
+          </div>
+
+          <div className="mt-5 border-t border-dashed border-slate-200 pt-5">
+            <div className="grid max-w-5xl gap-x-5 gap-y-4 px-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-3">
+              <MetaItem
+                label="Ảnh câu chuyện"
+                value={`${imageMedias.length} ảnh`}
+              />
+              <MetaItem
+                label="Video câu chuyện"
+                value={`${videoMedias.length} video`}
+              />
+              <MetaItem
+                label="Audio câu chuyện"
+                value={`${audioMedias.length} audio`}
+              />
+            </div>
+          </div>
+
+          <div className="mt-5 border-t border-dashed border-slate-200 pt-5">
+            <div className="rounded-[1.15rem] bg-slate-50/80 px-3.5 py-3 sm:px-4">
+              <p className="cq-label">Nội dung</p>
+              <div className="mt-1.5 whitespace-pre-wrap text-[13px] leading-6 text-slate-700">
+                {typeof story.content === "string" && story.content.trim()
+                  ? story.content
+                  : "Câu chuyện không có nội dung."}
               </div>
             </div>
           </div>
 
-          <div className="grid gap-3 px-5 py-5 sm:grid-cols-2 xl:grid-cols-3">
-            <DetailCard
-              label="Thẻ"
-              value={story.tag?.tagName?.trim() || "Chưa gắn thẻ"}
-            />
-            <DetailCard
-              label="Địa điểm"
-              value={hotspotLabel}
-            />
-            <DetailCard label="Tuyến đường" value={routeLabel} />
-            <DetailCard
-              label="Khoảng cách tới điểm kế"
-              value={getNumberLabel(story.distanceToNext)}
-            />
-            <DetailCard
-              label="Đánh giá trung bình"
-              value={getNumberLabel(story.averageRating)}
-            />
-            <DetailCard
-              label="Tổng lượt đánh giá"
-              value={String(story.totalReviews ?? "0")}
-            />
-          </div>
-
-          <div className="border-t border-slate-100 px-5 py-5">
-            <h2 className="text-sm font-semibold text-slate-900">Nội dung</h2>
-            <p className="mt-2 whitespace-pre-wrap text-xs leading-6 text-slate-600">
-              {story.content?.trim() || "Câu chuyện không có nội dung."}
-            </p>
-          </div>
-
-          <div className="border-t border-slate-100 px-5 py-5">
-            <h2 className="text-sm font-semibold text-slate-900">
-              Đánh giá văn hóa
-            </h2>
-            <p className="mt-2 text-xs leading-6 text-slate-600">
-              {story.cultureReason?.trim() ||
-                "Backend chưa trả về lý do đánh giá văn hóa cho câu chuyện này."}
-            </p>
-          </div>
-
-          <div className="grid gap-4 border-t border-slate-100 px-5 py-5 xl:grid-cols-[1.35fr_0.85fr]">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Ảnh câu chuyện
-                  </h3>
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    {imageMedias.length} ảnh
-                  </p>
-                </div>
-                <div className="rounded-full bg-white px-2.5 py-1 text-[10px] font-medium text-slate-600">
-                  {imageUrls.length > 1
-                    ? `Ảnh ${safeActiveImageIndex + 1} / ${imageUrls.length}`
-                    : imageUrls.length === 1
-                      ? "1 ảnh"
-                      : "Không có ảnh"}
-                </div>
+          <div className="mt-5 border-t border-dashed border-slate-200 pt-5">
+            <div className="rounded-[1.15rem] bg-slate-50/80 px-3.5 py-3 sm:px-4">
+              <p className="cq-label">Đánh giá văn hóa</p>
+              <div className="mt-1.5 whitespace-pre-wrap text-[13px] leading-6 text-slate-700">
+                {story.cultureReason?.trim() ||
+                  "Backend chưa trả về lý do đánh giá văn hóa cho câu chuyện này."}
               </div>
+            </div>
+          </div>
 
-              <div className="mt-3 overflow-hidden rounded-[1rem] bg-white shadow-sm">
-                <div className="relative h-[200px] w-full overflow-hidden bg-slate-100 sm:h-[230px]">
-                  {currentImageUrl ? (
-                    <>
-                      <Image
-                        src={currentImageUrl}
-                        alt={`Ảnh ${safeActiveImageIndex + 1}`}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 640px) 100vw, 640px"
-                      />
-                      {imageUrls.length > 1 ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={prevImage}
-                            className="absolute left-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white transition hover:bg-black/55"
-                            aria-label="Ảnh trước"
-                          >
-                            <ChevronLeft className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={nextImage}
-                            className="absolute right-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white transition hover:bg-black/55"
-                            aria-label="Ảnh sau"
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </button>
-                        </>
-                      ) : null}
-                    </>
-                  ) : (
-                    <div className="flex h-full items-center justify-center p-6 text-center text-[11px] text-slate-400">
-                      <div>
-                        <ImageIcon className="mx-auto mb-2 h-5 w-5" />
-                        Không có ảnh đính kèm.
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {imageUrls.length > 1 ? (
-                  <div className="flex items-center justify-center gap-2 px-3 py-3">
-                    {imageUrls.map((_, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => setActiveImageIndex(index)}
-                        className={cn(
-                          "h-1.5 w-5 rounded-full transition",
-                          index === safeActiveImageIndex
-                            ? "bg-slate-700"
-                            : "bg-slate-300",
-                        )}
-                      />
-                    ))}
+          <div className="mt-5 border-t border-dashed border-slate-200 pt-5">
+            <div className="grid gap-4 xl:grid-cols-[1.35fr_0.85fr]">
+              <div className="rounded-[1.15rem] bg-slate-50/80 p-3.5 sm:p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="cq-label">Ảnh câu chuyện</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      {imageMedias.length} ảnh
+                    </p>
                   </div>
-                ) : null}
-              </div>
-            </div>
+                  <div className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] text-slate-600">
+                    {imageUrls.length > 1
+                      ? `Ảnh ${safeActiveImageIndex + 1} / ${imageUrls.length}`
+                      : imageUrls.length === 1
+                        ? "1 ảnh"
+                        : "Không có ảnh"}
+                  </div>
+                </div>
 
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5">
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Video câu chuyện
-                </h3>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  {videoMedias.length} video
-                </p>
+                <div className="mt-3 overflow-hidden rounded-[1.15rem] bg-white text-slate-900 shadow-sm">
+                  <div className={mediaViewportClassName}>
+                    {imageUrls.length > 0 ? (
+                      <>
+                        <div className="relative h-full w-full">
+                          <Image
+                            src={currentImageUrl}
+                            alt={`Ảnh ${safeActiveImageIndex + 1}`}
+                            fill
+                            className="rounded-[1.15rem] object-cover"
+                            sizes="(max-width: 640px) 100vw, 640px"
+                          />
+                        </div>
+                        {imageUrls.length > 1 ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={prevImage}
+                              aria-label="Ảnh trước"
+                              className="absolute left-3 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/50"
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={nextImage}
+                              aria-label="Ảnh sau"
+                              className="absolute right-3 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/50"
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </button>
+                          </>
+                        ) : null}
+                      </>
+                    ) : (
+                      <div className="flex h-full items-center justify-center bg-slate-950/80 p-8 text-center text-xs text-slate-300">
+                        <div>
+                          <ImageIcon className="mx-auto mb-2.5 h-6 w-6" />
+                          Không có ảnh đính kèm.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {imageUrls.length > 1 ? (
+                    <div className="mt-3 flex items-center justify-center gap-2 pb-1">
+                      {imageUrls.map((_, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => setActiveImageIndex(index)}
+                          className={cn(
+                            "h-1.5 w-6 rounded-full transition",
+                            index === safeActiveImageIndex
+                              ? "bg-slate-700"
+                              : "bg-slate-300",
+                          )}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="rounded-[1.15rem] bg-slate-50/80 p-3.5 sm:p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="cq-label">Video câu chuyện</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      {videoMedias.length} video
+                    </p>
+                  </div>
+                </div>
 
                 <div className="mt-3 space-y-3">
                   {videoMedias.length > 0 ? (
                     videoMedias.map((media, index) => (
                       <div key={media.mediaId} className="space-y-2">
-                        <p className="text-[11px] font-medium text-slate-700">
-                          {media.fileName ?? `Video ${index + 1}`}
-                        </p>
+                        {index === 0 ? null : (
+                          <p className="text-[11px] font-medium text-slate-700">
+                            {media.fileName ?? `Video ${index + 1}`}
+                          </p>
+                        )}
                         <video
                           controls
                           playsInline
                           preload="metadata"
-                          className="h-[180px] w-full rounded-[1rem] bg-black object-contain"
+                          className="h-[220px] w-full rounded-[1.15rem] bg-black object-contain sm:h-[260px] lg:h-[320px]"
                         >
                           <source
                             src={media.fileUrl}
@@ -531,55 +501,65 @@ export function AdminStoryDetailClient({ storyId }: { storyId: number }) {
                       </div>
                     ))
                   ) : (
-                    <div className="rounded-[1rem] bg-white px-4 py-6 text-center text-[11px] text-slate-500 shadow-sm">
+                    <div className="flex h-[220px] items-center justify-center rounded-[1.15rem] bg-white px-4 py-5 text-center text-[11px] text-slate-500 shadow-sm sm:h-[260px] lg:h-[320px]">
                       Không có video đính kèm.
                     </div>
                   )}
                 </div>
               </div>
+            </div>
+          </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5">
-                <div className="flex items-center gap-2">
-                  <Volume2 className="h-3.5 w-3.5 text-slate-600" />
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Audio câu chuyện
-                  </h3>
-                </div>
-
-                <div className="mt-3 space-y-3">
-                  {audioMedias.length > 0 ? (
-                    audioMedias.map((media) => (
-                      <div key={media.mediaId}>
-                        <p className="text-[11px] font-medium text-slate-700">
-                          {media.fileName ?? "Audio đính kèm"}
-                        </p>
-                        <audio
-                          controls
-                          className="mt-2 w-full"
-                          src={media.fileUrl}
-                        >
-                          Trình duyệt của bạn không hỗ trợ audio.
-                        </audio>
+          <div className="mt-5 border-t border-dashed border-slate-200 pt-5">
+            <div className="rounded-[1.15rem] bg-slate-50/80 p-3.5 sm:p-4">
+              <div className="flex items-center gap-2">
+                <Volume2 className="h-3.5 w-3.5 text-slate-600" />
+                <p className="cq-label">Audio câu chuyện</p>
+              </div>
+              {audioMedias.length > 0 ? (
+                <div className="mt-3 space-y-4">
+                  {audioMedias.map((media) => (
+                    <div key={media.mediaId}>
+                      <p className="text-[11px] font-medium text-slate-700">
+                        {media.fileName ?? "Audio đính kèm"}
+                      </p>
+                      <audio
+                        controls
+                        className="mt-2 w-full"
+                        src={media.fileUrl}
+                      >
+                        Trình duyệt của bạn không hỗ trợ audio.
+                      </audio>
+                    </div>
+                  ))}
+                  {normalizedAudioScript ? (
+                    <div className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                        Kịch bản câu chuyện
+                      </p>
+                      <div className="mt-1.5 whitespace-pre-wrap text-[13px] leading-6 text-slate-700">
+                        {normalizedAudioScript}
                       </div>
-                    ))
-                  ) : (
-                    <p className="text-[11px] leading-5 text-slate-500">
-                      Không có audio đính kèm.
-                    </p>
-                  )}
-
-                  {story.audioScript?.trim() ? (
-                    <div className="rounded-[1rem] border border-slate-200 bg-white px-3.5 py-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-                        Kịch bản audio
-                      </p>
-                      <p className="mt-2 whitespace-pre-wrap text-xs leading-6 text-slate-600">
-                        {story.audioScript.trim()}
-                      </p>
                     </div>
                   ) : null}
                 </div>
-              </div>
+              ) : (
+                <div className="mt-3 space-y-3">
+                  <p className="text-[13px] text-slate-500">
+                    Không có audio đính kèm.
+                  </p>
+                  {normalizedAudioScript ? (
+                    <div className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                        Audio script
+                      </p>
+                      <div className="mt-1.5 whitespace-pre-wrap text-[13px] leading-6 text-slate-700">
+                        {normalizedAudioScript}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </div>
           </div>
         </section>
