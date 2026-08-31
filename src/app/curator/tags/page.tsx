@@ -100,9 +100,11 @@ function mapTagRecordToTagItem(tag: TagRecord): TagItem {
 }
 
 const TAGS_PAGE_SIZE = 10;
+const TAG_STATS_PAGE_SIZE = 100;
 type TagListResponse = Awaited<ReturnType<typeof tagApi.getTags>>;
 
 const pendingTagListRequests = new Map<string, Promise<TagListResponse>>();
+const pendingTagStatsRequests = new Map<string, Promise<TagItem[]>>();
 
 function loadTagsOnce({
   search,
@@ -141,9 +143,59 @@ function loadTagsOnce({
   return request;
 }
 
+function loadTagStatsOnce({ reloadVersion }: { reloadVersion: number }) {
+  const requestKey = JSON.stringify({ reloadVersion });
+  const existingRequest = pendingTagStatsRequests.get(requestKey);
+
+  if (existingRequest) {
+    return existingRequest;
+  }
+
+  const request = (async () => {
+    const firstResponse = await tagApi.getTags({
+      page: 0,
+      size: TAG_STATS_PAGE_SIZE,
+      sortBy: "tagName",
+      sortDir: "ASC",
+    });
+
+    const totalPages = Math.max(firstResponse.page.totalPages || 1, 1);
+    const remainingResponses =
+      totalPages > 1
+        ? await Promise.all(
+            Array.from({ length: totalPages - 1 }, (_, index) =>
+              tagApi.getTags({
+                page: index + 1,
+                size: TAG_STATS_PAGE_SIZE,
+                sortBy: "tagName",
+                sortDir: "ASC",
+              }),
+            ),
+          )
+        : [];
+
+    const uniqueTags = new Map<number, TagRecord>();
+
+    for (const response of [firstResponse, ...remainingResponses]) {
+      for (const tag of response.content) {
+        uniqueTags.set(tag.tagId, tag);
+      }
+    }
+
+    return Array.from(uniqueTags.values()).map(mapTagRecordToTagItem);
+  })().finally(() => {
+    pendingTagStatsRequests.delete(requestKey);
+  });
+
+  pendingTagStatsRequests.set(requestKey, request);
+  return request;
+}
+
 export default function CuratorTagsPage() {
   const [tags, setTags] = useState<TagItem[]>([]);
+  const [statsTags, setStatsTags] = useState<TagItem[]>([]);
   const [isLoadingTags, setIsLoadingTags] = useState(true);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -152,6 +204,7 @@ export default function CuratorTagsPage() {
   const [serverPageNumber, setServerPageNumber] = useState(0);
   const [reloadVersion, setReloadVersion] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [statsLoadError, setStatsLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [openMenuTagId, setOpenMenuTagId] = useState<string | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -167,9 +220,13 @@ export default function CuratorTagsPage() {
   const deferredSearch = useDeferredValue(searchQuery);
   const effectiveSearchQuery = deferredSearch.trim();
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const maxTagCount = Math.max(...tags.map((tag) => getTagTotalUsage(tag)), 1);
+  const maxTagCount = Math.max(
+    ...statsTags.map((tag) => getTagTotalUsage(tag)),
+    1,
+  );
   const isEditing = editingTagId !== null;
   const showEmptyState = !isLoadingTags && tags.length === 0;
+  const showStatsEmptyState = !isLoadingStats && statsTags.length === 0;
   const editingTag =
     editingTagId === null
       ? null
@@ -178,6 +235,44 @@ export default function CuratorTagsPage() {
     pendingDeleteId === null
       ? null
       : (tags.find((tag) => tag.id === pendingDeleteId) ?? null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTagStats() {
+      try {
+        setIsLoadingStats(true);
+        setStatsLoadError(null);
+
+        const nextStatsTags = await loadTagStatsOnce({ reloadVersion });
+        if (cancelled) {
+          return;
+        }
+
+        setStatsTags(nextStatsTags);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Không thể tải thống kê thẻ.";
+        setStatsLoadError(message);
+      } finally {
+        if (!cancelled) {
+          setIsLoadingStats(false);
+        }
+      }
+    }
+
+    loadTagStats();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadVersion]);
 
   useEffect(() => {
     let cancelled = false;
@@ -509,8 +604,24 @@ export default function CuratorTagsPage() {
                 </span>
               </div>
 
+              {!isLoadingStats ? (
+                <p className="mt-3 text-xs text-slate-500 sm:text-sm">
+                  Hiển thị {statsTags.length} thẻ trong toàn hệ thống.
+                </p>
+              ) : null}
+
+              {statsLoadError ? (
+                <div className="mt-4 rounded-[1.25rem] border border-[#F3D1CD] bg-[#FFF6F5] px-4 py-3 text-sm font-medium text-[#CF3F34]">
+                  Không thể tải thống kê thẻ từ API: {statsLoadError}
+                </div>
+              ) : null}
+
               <div className="mt-4 space-y-4">
-                {tags.map((tag) => {
+                {isLoadingStats ? (
+                  <p className="cq-page-subtitle">Đang tải thống kê thẻ...</p>
+                ) : null}
+
+                {statsTags.map((tag) => {
                   const totalUsage = getTagTotalUsage(tag);
                   const totalUsageWidth =
                     totalUsage > 0
@@ -578,7 +689,7 @@ export default function CuratorTagsPage() {
                   );
                 })}
 
-                {showEmptyState ? (
+                {showStatsEmptyState && !statsLoadError ? (
                   <p className="cq-page-subtitle">
                     Chưa có dữ liệu để hiển thị thống kê.
                   </p>
