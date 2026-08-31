@@ -204,6 +204,38 @@ function isPublishedHotspot(hotspot: BackendHotspot) {
   return hotspot.status?.trim().toUpperCase() === "PUBLISHED";
 }
 
+function extractLocationLabel(address?: string) {
+  if (!address?.trim()) {
+    return "";
+  }
+
+  const segments = address
+    .split(",")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  const reversedSegments = [...segments].reverse();
+  const prioritizedMatchers = [
+    /quận/i,
+    /huyện/i,
+    /thành phố thủ đức/i,
+    /tp\./i,
+    /thành phố/i,
+    /phường/i,
+  ];
+
+  for (const matcher of prioritizedMatchers) {
+    const matchedSegment = reversedSegments.find((segment) =>
+      matcher.test(segment),
+    );
+
+    if (matchedSegment) {
+      return matchedSegment;
+    }
+  }
+
+  return segments.at(-2) ?? segments.at(-1) ?? "";
+}
+
 function isStorySelectable(story: BackendStory, editingRouteId: number | null) {
   return (
     story.routeId == null ||
@@ -306,6 +338,7 @@ function HotspotLocationCard({
   onToggle: (hotspotId: number) => void;
 }) {
   const image = getHotspotCover(item);
+  const locationLabel = extractLocationLabel(item.address);
 
   return (
     <div className="flex h-[17.25rem] flex-col overflow-hidden rounded-[1rem] border border-slate-200 bg-white shadow-sm transition hover:border-emerald-200 hover:shadow-md">
@@ -327,6 +360,13 @@ function HotspotLocationCard({
             <span className="rounded-md bg-slate-950/70 px-2.5 py-1 text-[10px] font-medium text-white">
               {storyCount} câu chuyện
             </span>
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
+            {locationLabel ? (
+              <p className="text-[11px] font-medium leading-4 text-white/85">
+                {locationLabel}
+              </p>
+            ) : null}
           </div>
         </div>
 
