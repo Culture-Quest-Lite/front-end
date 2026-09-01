@@ -490,17 +490,11 @@ export default function CuratorTagsPage() {
       setIsSubmitting(true);
       setFormError(null);
 
-      await handleCreateTag(
-        pendingCultureReviewPayload,
-        {
-          confirmCultural: true,
-        },
-      );
+      await handleCreateTag(pendingCultureReviewPayload, {
+        confirmCultural: true,
+      });
     } catch (error) {
-      const message = getTagSubmitErrorMessage(
-        error,
-        "Không thể tạo thẻ mới.",
-      );
+      const message = getTagSubmitErrorMessage(error, "Không thể tạo thẻ mới.");
       setPendingCultureReviewPayload(null);
       setFormError(message);
     } finally {
@@ -717,9 +711,6 @@ export default function CuratorTagsPage() {
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
                         Trang {serverPageNumber + 1}/{Math.max(totalPages, 1)}
                       </span>
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-                        Kích thước trang {pageSize}
-                      </span>
                     </>
                   ) : null}
                 </div>
@@ -896,9 +887,7 @@ export default function CuratorTagsPage() {
 
                 {showEmptyState ? (
                   <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-card px-5 py-10 text-center">
-                    <p className="cq-card-title">
-                      Không tìm thấy thẻ
-                    </p>
+                    <p className="cq-card-title">Không tìm thấy thẻ</p>
                     <p className="cq-page-subtitle mt-2">
                       Thử đổi từ khóa hoặc tạo một thẻ mới.
                     </p>
