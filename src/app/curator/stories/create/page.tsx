@@ -506,6 +506,9 @@ export default function CreateStoryPage() {
                   onValueChange={setTagId}
                   options={tagDropdownOptions}
                   placeholder={isLoadingOptions ? "Đang tải thẻ..." : "Chọn thẻ..."}
+                  searchable
+                  searchPlaceholder="Tìm thẻ theo tên hoặc ID..."
+                  searchEmptyMessage="Không tìm thấy thẻ phù hợp."
                   disabled={isLoadingOptions}
                   triggerClassName="h-9 rounded-2xl border border-slate-200 bg-white px-4 text-[13px] text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-wait"
                 />
@@ -520,6 +523,9 @@ export default function CreateStoryPage() {
                   value={hotspotId}
                   onValueChange={setHotspotId}
                   options={hotspotDropdownOptions}
+                  searchable
+                  searchPlaceholder="Tìm địa điểm theo tên hoặc ID..."
+                  searchEmptyMessage="Không tìm thấy địa điểm phù hợp."
                   placeholder={
                     isLoadingOptions
                       ? "Đang tải địa điểm đã xuất bản..."

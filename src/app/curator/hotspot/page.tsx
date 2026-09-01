@@ -4,12 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "react-toastify";
 import { PageLoading } from "@/components/app/page-loading";
+import { CuratorPagination } from "@/components/curator/CuratorPagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Eye,
   Filter,
   Loader2,
@@ -1250,11 +1249,6 @@ export default function Page() {
         (safeCurrentPage - 1) * HOTSPOTS_PER_PAGE,
         safeCurrentPage * HOTSPOTS_PER_PAGE,
       );
-  const pageNumbers = Array.from(
-    { length: totalPages },
-    (_, index) => index + 1,
-  );
-
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       const nextQuickSearch = {
@@ -2221,51 +2215,14 @@ export default function Page() {
 
           {displayedHotspots.length > 0 ? (
             <div className="mt-auto flex justify-end pt-6">
-              <div className="inline-flex items-end justify-center gap-1 sm:gap-2">
-                <button
-                  type="button"
-                  aria-label="Trang trước"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition hover:text-[rgb(var(--primary))] disabled:pointer-events-none disabled:opacity-40"
-                  onClick={() => {
-                    setOpenMenuKey(null);
-                    setCurrentPage((page) => Math.max(1, page - 1));
-                  }}
-                  disabled={safeCurrentPage === 1}
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-
-                {pageNumbers.map((pageNumber) => (
-                  <button
-                    key={pageNumber}
-                    type="button"
-                    onClick={() => {
-                      setOpenMenuKey(null);
-                      setCurrentPage(pageNumber);
-                    }}
-                    className={`relative inline-flex h-9 min-w-[2.25rem] items-center justify-center px-3 pb-2 text-lg font-medium transition ${
-                      safeCurrentPage === pageNumber
-                        ? "font-semibold text-[rgb(var(--primary))] after:absolute after:bottom-0 after:left-1/2 after:h-0.5 after:w-6 after:-translate-x-1/2 after:rounded-full after:bg-[rgb(var(--primary))]"
-                        : "text-slate-400 hover:text-slate-700"
-                    }`}
-                  >
-                    {pageNumber}
-                  </button>
-                ))}
-
-                <button
-                  type="button"
-                  aria-label="Trang sau"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition hover:text-[rgb(var(--primary))] disabled:pointer-events-none disabled:opacity-40"
-                  onClick={() => {
-                    setOpenMenuKey(null);
-                    setCurrentPage((page) => Math.min(totalPages, page + 1));
-                  }}
-                  disabled={safeCurrentPage === totalPages}
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-              </div>
+              <CuratorPagination
+                currentPage={safeCurrentPage}
+                totalPages={totalPages}
+                onPageChange={(page) => {
+                  setOpenMenuKey(null);
+                  setCurrentPage(page);
+                }}
+              />
             </div>
           ) : null}
         </section>
