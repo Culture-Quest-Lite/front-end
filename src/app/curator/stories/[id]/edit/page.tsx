@@ -596,6 +596,9 @@ export default function EditStoryPage() {
                             onValueChange={setTagId}
                             options={tagDropdownOptions}
                             placeholder="Chọn tag..."
+                            searchable
+                            searchPlaceholder="Tìm thẻ theo tên hoặc ID..."
+                            searchEmptyMessage="Không tìm thấy thẻ phù hợp."
                             disabled={isSubmitting}
                             triggerClassName={selectFieldClassName}
                           />
@@ -610,6 +613,9 @@ export default function EditStoryPage() {
                             value={selectedPublishedHotspotId}
                             onValueChange={setHotspotId}
                             options={hotspotDropdownOptions}
+                            searchable
+                            searchPlaceholder="Tìm địa điểm theo tên hoặc ID..."
+                            searchEmptyMessage="Không tìm thấy địa điểm phù hợp."
                             placeholder="Chọn địa điểm đã xuất bản..."
                             disabled={isSubmitting}
                             triggerClassName={selectFieldClassName}
