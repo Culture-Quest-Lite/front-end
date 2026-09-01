@@ -9,6 +9,8 @@ type CuratorPaginationProps = {
   onPageChange: (page: number) => void;
 };
 
+const PAGES_PER_GROUP = 6;
+
 export function CuratorPagination({
   currentPage,
   totalPages,
@@ -16,10 +18,18 @@ export function CuratorPagination({
 }: CuratorPaginationProps) {
   const safeTotalPages = Math.max(1, totalPages);
   const safeCurrentPage = Math.min(Math.max(1, currentPage), safeTotalPages);
-  const pageNumbers = Array.from(
-    { length: safeTotalPages },
-    (_, index) => index + 1,
+  const currentGroup = Math.floor((safeCurrentPage - 1) / PAGES_PER_GROUP);
+  const firstPageInGroup = currentGroup * PAGES_PER_GROUP + 1;
+  const lastPageInGroup = Math.min(
+    firstPageInGroup + PAGES_PER_GROUP - 1,
+    safeTotalPages,
   );
+  const pageNumbers = Array.from(
+    { length: lastPageInGroup - firstPageInGroup + 1 },
+    (_, index) => firstPageInGroup + index,
+  );
+  const hasPreviousPages = firstPageInGroup > 1;
+  const hasNextPages = lastPageInGroup < safeTotalPages;
 
   return (
     <div className="inline-flex items-end justify-center gap-1 sm:gap-2">
@@ -32,6 +42,15 @@ export function CuratorPagination({
       >
         <ChevronLeft className="h-5 w-5" />
       </button>
+
+      {hasPreviousPages ? (
+        <span
+          aria-hidden="true"
+          className="inline-flex h-9 min-w-[1.5rem] items-center justify-center pb-2 text-lg text-slate-400"
+        >
+          ...
+        </span>
+      ) : null}
 
       {pageNumbers.map((pageNumber) => (
         <button
@@ -48,6 +67,15 @@ export function CuratorPagination({
           {pageNumber}
         </button>
       ))}
+
+      {hasNextPages ? (
+        <span
+          aria-hidden="true"
+          className="inline-flex h-9 min-w-[1.5rem] items-center justify-center pb-2 text-lg text-slate-400"
+        >
+          ...
+        </span>
+      ) : null}
 
       <button
         type="button"
