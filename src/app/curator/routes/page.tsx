@@ -7,6 +7,7 @@ import { toast } from "react-toastify";
 import { PageLoading } from "@/components/app/page-loading";
 import { CuratorPagination } from "@/components/curator/CuratorPagination";
 import { Input } from "@/components/ui/input";
+import { formatDistanceKilometers } from "@/lib/route-geometry";
 import {
   routeApi,
   type RouteMediaResponse,
@@ -451,12 +452,17 @@ function Metric({
   value: string;
 }) {
   return (
-    <div className="rounded-[0.95rem] bg-[#F7F5EF] px-2.5 py-1.5 shadow-sm">
-      <div className="flex items-center gap-1 text-[9px] text-slate-500">
+    <div className="min-w-0 rounded-[0.95rem] bg-[#F7F5EF] px-2.5 py-1.5 shadow-sm">
+      <div className="flex min-w-0 items-center gap-1 text-[9px] text-slate-500">
         <Icon className="h-3 w-3 text-red-500" />
-        <span>{label}</span>
+        <span className="truncate">{label}</span>
       </div>
-      <p className="mt-0.5 text-[13px] font-semibold text-slate-900">{value}</p>
+      <p
+        className="mt-0.5 truncate text-[13px] font-semibold text-slate-900"
+        title={value}
+      >
+        {value}
+      </p>
     </div>
   );
 }
@@ -613,7 +619,7 @@ function RouteCard({
           <Metric
             icon={MapPin}
             label="Khoảng cách"
-            value={`${route.totalDistance ?? 0} km`}
+            value={formatDistanceKilometers((route.totalDistance ?? 0) / 1000)}
           />
           <Metric
             icon={Clock3}
