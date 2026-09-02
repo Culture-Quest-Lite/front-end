@@ -106,7 +106,8 @@ export function formatDistanceMeters(distanceMeters: number) {
 
 export function formatDistanceKilometers(distanceKilometers: number) {
   return `${new Intl.NumberFormat("vi-VN", {
-    minimumFractionDigits: distanceKilometers < 10 ? 1 : 0,
+    minimumFractionDigits:
+      distanceKilometers > 0 && distanceKilometers < 10 ? 1 : 0,
     maximumFractionDigits: 2,
   }).format(distanceKilometers)} km`;
 }

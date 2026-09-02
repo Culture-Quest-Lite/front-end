@@ -1935,25 +1935,6 @@ export default function Page() {
             </div>
           </div>
 
-          {appliedFilterSummary.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {appliedFilterSummary.map((item) => (
-                <span
-                  key={item}
-                  className="inline-flex rounded-full border border-[#F7DCE8] bg-[#FFF7FA] px-2.5 py-0.5 text-[11px] font-medium text-slate-700"
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-slate-500">
-              Nhập tên địa điểm ở thanh tìm kiếm phía trên. Hệ thống sẽ tự lọc
-              theo kiểu chứa nội dung bạn nhập. Nếu cần thêm điều kiện khác, mở
-              `Bộ lọc nâng cao`.
-            </p>
-          )}
-
           {quickSearchWarning ? (
             <p className="text-xs font-medium text-amber-700">
               {quickSearchWarning}
