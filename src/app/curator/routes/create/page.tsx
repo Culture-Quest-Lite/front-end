@@ -26,10 +26,7 @@ import { PageLoading } from "@/components/app/page-loading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouteRoadPaths } from "@/hooks/use-route-road-paths";
-import {
-  formatDistanceKilometers,
-  formatDistanceMeters,
-} from "@/lib/route-geometry";
+import { formatDistanceMeters } from "@/lib/route-geometry";
 import { cn } from "@/lib/utils";
 import { buildTagToken, type TagRecord } from "@/lib/tags";
 import {
@@ -146,17 +143,19 @@ function isPublishedStory(story: BackendStory) {
 }
 
 function resolveStories(stories?: BackendStory[]) {
-  return [...(stories ?? [])].filter(isPublishedStory).sort((storyA, storyB) => {
-    const orderDiff =
-      (storyA.orderIndex ?? Number.MAX_SAFE_INTEGER) -
-      (storyB.orderIndex ?? Number.MAX_SAFE_INTEGER);
+  return [...(stories ?? [])]
+    .filter(isPublishedStory)
+    .sort((storyA, storyB) => {
+      const orderDiff =
+        (storyA.orderIndex ?? Number.MAX_SAFE_INTEGER) -
+        (storyB.orderIndex ?? Number.MAX_SAFE_INTEGER);
 
-    if (orderDiff !== 0) {
-      return orderDiff;
-    }
+      if (orderDiff !== 0) {
+        return orderDiff;
+      }
 
-    return storyA.storyId - storyB.storyId;
-  });
+      return storyA.storyId - storyB.storyId;
+    });
 }
 
 function getRouteCoverFromResponse(route: RouteResponse) {
@@ -943,18 +942,16 @@ export default function CuratorRouteCreatePage() {
     [routeSegments],
   );
   const suggestedDurationMinutes = Math.max(selectedHotspots.length * 30, 60);
-  const suggestedDistanceKilometers = Number(
-    (totalComputedRouteDistanceMeters > 0
-      ? totalComputedRouteDistanceMeters / 1000
-      : Math.max(selectedHotspots.length * 0.8, 1)
-    ).toFixed(totalComputedRouteDistanceMeters > 0 ? 2 : 1),
+  const suggestedDistanceMeters = Math.round(
+    totalComputedRouteDistanceMeters > 0
+      ? totalComputedRouteDistanceMeters
+      : Math.max(selectedHotspots.length * 800, 1000),
   );
   const parsedDurationMinutes = parsePositiveNumber(routeDurationInput);
-  const parsedDistanceKilometers = parsePositiveNumber(routeDistanceInput);
+  const parsedDistanceMeters = parsePositiveNumber(routeDistanceInput);
   const resolvedDurationMinutes =
     parsedDurationMinutes ?? suggestedDurationMinutes;
-  const resolvedDistanceKilometers =
-    parsedDistanceKilometers ?? suggestedDistanceKilometers;
+  const resolvedDistanceMeters = parsedDistanceMeters ?? suggestedDistanceMeters;
   const hotspotPageCount = Math.max(
     1,
     Math.ceil(filteredHotspots.length / HOTSPOTS_PER_PAGE),
@@ -968,16 +965,14 @@ export default function CuratorRouteCreatePage() {
     { length: hotspotPageCount },
     (_, index) => index + 1,
   );
-  const estimatedDistance = formatDistanceKilometers(
-    resolvedDistanceKilometers,
-  );
+  const estimatedDistance = formatDistanceMeters(resolvedDistanceMeters);
   const estimatedDuration = `${resolvedDurationMinutes} phút`;
 
   const routeInfoComplete =
     Boolean(routeTitle.trim()) &&
     selectedTagIds.length > 0 &&
     parsedDurationMinutes !== null &&
-    parsedDistanceKilometers !== null;
+    parsedDistanceMeters !== null;
 
   const hotspotSelectionComplete = selectedHotspots.length >= 4;
   const storyConfigurationComplete =
@@ -1124,7 +1119,7 @@ export default function CuratorRouteCreatePage() {
         return;
       }
 
-      if (parsedDistanceKilometers === null) {
+      if (parsedDistanceMeters === null) {
         setError("Vui lòng nhập quãng đường ước tính lớn hơn 0.");
         return;
       }
@@ -1274,7 +1269,7 @@ export default function CuratorRouteCreatePage() {
       throw new Error("Vui lòng nhập thời lượng ước tính lớn hơn 0.");
     }
 
-    if (parsedDistanceKilometers === null) {
+    if (parsedDistanceMeters === null) {
       throw new Error("Vui lòng nhập quãng đường ước tính lớn hơn 0.");
     }
 
@@ -1298,7 +1293,7 @@ export default function CuratorRouteCreatePage() {
       description,
       difficulty: routeDifficulty,
       estimateTime: parsedDurationMinutes,
-      totalDistance: parsedDistanceKilometers,
+      totalDistance: parsedDistanceMeters,
       hotspotIds: selectedHotspotIds,
       storyIds: selectedStoryIds,
       tagId: selectedTagIds[0],
@@ -1418,16 +1413,16 @@ export default function CuratorRouteCreatePage() {
               </div>
 
               <div>
-                <label className="cq-label mb-2 block">Quãng đường (km)</label>
+                <label className="cq-label mb-2 block">Quãng đường (m)</label>
                 <Input
                   type="number"
-                  min="0.1"
-                  step="0.1"
+                  min="1"
+                  step="1"
                   value={routeDistanceInput}
                   onChange={(event) =>
                     setRouteDistanceInput(event.target.value)
                   }
-                  placeholder="Ví dụ: 3.5"
+                  placeholder="Ví dụ: 3500"
                   className={FORM_INPUT_CLASS}
                 />
               </div>

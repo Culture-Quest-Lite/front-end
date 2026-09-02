@@ -7,6 +7,7 @@ import { ArrowLeft, Clock3, Route, Sparkles, Tag } from "lucide-react";
 
 import { PageLoading } from "@/components/app/page-loading";
 import { TabTitleMarker } from "@/components/app/TabTitleMarker";
+import { formatDistanceKilometers } from "@/lib/route-geometry";
 import { routeApi, type RouteResponse } from "@/services/api/routeApi";
 
 const difficultyLabels: Record<string, string> = {
@@ -36,6 +37,10 @@ function parseRouteId(value: string | string[] | undefined) {
 function formatStatus(status?: string) {
   const normalized = status?.trim().toUpperCase() || "DRAFT";
   return statusLabels[normalized] ?? normalized;
+}
+
+function formatDistanceMetersAsKilometers(distanceMeters: number) {
+  return formatDistanceKilometers(distanceMeters / 1000);
 }
 
 function OverviewStat({
@@ -130,7 +135,10 @@ export default function CuratorRouteDetailPage() {
 
   const overviewStats = [
     { label: "Địa điểm", value: `${sortedStops.length} điểm` },
-    { label: "Khoảng cách", value: `${route.totalDistance ?? 0} km` },
+    {
+      label: "Khoảng cách",
+      value: formatDistanceMetersAsKilometers(route.totalDistance ?? 0),
+    },
     { label: "Thời lượng", value: `${route.estimateTime ?? 0} phút` },
     {
       label: "Độ khó",
@@ -258,7 +266,7 @@ export default function CuratorRouteDetailPage() {
                         {typeof stop.distanceToNext === "number" ? (
                           <span className="inline-flex items-center gap-1">
                             <Clock3 className="h-3.5 w-3.5" />
-                            Tới điểm sau: {stop.distanceToNext.toFixed(2)} km
+                            Tới điểm sau: {formatDistanceMetersAsKilometers(stop.distanceToNext)}
                           </span>
                         ) : null}
                       </div>
